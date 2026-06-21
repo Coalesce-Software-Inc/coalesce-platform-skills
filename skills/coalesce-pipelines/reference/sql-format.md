@@ -1,0 +1,106 @@
+<!-- coalesce-node-managed: true -->
+# Node SQL Format — V2 (.sql) vs V1 (.yml)
+
+`coa describe sql-format` and `coa describe concepts` are the source of truth.
+
+## Two formats
+
+- **V2 — `.sql`, `fileVersion: 2` — PREFERRED for all transformation nodes**
+  (Stage, View, Dimension, Fact, Persistent Stage). File at
+  `nodes/<LOCATION>-<NAME>.sql`. Columns are inferred from the SELECT.
+- **V1 — `.yml`, `fileVersion: 1`** — required for Source nodes and any
+  V1-only node type. File at `nodes/<LOCATION>-<NAME>.yml`. Columns are
+  explicit, with data types and source mappings (no `.sql` annotations) — see
+  `coa describe schema node`.
+
+## The silently-empty-columns trap
+
+A V2 `.sql` node REQUIRES a node type whose `nodeTypes/<ID>/definition.yml` has
+`fileVersion: 2`. If `@nodeType` points at a V1 (or absent-fileVersion) type,
+the node still loads but its columns are **SILENTLY EMPTY** (`columns: []`) —
+`coa create`/`coa run` then emit broken DDL/DML with no error. The built-in
+common types (Source, Stage, View, Dimension, Fact, Persistent Stage) are V1;
+using them in a `.sql` file triggers this trap. If a needed V2 node type does
+not exist, STOP and surface it — do not silently bump `fileVersion` or swap
+node types (shared config; ask first).
+
+## File naming
+
+- The filename — `nodes/<LOCATION>-<NAME>.sql` or `.yml` — sets the node's
+  location and name. A bare `@location` annotation is ignored. `nodes/` is
+  flat (no subdirectories).
+- Filenames are case-sensitive and NAME must be unique:
+  `nodes/<LOC>-<NAME>.yml` and `nodes/<LOC>-<NAME>.sql` cannot coexist.
+- By convention names are UPPER_SNAKE_CASE — `coa` does not enforce casing,
+  but match the repo. Typical conventions: `SRC-<TABLE>` for sources,
+  `TARGET-STG_<NAME>` for stages, `TARGET-<NAME>` for derived nodes.
+
+## Required top annotations (before any SQL)
+
+- `@id("<UUID>")` — stable, immutable identifier. PREFER a fresh UUID v4 for
+  new nodes. NEVER reuse or modify an existing `@id` (node or column).
+- `@nodeType("<TypeID>")` — must match a node type in `nodeTypes/<ID>/` (the
+  ID after the last dash in the folder name) or a package node type ID
+  (e.g. `"dynamic-tables:::347"`).
+
+Keep `@id` and `@nodeType` as the first lines. Match the existing `.sql`
+nodes: only those two annotations precede the SQL (no bare `fileVersion`
+line).
+
+## References
+
+Double-quoted Jinja macros with BOTH args — there is NO name-only /
+single-arg form. Never hardcode `db.schema.table`.
+
+- `{{ ref("LOCATION", "NODE_NAME") }}` — resolves to the table AND creates a
+  lineage edge.
+- `{{ ref_no_link("LOCATION", "NODE_NAME") }}` — resolves, no edge (e.g. the
+  node's own table inside a template).
+- `{{ ref_link("LOCATION", "NODE_NAME") }}` — edge only, emits no SQL.
+
+PREFER double quotes for NEW or edited refs (per `coa describe sql-format`).
+Refs are quote-agnostic in practice — existing repos often use single quotes
+(`{{ ref('LOC','NAME') }}`) and `coa` resolves either style
+case-insensitively. Leave existing valid single-quoted refs alone; do not
+rewrite them just to change quote style.
+
+## Column annotations — the COMPLETE set
+
+Placed AFTER the alias and BEFORE the comma, e.g.
+`CREATED_AT @isChangeTracking,`:
+
+- `@isBusinessKey` — required on Persistent Stage + Dimension (optional on
+  Stage); the MERGE/SCD key; **affects DDL**.
+- `@isChangeTracking` — Persistent Stage change detection; **affects DML**.
+- `@id("col-id")` — column lineage; metadata only.
+- `@description("text")` — docs; metadata only.
+
+Do NOT invent annotations: `@isSurrogateKey`, `@pii`, `@synqMonitor`,
+`@prgTest` are NOT in the coa SQL annotation spec. (`isSurrogateKey` exists as
+a boolean column field in the V1 node JSON schema — legitimate in a `.yml`
+node — but it is NOT a `.sql` column annotation.)
+
+## SQL conventions
+
+- Target Snowflake SQL dialect (unless the repo's `data.yml` says otherwise).
+- Aliases in hand-authored SELECTs are bare UPPER_SNAKE_CASE identifiers
+  (e.g. `SUM(QUANTITY * UNIT_PRICE) AS LINE_TOTAL`); the source expression may
+  quote the underlying column (`T."COL"`). Double-quoted aliases appear in
+  node-type Jinja templates that emit generated DDL, and in some existing
+  nodes — match the file you are editing.
+- Preserve existing column ordering; keep changes minimal.
+
+## Example V2 node
+
+```sql
+@id("b2c3d4e5-f6a7-8901-bcde-f12345678901")
+@nodeType("Dimension")
+SELECT
+    CUSTOMER_ID @isBusinessKey,
+    EMAIL @description("primary contact"),
+    UPDATED_AT @isChangeTracking
+FROM {{ ref("STG", "STG_CUSTOMERS") }}
+```
+
+(`"Dimension"` stands in for a real V2 node type ID from `nodeTypes/` — the
+built-in `Dimension` is V1.)
