@@ -68,7 +68,7 @@ Node-type IDs in this workspace — use exactly these strings in `@nodeType(...)
 
 All 5 node types in `nodeTypes/` are currently `fileVersion: 1`. **Writing `.sql` files against V1 node types fails silently** — the node loads, but `columns: []` in the template context, producing empty/broken DDL at create-time. There is no parse error.
 
-Before authoring transforms, the relevant node type(s) must be at `fileVersion: 2` with templates switched to the CTAS pattern (see `coa describe node-types` for the V1 vs V2 template patterns). Editing `nodeTypes/` is a shared-config change — **stop and ask the user before upgrading a node type**, then make the change. Do NOT fall back to authoring transforms in V1 `.yml` — `.yml` is legacy and reserved for the existing source nodes.
+Before authoring transforms, the relevant node type(s) must be at `fileVersion: 2` with templates switched to the CTAS pattern (see `coa describe node-types` for the V1 vs V2 template patterns). When the task requires authoring `.sql` nodes against a V1 node type, **upgrade that node type to `fileVersion: 2` as part of the work** — it's a prerequisite, not an optional aside. Make the upgrade, then call it out explicitly in your summary (which node type, V1→V2, template pattern changed) so the change is reviewable. Do NOT fall back to authoring transforms in V1 `.yml` — `.yml` is legacy and reserved for the existing source nodes.
 
 ## Pipeline Architecture
 
@@ -124,12 +124,12 @@ Both `coa plan` and `coa deploy` are synchronous against the Coalesce cloud API.
 
 - Create or edit the transform nodes the user asked for (always `nodes/*.sql` — never `.yml` for new transforms).
 - Run any read-only `coa` command (`validate`, `describe`, `create --dry-run`, `run --dry-run`, `--list-nodes`).
+- Upgrade a node type to `fileVersion: 2` (definition + templates) when it's a prerequisite for the `.sql` nodes you were asked to build — see the CRITICAL note above. Call the upgrade out in your summary.
 
 **Ask first** before:
 - Editing existing source nodes that weren't part of the request.
-- Adding, removing, or editing anything in `nodeTypes/` (shared config — silent breakage risk for unrelated nodes).
+- Editing `nodeTypes/` in ways *not* required by the requested work (e.g. changing a node type unrelated to the nodes you're building) — the V2 upgrade needed to author requested `.sql` nodes is expected and doesn't need a prompt.
 - Touching `workspace.yml`, `locations.yml`, `data.yml`, `macros/`, `jobs/`, `environments/`, `subgraphs/`.
-- Bumping `fileVersion` or changing template patterns.
 
 ## Output Quality Bar
 
