@@ -1,7 +1,7 @@
-# Coalesce Agent Skills
+# Coalesce Platform Skills
 
-A portable set of agent skills for working with Coalesce Transform
-repositories: building, editing, validating, and running data transformation
+A portable set of agent skills for working with the Coalesce Platform with an 
+initial focus on Transform Workspace building, editing, validating, and running data transformation
 pipelines with the `coa` CLI. Each skill is a directory with a `SKILL.md`
 (name + description frontmatter, markdown body) following the open Agent
 Skills format, so the same package works in any tool that reads it.
