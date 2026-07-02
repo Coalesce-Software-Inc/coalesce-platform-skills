@@ -20,9 +20,83 @@ A V2 `.sql` node REQUIRES a node type whose `nodeTypes/<ID>/definition.yml` has
 the node still loads but its columns are **SILENTLY EMPTY** (`columns: []`) —
 `coa create`/`coa run` then emit broken DDL/DML with no error. The built-in
 common types (Source, Stage, View, Dimension, Fact, Persistent Stage) are V1;
-using them in a `.sql` file triggers this trap. If a needed V2 node type does
-not exist, STOP and surface it — do not silently bump `fileVersion` or swap
-node types (shared config; ask first).
+using them in a `.sql` file triggers this trap.
+
+If a needed V2 node type does not exist, do NOT point `@nodeType` at a V1 type
+and do NOT bump the `fileVersion` of an existing V1 type (that silently
+rewrites every node already using it). Instead:
+
+- **The task requires `.sql` nodes and no compatible V2 type exists** (e.g. a
+  greenfield repo with only the V1 built-ins) — **create a brand-new V2 node
+  type** (recipe below) and point your new nodes at it. A new node type is
+  referenced only by the nodes you are adding, so it cannot break anything that
+  already exists — this is an in-scope prerequisite of the request, not a
+  shared-config edit that needs sign-off.
+- **You would have to edit/replace an EXISTING node type, bump its
+  `fileVersion`, or swap its template patterns** — that IS a shared-config edit
+  (other nodes depend on it); STOP and ask first.
+
+## Bootstrapping a V2 node type
+
+When you must create one, author `nodeTypes/<DisplayName>-<ID>/` with three
+files. PREFER a fresh UUID for `<ID>`; the `@nodeType()` value is that `id`.
+`coa describe node-types` is the authoritative reference.
+
+`definition.yml` — `fileVersion: 2` is what makes `.sql` columns parse:
+
+```yaml
+fileVersion: 2
+id: 9f8e7d6c-5b4a-4938-8271-0a1b2c3d4e5f
+name: Stage
+type: NodeType
+isDisabled: false
+metadata:
+  error: null
+  nodeMetadataSpec: |
+    capitalized: Stage
+    short: STG
+    plural: Stages
+    tagColor: '#2EB67D'
+```
+
+`create.sql.j2` — V2 templates MUST use CTAS (`col.dataType` is UNKNOWN for V2,
+so an explicit-type `CREATE TABLE (...)` renders `UNKNOWN` and Snowflake
+rejects it):
+
+```jinja
+{{ stage('Create Table') }}
+CREATE OR REPLACE TABLE {{ ref_no_link(node.location.name, node.name) }} AS
+{% for source in sources %}
+SELECT
+{% for col in source.columns %}
+    {{ get_source_transform(col) }} AS "{{ col.name }}"
+    {%- if not loop.last -%}, {% endif %}
+{% endfor %}
+{{ source.join }}
+WHERE 1=0
+{% endfor %}
+```
+
+`run.sql.j2`:
+
+```jinja
+{{ stage('Truncate') }}
+TRUNCATE IF EXISTS {{ ref_no_link(node.location.name, node.name) }};
+{% for source in sources %}
+{{ stage('Insert') }}
+INSERT INTO {{ ref_no_link(node.location.name, node.name) }}
+SELECT
+{% for col in source.columns %}
+    {{ get_source_transform(col) }} AS "{{ col.name }}"
+    {%- if not loop.last -%}, {% endif %}
+{% endfor %}
+{{ source.join }}
+{% endfor %}
+```
+
+Then `coa validate` should show `Extension/version mismatch` ✔ and a
+`coa create --dry-run --verbose` on one of your nodes should emit a full column
+list (NOT empty) — that proves the type is wired correctly.
 
 ## File naming
 
@@ -46,6 +120,16 @@ node types (shared config; ask first).
 Keep `@id` and `@nodeType` as the first lines. Match the existing `.sql`
 nodes: only those two annotations precede the SQL (no bare `fileVersion`
 line).
+
+> ⚠️ Annotations are LIVE node metadata, not SQL. Write them as the first
+> physical lines, WITHOUT a `--` prefix and NOT inside a `/* */` block. A
+> commented-out `@id`/`@nodeType` (e.g. `-- @id("...")`) is the single most
+> common failure: `coa` cannot extract the metadata, so it **silently drops the
+> file** — `coa validate` still reports 0 errors (the phantom node simply
+> doesn't exist), but `coa create` then fails to load the workspace. A green
+> `coa validate` does NOT prove your node exists. Confirm with
+> `coa create --dry-run --verbose --include "{ <NAME> }"`: it must emit real
+> DDL with your columns, not a load error.
 
 ## References
 
@@ -92,6 +176,9 @@ node — but it is NOT a `.sql` column annotation.)
 
 ## Example V2 node
 
+✅ CORRECT — `@id`/`@nodeType` are the first physical lines, UNcommented, and
+each column is listed explicitly (no `SELECT *`):
+
 ```sql
 @id("b2c3d4e5-f6a7-8901-bcde-f12345678901")
 @nodeType("Dimension")
@@ -104,3 +191,28 @@ FROM {{ ref("STG", "STG_CUSTOMERS") }}
 
 (`"Dimension"` stands in for a real V2 node type ID from `nodeTypes/` — the
 built-in `Dimension` is V1.)
+
+❌ WRONG — two independent bugs, each of which `coa validate` still reports as
+"0 errors" (so a green validate does NOT prove the node works). Do NOT do this:
+
+```sql
+-- @id("b2c3d4e5-f6a7-8901-bcde-f12345678901")   ← commented → node dropped
+-- @nodeType("Dimension")                          ← commented → node dropped
+SELECT *                                           ← empty columns → broken DDL
+FROM {{ ref("STG", "STG_CUSTOMERS") }}
+```
+
+1. **Commented annotations.** `@id(...)` / `@nodeType(...)` are Coalesce
+   metadata that `coa` parses BEFORE handing the SQL to the warehouse — they
+   are valid, required top-of-file lines and must stay UNcommented. A `--`
+   prefix makes `coa` fail to extract metadata and SILENTLY DROP the file:
+   validate is green (phantom node) but `coa create` fails to load it. If you
+   are tempted to comment them "so the SQL parses", don't — that is exactly
+   what breaks the node.
+2. **`SELECT *`.** A V2 node infers its columns from the explicit SELECT list;
+   with `SELECT *` there are no inferred columns, so the node type's CTAS
+   template renders degenerate DDL like
+   `CREATE OR REPLACE TABLE ... AS SELECT * WHERE 1 = 0` — no columns, no data.
+   List every column explicitly with an alias (`"COL" AS "COL"`), even for a
+   1:1 stage. Confirm with `coa create --dry-run --verbose`: the previewed
+   `CREATE ... AS SELECT` must enumerate your columns, not show `SELECT *`.

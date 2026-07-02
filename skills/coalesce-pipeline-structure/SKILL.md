@@ -30,14 +30,18 @@ plan/deploy is separate (git push → web UI/CI).
 
 - Create/edit the specific nodes the user asked for in `nodes/`.
 - Read-only commands: `coa validate`, `coa describe`, any `--dry-run`.
+- Creating a BRAND-NEW node type when the requested `.sql` node needs one and
+  no compatible V2 type exists (greenfield bootstrap). A new type is referenced
+  only by your new nodes, so it can't break existing ones — it's a prerequisite
+  of the request. Recipe: [sql-format → Bootstrapping a V2 node type](../coalesce-pipelines/reference/sql-format.md).
 
 ## ASK FIRST (shared config — can silently break unrelated nodes)
 
 - Editing nodes NOT in the request.
-- Adding/removing/editing node types (`nodeTypes/*`).
+- Editing, removing, or replacing an EXISTING node type (`nodeTypes/*`) that
+  other nodes already use, or bumping its `fileVersion` / swapping its template
+  patterns.
 - Changing locations, workspaces, environments, jobs, macros, or `data.yml`.
-- Bumping `fileVersion` or swapping template patterns.
-- If a V2 `.sql` node needs a node type that doesn't exist yet, STOP and ask.
 
 ## Creating a node (V2 .sql — preferred for ALL transformations)
 

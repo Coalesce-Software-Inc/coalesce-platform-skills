@@ -37,19 +37,26 @@ Then branch:
 
 - **A V2 Stage node type exists (`fileVersion: 2`)** — proceed; author a `.sql`
   node (preferred for all transformations). Note its `id` for step 3.
-- **Only a V1 Stage type exists (or `nodeTypes/` has no V2 Stage)** — you have
-  two options, and BOTH touch shared config, so **STOP and ASK the user first**:
-  1. Author a V2 Stage node type in `nodeTypes/<DisplayName>-<ID>/` with
-     `fileVersion: 2` (plus `create.sql.j2` / `run.sql.j2`). Node types are
-     shared across every node — editing them can silently break unrelated
-     nodes, so this is never done without explicit approval.
-  2. Author the Stage as a V1 `.yml` node instead. A V1 node needs explicit
-     columns with data types and source mappings (no `.sql` annotations) — see
-     `coa describe schema node` and `coa describe concepts` for the V1 file
-     shape. Use this when the user does not want a new node type.
+- **Only a V1 Stage type exists (or `nodeTypes/` has no V2 Stage)** — the task
+  asked for a `.sql` node, and a `.sql` node cannot work without a V2 type.
+  Creating a **brand-new** V2 Stage node type is the correct move and is
+  **in scope** — do it, do not stall waiting to ask. A new node type is
+  referenced only by the nodes you are about to add, so it cannot break any
+  node that already exists; it is a prerequisite of the request, not a
+  shared-config change. Author it in `nodeTypes/<DisplayName>-<ID>/` (PREFER a
+  UUID `<ID>`) with `fileVersion: 2` plus the `create.sql.j2` / `run.sql.j2`
+  CTAS templates — the full copy-pasteable recipe is in
+  [sql-format → Bootstrapping a V2 node type](../coalesce-pipelines/reference/sql-format.md).
+  Note the `id` for step 3.
 
-  Do not silently write a `.sql` node against a V1 Stage type — that is the
-  empty-columns trap above.
+  STOP and ASK only if the alternative would be to **edit, replace, or bump the
+  `fileVersion` of an EXISTING node type** (other nodes depend on it), or if the
+  user explicitly wants a V1 `.yml` node instead of a new type. A V1 `.yml` node
+  needs explicit columns with data types and source mappings (no `.sql`
+  annotations) — see `coa describe schema node` / `coa describe concepts`.
+
+  Never silently write a `.sql` node against a V1 Stage type — that is the
+  empty-columns trap above; either create the V2 type or write a V1 `.yml`.
 
 ## 1. Gather the source
 
@@ -73,12 +80,21 @@ Then branch:
 
 ## 3. Write the V2 `.sql` node
 
-Required top annotations, before any SQL:
+Required top annotations, before any SQL — written as the FIRST physical lines,
+as live code (NOT `--` comments, NOT inside `/* */`):
 
 - `@id("<UUID>")` — PREFER a fresh UUID v4. NEVER reuse or modify an existing
   node's `@id`; duplicate IDs collide across the workspace.
 - `@nodeType("<TypeID>")` — the V2 Stage type ID you found in step 0 (the `id`
   from `nodeTypes/<DisplayName>-<ID>/definition.yml`, or a package type ID).
+
+> ⚠️ Do NOT comment out the annotations. `-- @id("...")` / `-- @nodeType("...")`
+> makes `coa` fail to extract metadata and **silently drop the node** —
+> `coa validate` stays green (the node just doesn't exist) but `coa create`
+> fails to load it. The annotations are the first real lines of the file.
+> Also do NOT use `SELECT *` for a 1:1 stage — list each source column
+> explicitly with an alias (below), so the staged schema is stable and
+> inspectable.
 
 Then a `SELECT` mapping each source column 1:1, and a `FROM` using a
 double-quoted `ref()` with BOTH args:
@@ -122,7 +138,7 @@ Run the core loop and fix issues before moving on:
    validate pass.
 2. `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose` — inspect the
    generated DDL. If the column list is empty, the node type is V1 — go back to
-   step 0 and ASK the user.
+   step 0 and give the node a V2 node type (create one if needed).
 
 `coa create`/`coa run` execute SQL DIRECTLY against the warehouse (local
 development, not deployment). Stop after the dry-run unless the user wants to

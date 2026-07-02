@@ -1,6 +1,6 @@
 ---
 name: coalesce-pipelines
-description: Use when working in a Coalesce Transform repository (data.yml + nodes/ with <LOCATION>-<NAME>.sql/.yml files) — building, editing, validating, or running data transformation pipelines with the coa CLI. Start here; it routes to the more specific coalesce-* skills.
+description: Use when working in a Coalesce Transform repository (data.yml + nodes/ with <LOCATION>-<NAME>.sql/.yml files) — building, editing, validating, or running data transformation pipelines with the coa CLI. Covers creating staging/transform nodes from source tables, mapping source columns into curated outputs, authoring node SQL with @id/@nodeType annotations and ref() dependencies, and bootstrapping V2 node types. Read this FIRST whenever a task involves building or modifying Coalesce nodes; it routes to the more specific coalesce-* skills.
 ---
 <!-- coalesce-node-managed: true -->
 
@@ -48,8 +48,10 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
 3. When renaming a node, update ALL downstream `{{ ref(...) }}` calls (see the
    coalesce-rename-node-cascade skill).
 4. Prefer V2 `.sql` for new transformation nodes — but only against a
-   `fileVersion: 2` node type; otherwise columns are silently empty (see
-   reference/sql-format.md).
+   `fileVersion: 2` node type; otherwise columns are silently empty. If the
+   task needs `.sql` nodes and no V2 node type exists, create a brand-new one
+   (in scope — it can't break existing nodes); the full recipe is in
+   reference/sql-format.md ("Bootstrapping a V2 node type").
 5. Reference upstream nodes with `{{ ref("LOC", "NAME") }}` (both args).
    Never hardcode `db.schema.table`.
 6. Use the correct node type per layer (Stage → Persistent Stage →
@@ -62,14 +64,18 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
 
 ## Guardrail — ask before editing shared config
 
-In scope without asking: create/edit the specific nodes the user requested,
-and read-only commands (`coa validate`, `coa describe`, any `--dry-run`).
+In scope without asking: create/edit the specific nodes the user requested;
+read-only commands (`coa validate`, `coa describe`, any `--dry-run`); and
+creating a BRAND-NEW node type when a requested `.sql` node needs one and none
+compatible exists (a new type is referenced only by your new nodes, so it can't
+break existing ones — it's a prerequisite of the request).
 
-ASK FIRST: editing nodes NOT in the request; adding/removing/editing node
-types (`nodeTypes/*`); changing locations, workspace/environments, jobs,
-macros, or `data.yml`; bumping `fileVersion` or swapping template patterns;
-`coa init` / `coa doctor --fix`. These are shared across many nodes and can
-silently break unrelated ones — stop and surface the choice.
+ASK FIRST: editing nodes NOT in the request; editing/removing/replacing an
+EXISTING node type (`nodeTypes/*`) that other nodes use, or bumping its
+`fileVersion` / swapping its template patterns; changing locations,
+workspace/environments, jobs, macros, or `data.yml`; `coa init` /
+`coa doctor --fix`. These are shared across many nodes and can silently break
+unrelated ones — stop and surface the choice.
 
 ## When to use the other coalesce-* skills
 
