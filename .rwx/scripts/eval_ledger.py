@@ -2,18 +2,28 @@
 """Ledger append + rollup + regression detector for the skills-eval CI gate.
 
 This is the workflow-side half of the eval gate (TUC-1291). The harness
-(`toolbelt skills-eval run`, from eng-ops) produces per-shard result fragments;
-this script stamps them into the append-only ledger, regenerates the scorecard,
-and applies the RFC regression rule.
+(`toolbelt skills-eval run`, from eng-ops) writes one `results.jsonl` per model
+run (via `--results-dir`); this script distills those raw per-rep records into
+the append-only ledger, regenerates the scorecard, and applies the RFC
+regression rule.
 
-Contract with the harness (accepted risk #4 in the plan): each shard emits a CSV
-fragment with these columns, one row per `model_id x arm x case` aggregate:
+Contract with the harness: each `results.jsonl` holds one JSON record per
+`case x condition x rep`, with at least these fields (see
+`toolbelt/skills_eval/models.py::RunRecord.to_dict`):
 
-    model_id,arm,case,group,check_kind,reps,passes[,median_turns,median_tokens]
+    case, group, condition, rep, model, passed,
+    graders:[{grader, category, passed, reason}], num_turns,
+    input_tokens, output_tokens, error
 
-This script stamps `run_ts`, `skills_sha`, `harness_sha`, computes `pass_rate`,
+`category` is one of outcome | routing | guardrail | exploration; the top-level
+`passed` is true iff every *outcome* grader passed. This script collapses the
+reps of each (model, arm, case) into ONE aggregate row — classified by the
+case's primary check (guardrail -> "safety", else routing -> "routing", else
+"outcome") — stamps `run_ts`, `skills_sha`, `harness_sha`, computes `pass_rate`,
 appends to history/runs.csv (creating the header on first run), regenerates
-history/rollup.md, and runs the regression detector.
+history/rollup.md, and runs the regression detector. Classifying by the primary
+check keeps the row's pass_rate aligned with what each rollup section / the
+safety gate reads (a guardrail regression is what trips the block).
 
 Regression rule (purely relative, per RFC):
   For each (model_id, case, check_kind) in the new run, find the most recent
@@ -24,7 +34,7 @@ Regression rule (purely relative, per RFC):
 
 Usage:
     eval_ledger.py \
-        --fragments-glob 'fragments/*.csv' \
+        --results-glob 'fragments/*/results.jsonl' \
         --ledger history/runs.csv \
         --rollup history/rollup.md \
         --comment out/scorecard.md \
@@ -38,7 +48,9 @@ from __future__ import annotations
 import argparse
 import csv
 import glob
+import json
 import os
+import statistics
 import sys
 from collections import defaultdict
 
@@ -61,32 +73,100 @@ LEDGER_COLUMNS = [
 OPTIONAL_COLUMNS = ["median_turns", "median_tokens"]
 
 
-def read_fragments(pattern):
-    """Read every harness fragment matching *pattern* into a list of dict rows."""
+# The harness emits per-rep records tagging each grader with a category
+# (outcome | routing | guardrail | exploration). We collapse each
+# (model, arm, case) into ONE ledger row, classified by the case's primary
+# check so the downstream rollup sections and safety gate keep their meaning:
+#   guardrail graders present -> "safety"  (blocks the merge on regression)
+#   else routing graders       -> "routing" (feeds the routing-accuracy section)
+#   else                       -> "outcome" (task success; feeds skill lift)
+# The row's pass_rate is that check_kind's own rate, so a guardrail-compliance
+# drop is what trips the safety gate rather than an unrelated task-success dip.
+def _rep_category_passed(record, category):
+    """True iff this rep has >=1 grader in *category* and all of them passed.
+
+    Mirrors the harness's top-level `passed` (all outcome graders passed),
+    applied to an arbitrary category so per-rep counts stay integral.
+    """
+    graders = [g for g in record.get("graders", []) if g.get("category") == category]
+    return bool(graders) and all(g.get("passed") for g in graders)
+
+
+def _classify(records):
+    """Pick a case's primary (check_kind, grader-category) from its records.
+
+    Returns category=None for the "outcome" kind, signalling the caller to use
+    the record's top-level `passed` field rather than a grader category.
+    """
+    categories = {g.get("category") for r in records for g in r.get("graders", [])}
+    if "guardrail" in categories:
+        return "safety", "guardrail"
+    if "routing" in categories:
+        return "routing", "routing"
+    return "outcome", None
+
+
+def _median_int(values):
+    return round(statistics.median(values)) if values else None
+
+
+def read_results(pattern):
+    """Distill harness results.jsonl files into per-(model, arm, case) rows.
+
+    Each matched file is one model's suite run
+    (``<results-dir>/results.jsonl``), holding one JSON record per
+    case x condition x rep. Reps are collapsed to a pass count for the case's
+    primary check_kind; the emitted rows are shaped exactly like the old CSV
+    fragments so the ledger/rollup/gate code below is unchanged.
+    """
     rows = []
     paths = sorted(glob.glob(pattern))
     if not paths:
-        sys.stderr.write(f"error: no fragments matched {pattern!r}\n")
+        sys.stderr.write(f"error: no results.jsonl matched {pattern!r}\n")
         sys.exit(1)
     for path in paths:
-        with open(path, newline="") as fh:
-            for raw in csv.DictReader(fh):
-                reps = int(raw["reps"])
-                passes = int(raw["passes"])
-                row = {
-                    "model_id": raw["model_id"].strip(),
-                    "arm": raw["arm"].strip(),
-                    "case": raw["case"].strip(),
-                    "group": raw.get("group", "").strip(),
-                    "check_kind": raw["check_kind"].strip(),
-                    "reps": reps,
-                    "passes": passes,
-                    "pass_rate": round(passes / reps, 4) if reps else 0.0,
-                }
-                for col in OPTIONAL_COLUMNS:
-                    if raw.get(col):
-                        row[col] = raw[col].strip()
-                rows.append(row)
+        with open(path) as fh:
+            records = [json.loads(line) for line in fh if line.strip()]
+        meta = {}
+        meta_path = os.path.join(os.path.dirname(path), "meta.json")
+        if os.path.exists(meta_path):
+            with open(meta_path) as fh:
+                meta = json.load(fh)
+
+        by_key = defaultdict(list)
+        for r in records:
+            model_id = (r.get("model") or meta.get("model") or "").strip()
+            by_key[(model_id, r["condition"], r["case"])].append(r)
+
+        for (model_id, arm, case), runs in by_key.items():
+            check_kind, category = _classify(runs)
+            reps = len(runs)
+            if category is None:
+                passes = sum(1 for r in runs if r.get("passed"))
+            else:
+                passes = sum(1 for r in runs if _rep_category_passed(r, category))
+            ok = [r for r in runs if not r.get("error")]
+            row = {
+                "model_id": model_id,
+                "arm": arm.strip(),
+                "case": case.strip(),
+                "group": (runs[0].get("group") or case).strip(),
+                "check_kind": check_kind,
+                "reps": reps,
+                "passes": passes,
+                "pass_rate": round(passes / reps, 4) if reps else 0.0,
+            }
+            # Efficiency medians over non-errored reps (feed the rollup's cost
+            # section). "tokens" is input+output, the whole-run token cost.
+            turns = _median_int([r["num_turns"] for r in ok if "num_turns" in r])
+            tokens = _median_int(
+                [r.get("input_tokens", 0) + r.get("output_tokens", 0) for r in ok]
+            )
+            if turns is not None:
+                row["median_turns"] = turns
+            if tokens is not None:
+                row["median_tokens"] = tokens
+            rows.append(row)
     return rows
 
 
@@ -283,7 +363,13 @@ def write_comment(path, regressions, stamp):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--fragments-glob", required=True)
+    ap.add_argument(
+        "--results-glob",
+        "--fragments-glob",
+        dest="results_glob",
+        required=True,
+        help="Glob over the harness results.jsonl files (one per model run).",
+    )
     ap.add_argument("--ledger", required=True)
     ap.add_argument("--rollup", required=True)
     ap.add_argument("--comment", required=True)
@@ -298,7 +384,7 @@ def main():
         "harness_sha": args.harness_sha,
     }
 
-    new_rows = read_fragments(args.fragments_glob)
+    new_rows = read_results(args.results_glob)
     prior_rows = read_ledger(args.ledger)          # baseline = pre-existing ledger
     regressions = detect_regressions(prior_rows, new_rows)
 
