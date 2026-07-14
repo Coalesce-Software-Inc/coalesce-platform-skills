@@ -290,9 +290,9 @@ tasks:
       # .rwx/scripts/eval_ledger.py in the aggregate task.
       toolbelt skills-eval run \
         --skills-dir "$PWD" \
-        --condition bare --condition skills --condition claude_md \
+        --condition bare --condition skills \
         --model "$MODEL_ID" \
-        --reps 2 \
+        --reps 1 \
         --no-record \
         --results-dir "fragments/${MODEL_ID}"
     outputs:
@@ -314,7 +314,7 @@ tasks:
     key: eval-haiku
     env:
       <<: *eval-env
-      MODEL_ID: claude-haiku-4-5-20251001
+      MODEL_ID: claude-haiku-4-5
     outputs:
       artifacts:
         - key: fragment-haiku
