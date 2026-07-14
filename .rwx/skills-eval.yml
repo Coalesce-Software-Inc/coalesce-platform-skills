@@ -376,25 +376,57 @@ tasks:
   # --- 6b. PR comment --------------------------------------------------------
   # Post the scorecard diff to the PR (skipped for non-PR runs). Runs whether the
   # gate passed or failed so reviewers always see the trend.
+  #
+  # Upsert, not append: a hidden HTML marker is embedded at the top of the body
+  # so successive runs on the same PR find the prior comment and PATCH it in
+  # place instead of stacking a new comment on every push.
   - key: pr-comment
     use: [skills-code, aggregate]
     if: ${{ init.pr-number != '' }}
     env:
-      GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ secrets.GH_ACTIONS_DISPATCH_TOKEN }}
       PR_NUMBER: ${{ init.pr-number }}
     run: |
       set -euo pipefail
       # Post via the REST API directly rather than installing the `gh` CLI. A PR
       # comment is an *issue* comment, so the endpoint is /issues/{n}/comments.
-      # python3 (present on the base image) JSON-encodes the scorecard so the
-      # markdown body survives quotes/newlines/backticks intact.
-      PAYLOAD="$(python3 -c 'import json,sys; print(json.dumps({"body": open("out/scorecard.md").read()}))')"
-      curl --fail-with-body -sS -X POST \
+      REPO="Coalesce-Software-Inc/coalesce-platform-skills"
+      # Hidden marker identifying our comment across runs (invisible in rendered
+      # markdown). Prepend it to the scorecard so the body carries it too.
+      MARKER="<!-- skills-eval-scorecard -->"
+      printf '%s\n' "$MARKER" > out/scorecard-body.md
+      cat out/scorecard.md >> out/scorecard-body.md
+      # python3 (present on the base image) JSON-encodes the body so the markdown
+      # survives quotes/newlines/backticks intact.
+      PAYLOAD="$(python3 -c 'import json; print(json.dumps({"body": open("out/scorecard-body.md").read()}))')"
+
+      # Find a prior comment carrying our marker (paginate up to 100).
+      EXISTING_COMMENT_ID="$(curl --fail-with-body -sS \
         -H "Authorization: Bearer ${GH_TOKEN}" \
         -H "Accept: application/vnd.github+json" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
-        "https://api.github.com/repos/Coalesce-Software-Inc/coalesce-platform-skills/issues/${PR_NUMBER}/comments" \
-        -d "$PAYLOAD"
+        "https://api.github.com/repos/${REPO}/issues/${PR_NUMBER}/comments?per_page=100" \
+        | python3 -c 'import json,sys; c=[x for x in json.load(sys.stdin) if "'"$MARKER"'" in (x.get("body") or "")]; print(c[0]["id"] if c else "")')"
+
+      if [ -n "$EXISTING_COMMENT_ID" ]; then
+        # Update the existing scorecard comment in place.
+        curl --fail-with-body -sS -X PATCH \
+          -H "Authorization: Bearer ${GH_TOKEN}" \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          "https://api.github.com/repos/${REPO}/issues/comments/${EXISTING_COMMENT_ID}" \
+          -d "$PAYLOAD"
+        echo "Updated existing scorecard comment (${EXISTING_COMMENT_ID})."
+      else
+        # First run on this PR — create the scorecard comment.
+        curl --fail-with-body -sS -X POST \
+          -H "Authorization: Bearer ${GH_TOKEN}" \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          "https://api.github.com/repos/${REPO}/issues/${PR_NUMBER}/comments" \
+          -d "$PAYLOAD"
+        echo "Created new scorecard comment."
+      fi
     outputs:
       filesystem: false
 
@@ -409,7 +441,7 @@ tasks:
     use: [skills-code, aggregate]
     if: ${{ init.commit-ledger == 'true' && init.head-ref != '' }}
     env:
-      GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ secrets.GH_ACTIONS_DISPATCH_TOKEN }}
       BRANCH: ${{ init.head-ref }}
     run: |
       set -euo pipefail
