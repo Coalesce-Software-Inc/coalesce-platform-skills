@@ -259,6 +259,11 @@ tasks:
     key: eval-opus
     use: [skills-code, harness, coa, claude-cli, guard]
     if: ${{ tasks.guard.values.should-run == 'true' }}
+    # Raised from RWX's 10-minute default: one model runs the full suite (both
+    # arms) and, even with concurrent agents, the slow models (opus/sonnet) need
+    # more than 10 minutes. Concurrency (--jobs below) cuts wall-clock; this is
+    # the headroom so a legitimately long run isn't killed mid-flight.
+    timeout: 30m
     env: &eval-env
       # Raw Vertex service-account JSON. GOOGLE_APPLICATION_CREDENTIALS must be a
       # *file path*, not inline JSON, so the run script below writes this out to a
@@ -288,11 +293,17 @@ tasks:
       # there is no separate --safety-reps flag. --no-record keeps the harness
       # from writing its own history/runs.csv; the workflow ledger is owned by
       # .rwx/scripts/eval_ledger.py in the aggregate task.
+      #
+      # --jobs raises the harness's concurrent-agent count (default 4). Agents
+      # are API-I/O-bound, not CPU-bound, so this scales well; the practical
+      # ceiling is task memory (each agent spawns a claude + coa subprocess).
+      # Start at 8 and tune with the timeout above if a model still crowds it.
       toolbelt skills-eval run \
         --skills-dir "$PWD" \
         --condition bare --condition skills \
         --model "$MODEL_ID" \
         --reps 1 \
+        --jobs 8 \
         --no-record \
         --results-dir "fragments/${MODEL_ID}"
     outputs:
