@@ -378,7 +378,6 @@ tasks:
   # gate passed or failed so reviewers always see the trend.
   - key: pr-comment
     use: [skills-code, aggregate]
-    after: ${{ aggregate.succeeded || aggregate.failed }}
     if: ${{ init.pr-number != '' }}
     env:
       GH_TOKEN: ${{ github.token }}
@@ -401,7 +400,6 @@ tasks:
   # the caller didn't ask to commit or nothing changed.
   - key: commit-ledger
     use: [skills-code, aggregate]
-    after: ${{ aggregate.succeeded || aggregate.failed }}
     if: ${{ init.commit-ledger == 'true' && init.head-ref != '' }}
     env:
       GH_TOKEN: ${{ github.token }}
