@@ -13,7 +13,7 @@ Scope guardrail (`coa describe workflow`):
 ## 1. Locate the node
 - Identify the target `nodes/<LOCATION>-<NAME>.sql` file. Use `coa create -d <dir> --list-nodes` if the name is ambiguous.
 - This skill targets V2 `.sql` nodes. If the file is a V1 `.yml` node, columns are edited differently — stop and confirm with the user.
-- Confirm the node's `@nodeType(...)` resolves to a node type with `fileVersion: 2`. If it does not, the new column will be SILENTLY DROPPED (`columns: []` → broken DDL/DML). Surface this rather than proceeding.
+- Confirm the node's `@nodeType(...)` resolves to a node type with `fileVersion: 2`. If it does not, the new column will be SILENTLY DROPPED (`columns: []` → broken DDL/DML). The node's type already exists and is in use, so upgrading it is a shared-config change — STOP and ASK before bumping its `fileVersion` (see coalesce-workspace-config), rather than proceeding.
 
 ## 2. Determine the column source
 - If the column is sourced from an upstream node, find which node the relevant `{{ ref("LOCATION", "NODE_NAME") }}` points to, then open `nodes/<LOCATION>-<NODE_NAME>.sql` and confirm the source column exists in its SELECT (aliases are the column names). Do NOT edit the upstream node to add a missing column without asking.

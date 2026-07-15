@@ -21,13 +21,19 @@ Credentials and `~/.coa/config`:
 ## GUARDRAIL — surface the choice FIRST
 
 Every file in this scope is shared across many nodes; an edit here can
-SILENTLY break unrelated nodes. None of it is in-scope-without-asking. Before
-editing node types, `locations.yml`, `workspace.yml`, `environments/`,
-`data.yml`, jobs, macros, or bumping `fileVersion` / swapping template
-patterns: STOP, explain the impact, and get the user's go-ahead. Read-only
-commands (`coa describe`, `coa validate`, `coa doctor` without `--fix`, any
-`--dry-run`) you may run freely. Never put secrets in repo files —
-credentials live in `~/.coa/config`.
+SILENTLY break unrelated nodes. Before editing `locations.yml`,
+`workspace.yml`, `environments/`, `data.yml`, jobs, macros, or modifying a node
+type that other nodes already use (including bumping its `fileVersion` /
+swapping its template pattern): STOP, explain the impact, and get the user's
+go-ahead. Read-only commands (`coa describe`, `coa validate`, `coa doctor`
+without `--fix`, any `--dry-run`) you may run freely. Never put secrets in repo
+files — credentials live in `~/.coa/config`.
+
+**One sanctioned exception (see "Installing a V2 node type" below):** creating a
+brand-new `fileVersion: 2` node type in a workspace that has *no* V2 type of
+that layer is a greenfield setup step — do it without asking, then report it.
+Modifying or upgrading a node type that existing nodes already depend on is NOT
+covered by this exception and still requires approval.
 
 ## The fileVersion 1 vs 2 trap
 
@@ -38,6 +44,44 @@ For V2, `col.dataType` is `UNKNOWN`, so templates MUST use the CTAS pattern
 (iterate `sources` → `source.columns`, guard create with `WHERE 1=0`) and
 never emit `{{ col.dataType }}`. V1 node types use explicit-column DDL. Full
 template example in the yaml-spec reference.
+
+## Installing a V2 node type
+
+When a task needs a V2 `.sql` node but no `fileVersion: 2` node type of that
+layer exists, the workspace must gain one before the `.sql` node can render.
+`coa describe node-types` is the authoritative how-to — it documents the folder
+layout, `nodeMetadataSpec`, and the exact V1-vs-V2 template patterns. Read it
+and `coa describe schema nodeType`; do NOT copy template bodies from example
+files (they may fail `coa validate`).
+
+**Decide the path first:**
+
+- **Greenfield (no V2 type of that layer in `nodeTypes/`)** — install one
+  WITHOUT asking. This is the sanctioned setup step: it can't break existing
+  nodes because none use it yet. Report the new node type in your summary
+  (name, `fileVersion: 2`, template pattern used).
+- **A V1 type is already in use by other nodes** — upgrading it changes the
+  generated DDL/DML for *every* node of that type. STOP and ASK first; on
+  approval, bump `fileVersion` and swap templates to the V2 pattern.
+
+**Install steps (greenfield):**
+
+1. Create `nodeTypes/<DisplayName>-<UUID>/` (prefer a real UUID for the ID to
+   avoid collisions).
+2. `definition.yml` — `fileVersion: 2`, `type: NodeType`, the UUID `id`, and a
+   `nodeMetadataSpec` (capitalized/short/plural/tagColor; config/systemColumns
+   as needed). Shape per `coa describe schema nodeType`.
+3. `create.sql.j2` and `run.sql.j2` — the V2 template pattern from
+   `coa describe node-types`. V2 `col.dataType` is `UNKNOWN`, so the create
+   template must not emit `{{ col.dataType }}`; follow the pattern `coa describe`
+   prescribes and confirm it renders (next section) rather than assuming.
+
+**Validate the initial state (proves the trap is gone):**
+
+- `coa validate -d <dir>` passes.
+- `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --json` —
+  columns render and the SQL is non-empty. Empty columns mean the type is still
+  effectively V1; fix before authoring nodes against it.
 
 ## Workflow (define → validate → dry-run → verify)
 

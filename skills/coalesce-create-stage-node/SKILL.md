@@ -37,18 +37,20 @@ Then branch:
 
 - **A V2 Stage node type exists (`fileVersion: 2`)** — proceed; author a `.sql`
   node (preferred for all transformations). Note its `id` for step 3.
-- **Only a V1 Stage type exists (or `nodeTypes/` has no V2 Stage)** — you have
-  two options, and BOTH touch shared config, so **STOP and ASK the user first**:
-  1. Author a V2 Stage node type in `nodeTypes/<DisplayName>-<ID>/` with
-     `fileVersion: 2` (plus `create.sql.j2` / `run.sql.j2`). Node types are
-     shared across every node — editing them can silently break unrelated
-     nodes, so this is never done without explicit approval.
-  2. Author the Stage as a V1 `.yml` node instead. A V1 node needs explicit
-     columns with data types and source mappings (no `.sql` annotations) — see
-     `coa describe schema node` and `coa describe concepts` for the V1 file
-     shape. Use this when the user does not want a new node type.
+- **`nodeTypes/` has no V2 Stage type (greenfield)** — install one, then
+  proceed. This is a sanctioned setup step: a brand-new node type can't break
+  existing nodes because none use it yet, so do it WITHOUT asking and report it
+  in your summary. Follow `coa describe node-types` for the folder layout,
+  `definition.yml` (`fileVersion: 2`), and the V2 `create.sql.j2` / `run.sql.j2`
+  template pattern — the full recipe and the validate step live in the
+  **coalesce-workspace-config** skill ("Installing a V2 node type"). Note the
+  new type's `id` for step 3.
+- **Only a V1 Stage type exists AND other nodes already use it** — upgrading it
+  changes DDL/DML for every node of that type, so **STOP and ASK the user
+  first** before bumping its `fileVersion`. (Do not fall back to a V1 `.yml`
+  node — `.yml` is legacy, reserved for Source nodes.)
 
-  Do not silently write a `.sql` node against a V1 Stage type — that is the
+  Never silently write a `.sql` node against a V1 Stage type — that is the
   empty-columns trap above.
 
 ## 1. Gather the source
@@ -121,8 +123,9 @@ Run the core loop and fix issues before moving on:
    asked to touch, surface that to the user — do not edit shared config to make
    validate pass.
 2. `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose` — inspect the
-   generated DDL. If the column list is empty, the node type is V1 — go back to
-   step 0 and ASK the user.
+   generated DDL. If the column list is empty, the node type is still V1 — go
+   back to step 0 (install a V2 type if greenfield; ask before upgrading an
+   in-use type).
 
 `coa create`/`coa run` execute SQL DIRECTLY against the warehouse (local
 development, not deployment). Stop after the dry-run unless the user wants to

@@ -21,8 +21,12 @@ the node still loads but its columns are **SILENTLY EMPTY** (`columns: []`) —
 `coa create`/`coa run` then emit broken DDL/DML with no error. The built-in
 common types (Source, Stage, View, Dimension, Fact, Persistent Stage) are V1;
 using them in a `.sql` file triggers this trap. If a needed V2 node type does
-not exist, STOP and surface it — do not silently bump `fileVersion` or swap
-node types (shared config; ask first).
+not exist, install one before authoring the node: creating a NEW V2 type in a
+workspace that has none of that layer (greenfield) is sanctioned without asking;
+upgrading a V1 type that existing nodes already use changes their DDL/DML, so
+that STILL requires approval. Never silently write a `.sql` node against a V1
+type. Recipe + validate step: coalesce-workspace-config ("Installing a V2 node
+type") and `coa describe node-types`.
 
 ## File naming
 

@@ -49,7 +49,9 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    coalesce-rename-node-cascade skill).
 4. Prefer V2 `.sql` for new transformation nodes — but only against a
    `fileVersion: 2` node type; otherwise columns are silently empty (see
-   reference/sql-format.md).
+   reference/sql-format.md). If the workspace has no V2 type of that layer,
+   install one first (greenfield install is sanctioned without asking; see
+   coalesce-workspace-config and `coa describe node-types`).
 5. Reference upstream nodes with `{{ ref("LOC", "NAME") }}` (both args).
    Never hardcode `db.schema.table`.
 6. Use the correct node type per layer (Stage → Persistent Stage →
@@ -65,11 +67,15 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
 In scope without asking: create/edit the specific nodes the user requested,
 and read-only commands (`coa validate`, `coa describe`, any `--dry-run`).
 
-ASK FIRST: editing nodes NOT in the request; adding/removing/editing node
-types (`nodeTypes/*`); changing locations, workspace/environments, jobs,
-macros, or `data.yml`; bumping `fileVersion` or swapping template patterns;
-`coa init` / `coa doctor --fix`. These are shared across many nodes and can
-silently break unrelated ones — stop and surface the choice.
+ASK FIRST: editing nodes NOT in the request; modifying/removing a node type
+that existing nodes use (incl. bumping its `fileVersion` or swapping its
+template pattern); changing locations, workspace/environments, jobs, macros, or
+`data.yml`; `coa init` / `coa doctor --fix`. These are shared across many nodes
+and can silently break unrelated ones — stop and surface the choice.
+
+Sanctioned without asking: installing a NEW `fileVersion: 2` node type when the
+workspace has none of that layer (greenfield setup) — it can't break existing
+nodes. Report it in your summary. See coalesce-workspace-config.
 
 ## When to use the other coalesce-* skills
 
