@@ -17,7 +17,7 @@
 #   3.  Fetch the eval harness from eng-ops at a pinned SHA -> `toolbelt` on PATH.
 #   3.5 Install the latest published coa (@next) so the offline eval is meaningful.
 #   4.  Matrix: {opus-4-8, sonnet-5, haiku-4-5} each run the full offline suite
-#       across the bare/skills/claude_md arms, emitting a per-model CSV fragment.
+#       across the bare/skills arms, emitting a per-model CSV fragment.
 #   5.  Aggregate: stamp + append rows to history/runs.csv, regenerate rollup.md.
 #   6.  Regression check: relative rule; PR comment + annotations; FAIL iff a
 #       safety case regressed.
@@ -152,19 +152,42 @@ tasks:
       preserve-git-dir: true
       fetch-full-depth: true
 
-  # --- 0. Retrigger guard (formerly the GitHub Action's `guard` job) ----------
-  # "Every run commits a ledger row" would loop forever without this. The
-  # commit-ledger task (step 7) pushes a history/**-only commit carrying the
-  # `[skills-eval ledger]` marker; when the triggering commit is exactly that,
-  # skip the eval. Works for both retrigger paths — a PR:synchronize (ledger
-  # push to a PR head branch) and a push to develop — because it inspects the
-  # checked-out git head, not the trigger type.
+  # --- 0. Guard: skip the ~250-call eval for two classes of change ------------
+  # The eval matrix (and everything that `use`s the guard) runs only when this
+  # task writes should-run=true. Two independent skip reasons live here:
   #
-  # This MUST be an explicit head-commit check, not path-based filtering: on
-  # synchronize the whole PR diff still contains the earlier real changes, so a
-  # path filter would never skip. Only the head commit itself is examined.
+  #   A. Ledger retrigger loop. commit-ledger (step 7) pushes a history/**-only
+  #      commit carrying the `[skills-eval ledger]` marker; when the triggering
+  #      commit is exactly that, skip so the run doesn't retrigger itself. Works
+  #      for both retrigger paths (a PR:synchronize ledger push and a push to
+  #      develop) because it inspects the checked-out git head, not the trigger.
+  #      This MUST be a head-commit-only check: on synchronize the full PR diff
+  #      still contains the earlier real changes, so a path filter would never
+  #      skip. Only the head commit itself is examined.
+  #
+  #   B. Non-skill-only change (TUC-1326). The eval evaluates the skills package
+  #      (`--skills-dir $PWD`), so a change that touches no skills/** file
+  #      (README, .rwx/**, install.sh, templates/**, history/**) can't move any
+  #      score — don't spend ~250 model calls on it. This is scoped to PR runs
+  #      (pr-number set) and MUST diff the WHOLE PR (base-ref...HEAD), not just
+  #      the head commit: a synchronize that stacks a README-only commit on top
+  #      of earlier skills/** commits must still run. RWX github triggers have no
+  #      native `paths` filter and the PR webhook carries no file list, so the
+  #      diff is computed here. Fails open — if the diff can't be computed the
+  #      run proceeds. develop pushes and manual cli/dispatch runs are exempt.
   - key: guard
     use: [skills-code]
+    env:
+      PR_NUMBER: ${{ init.pr-number }}
+      BASE_REF: ${{ init.base-ref }}
+      # Token for the base-branch fetch below. Plain `git` does not read a token
+      # from the environment and the cloned `origin` URL carries no credentials,
+      # so an unauthenticated fetch of a private repo fails ("Password
+      # authentication is not supported"). Embed this on the fetch URL — the
+      # exact GitHub-App git-over-HTTPS auth commit-ledger uses for its push.
+      # `github.token` is NOT valid for git operations here; this dispatch token
+      # is. Passed inline on the URL, never persisted to origin's config.
+      GH_TOKEN: ${{ secrets.GH_ACTIONS_DISPATCH_TOKEN }}
     run: |
       set -euo pipefail
       SHA="$(git rev-parse HEAD)"
@@ -172,8 +195,9 @@ tasks:
       # Files changed by the head commit only (not the whole PR diff).
       CHANGED="$(git diff --name-only "${SHA}^" "${SHA}" || git show --name-only --format= "$SHA")"
       echo "Head commit: $SHA"
-      echo "Changed files:"; echo "$CHANGED"
+      echo "Changed files (head commit):"; echo "$CHANGED"
 
+      # --- Reason A: ledger-only retrigger commit --------------------------
       ONLY_HISTORY=true
       while IFS= read -r f; do
         [ -z "$f" ] && continue
@@ -188,8 +212,39 @@ tasks:
         *"[skills-eval ledger]"*) IS_LEDGER_COMMIT=true ;;
       esac
 
+      LEDGER_SKIP=false
       if [ "$ONLY_HISTORY" = true ] && [ "$IS_LEDGER_COMMIT" = true ]; then
+        LEDGER_SKIP=true
+      fi
+
+      # --- Reason B (TUC-1326): PR touches no skills/** file ---------------
+      # Only for PR runs; needs the full PR diff against the base branch.
+      NON_SKILL_ONLY=false
+      if [ -n "${PR_NUMBER:-}" ] && [ -n "${BASE_REF:-}" ]; then
+        # The clone fetched the head ref; make sure the base branch is present
+        # locally so base...HEAD (merge-base diff = the PR diff) can resolve.
+        # Authenticated inline (see GH_TOKEN above) — origin carries no creds.
+        git fetch --no-tags \
+          "https://x-access-token:${GH_TOKEN}@github.com/Coalesce-Software-Inc/coalesce-platform-skills.git" \
+          "${BASE_REF}:refs/remotes/origin/${BASE_REF}" || true
+        PR_CHANGED="$(git diff --name-only "origin/${BASE_REF}...HEAD" || true)"
+        echo "Changed files (PR diff vs ${BASE_REF}):"; echo "$PR_CHANGED"
+        if [ -n "$PR_CHANGED" ]; then
+          NON_SKILL_ONLY=true
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              skills/*) NON_SKILL_ONLY=false ;;
+            esac
+          done <<< "$PR_CHANGED"
+        fi
+      fi
+
+      if [ "$LEDGER_SKIP" = true ]; then
         echo "Ledger-only commit detected — skipping eval to avoid retrigger loop."
+        printf 'false' > "$RWX_VALUES/should-run"
+      elif [ "$NON_SKILL_ONLY" = true ]; then
+        echo "PR changes no skills/** file — skipping eval (TUC-1326)."
         printf 'false' > "$RWX_VALUES/should-run"
       else
         printf 'true' > "$RWX_VALUES/should-run"
@@ -280,11 +335,6 @@ tasks:
       printf '%s' "$VERTEX_SA_JSON" > "$SA_FILE"
       chmod 600 "$SA_FILE"
       export GOOGLE_APPLICATION_CREDENTIALS="$SA_FILE"
-      # The claude_md condition arm injects this workspace's context doc
-      # (CLAUDE.md / AGENT.md). Without SKILLS_EVAL_CONTEXT_DIR the harness falls
-      # back to an eng-ops dev's local checkout path, which doesn't exist in CI —
-      # point it at the skills-code checkout ($PWD), whose root holds CLAUDE.md.
-      export SKILLS_EVAL_CONTEXT_DIR="$PWD"
       mkdir -p "fragments/${MODEL_ID}"
       # Offline suite: real Claude agents, stubbed Snowflake. "Offline" is the
       # default case tier (the sandbox stubs coa create/run) — there is no
