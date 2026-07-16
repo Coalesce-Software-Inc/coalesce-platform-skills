@@ -47,9 +47,10 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    (`--include "{ NODE }+"` or a ref search).
 3. When renaming a node, update ALL downstream `{{ ref(...) }}` calls (see the
    coalesce-rename-node-cascade skill).
-4. Prefer V2 `.sql` for new transformation nodes — but only against a
-   `fileVersion: 2` node type; otherwise columns are silently empty (see
-   reference/sql-format.md).
+4. Choose node format by role — V2 `.sql` for staging/intermediate transforms,
+   V1 `.yml` for Source nodes and persistent/curated nodes (Dimension, Fact,
+   Persistent Stage). A V2 `.sql` node works only against a `fileVersion: 2` node
+   type; otherwise columns are silently empty (see reference/sql-format.md).
 5. Reference upstream nodes with `{{ ref("LOC", "NAME") }}` (both args).
    Never hardcode `db.schema.table`.
 6. Use the correct node type per layer (Stage → Persistent Stage →
