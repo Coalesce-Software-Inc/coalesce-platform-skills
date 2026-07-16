@@ -59,6 +59,12 @@ on:
         head-ref: ${{ event.git.branch }}
         commit-ledger: "true"
         concurrency-pool-name: ${{ event.git.branch }}
+        # Space-separated eval arms the matrix runs. The PR gate keeps the
+        # historical bare-vs-skills comparison; manual dispatches can widen it.
+        conditions: "bare skills"
+        # Auto-triggered: the retrigger guard IS meaningful here (a ledger
+        # commit-back would otherwise re-fire this trigger), so leave it on.
+        explicit-run: "false"
 
     # Canonical timeline: pushes to develop write the ledger row onto develop.
     # Feature-branch pushes are handled by the pull_request trigger above, so
@@ -73,6 +79,8 @@ on:
         head-ref: ${{ event.git.branch }}
         commit-ledger: "true"
         concurrency-pool-name: ${{ event.git.branch }}
+        conditions: "bare skills"
+        explicit-run: "false"
 
   # Bare `rwx run .rwx/skills-eval.yml` for a quick local shakeout (no flags).
   cli:
@@ -95,6 +103,10 @@ on:
       # below). Defaults to the run id so a bare local `rwx run` gets its own
       # pool and never cancels (or is cancelled by) another run.
       concurrency-pool-name: ${{ run.id }}
+      conditions: "bare skills"
+      # Explicit local run: never guard-skip it (commit-ledger is false anyway,
+      # so there is no retrigger loop to protect against).
+      explicit-run: "true"
 
   # Named dispatch so other run definitions / the UI can trigger a one-off
   # (the equivalent of the old GHA `workflow_dispatch`).
@@ -111,6 +123,15 @@ on:
         description: "Pinned eng-ops ref (repo primary branch is `main`) providing `toolbelt skills-eval`"
         default: main
         required: true
+      # Which eval arms to run, space-separated. Valid arms: `bare`, `skills`,
+      # `claude_md`. The matrix builds one `--condition <arm>` flag per token,
+      # so `bare skills claude_md` runs the full three-way comparison and
+      # `skills` alone runs just the skills arm.
+      - key: conditions
+        name: eval arms
+        description: "Space-separated arms to run: any of bare, skills, claude_md"
+        default: bare skills
+        required: false
     init:
       skills-sha: ${{ event.dispatch.params.skills-sha }}
       harness-sha: ${{ event.dispatch.params.harness-sha }}
@@ -121,6 +142,10 @@ on:
       # A manual one-off gets its own pool (unique per run) so it neither cancels
       # nor is cancelled by a PR-triggered run.
       concurrency-pool-name: ${{ run.id }}
+      conditions: ${{ event.dispatch.params.conditions }}
+      # Explicitly requested from the GitHub Action / API — bypass the retrigger
+      # guard so the run is never skipped as a ledger-commit false positive.
+      explicit-run: "true"
 
 base:
   image: ubuntu:24.04
@@ -188,8 +213,25 @@ tasks:
       # `github.token` is NOT valid for git operations here; this dispatch token
       # is. Passed inline on the URL, never persisted to origin's config.
       GH_TOKEN: ${{ secrets.GH_ACTIONS_DISPATCH_TOKEN }}
+  # This MUST be an explicit head-commit check, not path-based filtering: on
+  # synchronize the whole PR diff still contains the earlier real changes, so a
+  # path filter would never skip. Only the head commit itself is examined.
+  #
+  # Explicit runs (cli / dispatch, i.e. the GitHub Action) bypass the retrigger
+  # logic entirely: they were requested by a human, don't commit the ledger
+  # back, and so can't create the loop this guard exists to break. The task
+  # itself can't simply be skipped — the eval matrix reads
+  # `tasks.guard.values.should-run`, and RWX auto-depends on (and cascade-skips
+  # with) any task referenced that way — so instead it runs and immediately
+  # returns should-run=true, guaranteeing an explicit run is never guard-skipped.
+      EXPLICIT_RUN: ${{ init.explicit-run }}
     run: |
       set -euo pipefail
+      if [ "${EXPLICIT_RUN:-false}" = "true" ]; then
+        echo "Explicitly requested run (cli/dispatch) — retrigger guard bypassed; always running the eval."
+        printf 'true' > "$RWX_VALUES/should-run"
+        exit 0
+      fi
       SHA="$(git rev-parse HEAD)"
       MSG="$(git log -1 --format='%s%n%b' "$SHA")"
       # Files changed by the head commit only (not the whole PR diff).
@@ -327,6 +369,10 @@ tasks:
         value: ${{ secrets.VERTEX_SA_SECRET }}
         cache-key: excluded
       MODEL_ID: claude-opus-4-8
+      # Space-separated eval arms, expanded into `--condition <arm>` flags in
+      # the run script. Set per-trigger in `init.conditions` (dispatch lets the
+      # caller choose; PR/push/cli default to `bare skills`).
+      CONDITIONS: ${{ init.conditions }}
     run: |
       set -euo pipefail
       # Materialize the raw service-account JSON to a file (0600) and expose it as
@@ -336,6 +382,15 @@ tasks:
       chmod 600 "$SA_FILE"
       export GOOGLE_APPLICATION_CREDENTIALS="$SA_FILE"
       mkdir -p "fragments/${MODEL_ID}"
+      # Expand the space-separated arm list into repeated --condition flags.
+      # Defaulted at the trigger level, so CONDITIONS is never empty; guard
+      # anyway so a blank dispatch param fails loud instead of running nothing.
+      : "${CONDITIONS:?no eval arms set (init.conditions is empty)}"
+      COND_FLAGS=""
+      for arm in $CONDITIONS; do
+        COND_FLAGS="$COND_FLAGS --condition $arm"
+      done
+      echo "Eval arms: $CONDITIONS"
       # Offline suite: real Claude agents, stubbed Snowflake. "Offline" is the
       # default case tier (the sandbox stubs coa create/run) — there is no
       # --offline flag; live-tier cases are what opt in and need --connection.
@@ -350,7 +405,7 @@ tasks:
       # Start at 8 and tune with the timeout above if a model still crowds it.
       toolbelt skills-eval run \
         --skills-dir "$PWD" \
-        --condition bare --condition skills \
+        $COND_FLAGS \
         --model "$MODEL_ID" \
         --reps 1 \
         --jobs 8 \
