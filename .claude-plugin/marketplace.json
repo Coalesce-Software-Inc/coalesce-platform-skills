@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "coalesce",
+  "description": "Coalesce's marketplace of agent skills for the Coalesce Platform.",
+  "owner": {
+    "name": "Coalesce",
+    "email": "support@coalesce.io"
+  },
+  "plugins": [
+    {
+      "name": "coalesce-platform-skills",
+      "source": "./",
+      "description": "Agent skills for working with the Coalesce Platform: building, editing, validating, and running Transform Workspace data pipelines with the coa CLI.",
+      "category": "data",
+      "tags": [
+        "coalesce",
+        "data-transformation",
+        "data-pipelines",
+        "coa",
+        "sql",
+        "snowflake"
+      ]
+    }
+  ]
+}
