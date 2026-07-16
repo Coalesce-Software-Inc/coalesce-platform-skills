@@ -36,7 +36,29 @@ its own; other tools use their own permission models).
 **Coalesce Node desktop app (automatic).** The app bundles this package and
 syncs the skills into `~/.claude/skills/` on startup. Nothing to do.
 
-**Standalone.**
+**Claude Code plugin (recommended).** This repo is a Claude Code plugin
+marketplace. Add it once, then install the plugin:
+
+```sh
+/plugin marketplace add Coalesce-Software-Inc/coalesce-platform-skills
+/plugin install coalesce-platform-skills@coalesce
+```
+
+or from the CLI:
+
+```sh
+claude plugin marketplace add Coalesce-Software-Inc/coalesce-platform-skills
+claude plugin install coalesce-platform-skills@coalesce
+```
+
+The `/plugin` UI shows a "Will install" review (the skills it adds and a
+context-cost estimate) before anything is added. There is no auto-update yet —
+pull a new version with `/plugin update coalesce-platform-skills` (a released
+version bump) or by re-running the install. After installing during a session,
+run `/reload-plugins` to pick the skills up without restarting.
+
+**Standalone script.** For tools that read `~/.claude/skills/` directly (or to
+install without the plugin system):
 
 ```sh
 ./install.sh                 # installs into ~/.claude/skills/
