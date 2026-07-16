@@ -213,18 +213,18 @@ tasks:
       # `github.token` is NOT valid for git operations here; this dispatch token
       # is. Passed inline on the URL, never persisted to origin's config.
       GH_TOKEN: ${{ secrets.GH_ACTIONS_DISPATCH_TOKEN }}
-  # This MUST be an explicit head-commit check, not path-based filtering: on
-  # synchronize the whole PR diff still contains the earlier real changes, so a
-  # path filter would never skip. Only the head commit itself is examined.
-  #
-  # Explicit runs (cli / dispatch, i.e. the GitHub Action) bypass the retrigger
-  # logic entirely: they were requested by a human, don't commit the ledger
-  # back, and so can't create the loop this guard exists to break. The task
-  # itself can't simply be skipped — the eval matrix reads
-  # `tasks.guard.values.should-run`, and RWX auto-depends on (and cascade-skips
-  # with) any task referenced that way — so instead it runs and immediately
-  # returns should-run=true, guaranteeing an explicit run is never guard-skipped.
       EXPLICIT_RUN: ${{ init.explicit-run }}
+    # This MUST be an explicit head-commit check, not path-based filtering: on
+    # synchronize the whole PR diff still contains the earlier real changes, so a
+    # path filter would never skip. Only the head commit itself is examined.
+    #
+    # Explicit runs (cli / dispatch, i.e. the GitHub Action) bypass the retrigger
+    # logic entirely: they were requested by a human, don't commit the ledger
+    # back, and so can't create the loop this guard exists to break. The task
+    # itself can't simply be skipped — the eval matrix reads
+    # `tasks.guard.values.should-run`, and RWX auto-depends on (and cascade-skips
+    # with) any task referenced that way — so instead it runs and immediately
+    # returns should-run=true, guaranteeing an explicit run is never guard-skipped.
     run: |
       set -euo pipefail
       if [ "${EXPLICIT_RUN:-false}" = "true" ]; then
@@ -482,12 +482,15 @@ tasks:
   # Post the scorecard diff to the PR (skipped for non-PR runs). Runs whether the
   # gate passed or failed so reviewers always see the trend.
   #
+  # Skipped on explicit runs (cli/dispatch, i.e. the GitHub Action): those aren't
+  # tied to a reviewable PR trend — they report to Slack instead (see notify-*).
+  #
   # Upsert, not append: a hidden HTML marker is embedded at the top of the body
   # so successive runs on the same PR find the prior comment and PATCH it in
   # place instead of stacking a new comment on every push.
   - key: pr-comment
     use: [skills-code, aggregate]
-    if: ${{ init.pr-number != '' }}
+    if: ${{ init.pr-number != '' && init.explicit-run != 'true' }}
     env:
       GH_TOKEN: ${{ secrets.GH_ACTIONS_DISPATCH_TOKEN }}
       PR_NUMBER: ${{ init.pr-number }}
@@ -542,9 +545,14 @@ tasks:
   # `guard` task before it triggers the suite again. Runs even when the gate
   # failed (the ledger row is the record of the regression) — only skipped when
   # the caller didn't ask to commit or nothing changed.
+  #
+  # Also skipped on explicit runs (cli/dispatch, i.e. the GitHub Action): a
+  # human-triggered one-off shouldn't write to the canonical ledger — those
+  # runs report to Slack instead (see notify-*). commit-ledger is already false
+  # for cli/dispatch triggers, so this is belt-and-suspenders.
   - key: commit-ledger
     use: [skills-code, aggregate]
-    if: ${{ init.commit-ledger == 'true' && init.head-ref != '' }}
+    if: ${{ init.commit-ledger == 'true' && init.head-ref != '' && init.explicit-run != 'true' }}
     env:
       GH_TOKEN: ${{ secrets.GH_ACTIONS_DISPATCH_TOKEN }}
       BRANCH: ${{ init.head-ref }}
@@ -566,5 +574,99 @@ tasks:
       # pass it inline on the push URL rather than via `git remote set-url` (which
       # would leave the secret in .git/config).
       git push "https://x-access-token:${GH_TOKEN}@github.com/Coalesce-Software-Inc/coalesce-platform-skills.git" "HEAD:${BRANCH}"
+    outputs:
+      filesystem: false
+
+  # --- 8. Slack notification -------------------------------------------------
+  # Report the eval outcome to Slack. Modeled on coa-smoke-test.yml's notify-*
+  # tasks. These run on BOTH auto-triggered (PR/push) and explicit (cli/dispatch)
+  # runs — they are the report channel that replaces the PR comment / ledger for
+  # explicit runs, and complement them for auto runs.
+  #
+  # `aggregate` is the terminal gate (it exits non-zero iff a safety case
+  # regressed), so notify-success keys off aggregate.succeeded and notify-failure
+  # off any critical task failing. When the guard skips the eval (a ledger-only
+  # retrigger or a non-skill-only PR), aggregate cascade-skips and neither task
+  # fires — a skipped no-op run is intentionally silent.
+  - key: notify-success
+    after: ${{ aggregate.succeeded }}
+    env:
+      SLACK_BOT_TOKEN:
+        value: ${{ secrets.SLACK_BOT_TOKEN }}
+        cache-key: excluded
+      RUN_ID: ${{ run.id }}
+      PR_NUMBER: ${{ init.pr-number }}
+      SKILLS_SHA: ${{ init.skills-sha }}
+      EXPLICIT_RUN: ${{ init.explicit-run }}
+    run: |
+      # C0BJ0M3V3LL # feed-platform-skills-eval
+      PAYLOAD="$(jq -nc \
+        --arg channel "C0BJ0M3V3LL" \
+        --arg run_url "https://cloud.rwx.com/mint/coalesce/runs/${RUN_ID}" \
+        --arg pr "${PR_NUMBER:-—}" \
+        --arg sha "$SKILLS_SHA" \
+        --arg explicit "$EXPLICIT_RUN" \
+        '{
+          channel: $channel,
+          attachments: [{
+            color: "good",
+            fields: [
+              { title: "Workflow",     short: true, value: "skills-eval" },
+              { title: "Status",       short: true, value: "SUCCESS — no safety regression" },
+              { title: "PR",           short: true, value: $pr },
+              { title: "Explicit run", short: true, value: $explicit },
+              { title: "Skills ref",   short: true, value: $sha },
+              { title: "Run Link",     short: true, value: ("<" + $run_url + "|RWX Run>") }
+            ]
+          }]
+        }')"
+      curl -sS -X POST https://slack.com/api/chat.postMessage \
+        -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+        -H "Content-Type: application/json; charset=utf-8" \
+        --data "${PAYLOAD}" | jq .
+    outputs:
+      filesystem: false
+
+  - key: notify-failure
+    after: ${{
+      skills-code.failed || guard.failed || harness-code.failed ||
+      python.failed || node.failed || harness.failed || coa.failed ||
+      claude-cli.failed || eval-opus.failed || eval-sonnet.failed ||
+      eval-haiku.failed || aggregate.failed
+      }}
+    env:
+      SLACK_BOT_TOKEN:
+        value: ${{ secrets.SLACK_BOT_TOKEN }}
+        cache-key: excluded
+      RUN_ID: ${{ run.id }}
+      PR_NUMBER: ${{ init.pr-number }}
+      SKILLS_SHA: ${{ init.skills-sha }}
+      EXPLICIT_RUN: ${{ init.explicit-run }}
+    run: |
+      # C0BJ0M3V3LL # feed-platform-skills-eval
+      PAYLOAD="$(jq -nc \
+        --arg channel "C0BJ0M3V3LL" \
+        --arg run_url "https://cloud.rwx.com/mint/coalesce/runs/${RUN_ID}" \
+        --arg pr "${PR_NUMBER:-—}" \
+        --arg sha "$SKILLS_SHA" \
+        --arg explicit "$EXPLICIT_RUN" \
+        '{
+          channel: $channel,
+          attachments: [{
+            color: "danger",
+            fields: [
+              { title: "Workflow",     short: true, value: "skills-eval" },
+              { title: "Status",       short: true, value: "FAILED — see which task(s) are red in the run" },
+              { title: "PR",           short: true, value: $pr },
+              { title: "Explicit run", short: true, value: $explicit },
+              { title: "Skills ref",   short: true, value: $sha },
+              { title: "Run Link",     short: true, value: ("<" + $run_url + "|RWX Run — see logs>") }
+            ]
+          }]
+        }')"
+      curl -sS -X POST https://slack.com/api/chat.postMessage \
+        -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+        -H "Content-Type: application/json; charset=utf-8" \
+        --data "${PAYLOAD}" | jq .
     outputs:
       filesystem: false
