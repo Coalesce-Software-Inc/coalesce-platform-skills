@@ -9,13 +9,12 @@ Skills format, so the same package works in any tool that reads it.
 ## Supported tools
 
 - Claude Code (CLI, desktop, IDE extensions)
-- Claude Agent SDK (the Coalesce Node desktop app's agent runs on this)
+- Claude Agent SDK
 - Snowflake Cortex Code
 - Codex and other tools that read SKILL.md skills and AGENTS.md
 
 Skills carry guidance only. Tool permissions, turn limits, and budgets are
-enforced by whatever harness runs the agent (the Coalesce Node app enforces
-its own; other tools use their own permission models).
+enforced by whatever harness runs the agent, using its own permission model.
 
 ## What's inside
 
@@ -32,9 +31,6 @@ its own; other tools use their own permission models).
   (see below).
 
 ## Installation
-
-**Coalesce Node desktop app (automatic).** The app bundles this package and
-syncs the skills into `~/.claude/skills/` on startup. Nothing to do.
 
 **Claude Code plugin (recommended).** This repo is a Claude Code plugin
 marketplace. Add it once, then install the plugin:
@@ -67,7 +63,7 @@ install without the plugin system):
 
 The installer never overwrites a skill you have customized: every managed
 file carries an HTML comment marker, `coalesce-node-managed: true`. Remove
-that line from a skill's SKILL.md and both the installer and the app will
+that line from a skill's SKILL.md and the installer will
 leave the whole skill directory alone from then on. Managed `coalesce-*`
 skills that are no longer part of the package are removed on install.
 
@@ -82,20 +78,18 @@ npx skills add Coalesce-Software-Inc/coalesce-platform-skills -g
 `-g` installs into the user scope (`~/.claude/skills/` for Claude Code); omit
 it to install into the current project's `./.claude/skills/`. This is a
 third-party tool and does not honor the `coalesce-node-managed` marker, so
-avoid combining it with the desktop app or `install.sh` in the same skills
-directory.
+avoid combining it with `install.sh` in the same skills directory.
 
 ## Per-workspace CLAUDE.md / AGENTS.md
 
 Skills are user-level and apply to every Coalesce repo on the machine. Each
 workspace additionally gets a small `CLAUDE.md` (and an identical `AGENTS.md`
 for tools that read that name) from `templates/workspace-CLAUDE.md`: it states
-what the repo is and points the agent at the `coalesce-pipelines` skill. The
-Coalesce Node app writes it on workspace init; outside the app, copy the
-template in yourself. It uses the same managed marker, so user edits below a
-removed marker are preserved.
+what the repo is and points the agent at the `coalesce-pipelines` skill. Copy
+the template into the workspace yourself. It uses the same managed marker, so
+user edits below a removed marker are preserved.
 
 Dynamic workspace state (node inventory, diagnostics) is NOT in these files —
-the Coalesce Node app generates `.claude/workspace-context.json` per
-invocation, and the skills tell agents to read it when present and fall back
-to `coa describe` when not.
+if a harness generates `.claude/workspace-context.json` per invocation, the
+skills tell agents to read it when present and fall back to `coa describe`
+when not.

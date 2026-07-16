@@ -1,4 +1,4 @@
-# Skills-eval CI gate (TUC-1291 / B11) — the single source of truth.
+# Skills-eval CI gate — the single source of truth.
 #
 # RWX owns the whole gate now: the GitHub pull_request / push triggers, the
 # per-PR concurrency + cancel-in-progress, the retrigger guard, AND the eval
@@ -14,7 +14,7 @@
 #   0.  Retrigger guard: skip the eval when the head commit is the ledger-only
 #       commit-back this workflow itself pushed (marker `[skills-eval ledger]`),
 #       so the commit in step 7 doesn't loop forever.
-#   3.  Fetch the eval harness from eng-ops at a pinned SHA -> `toolbelt` on PATH.
+#   3.  Fetch the eval harness at a pinned SHA -> `toolbelt` on PATH.
 #   3.5 Install the latest published coa (@next) so the offline eval is meaningful.
 #   4.  Matrix: {opus-4-8, sonnet-5, haiku-4-5} each run the full offline suite
 #       across the bare/skills arms, emitting a per-model CSV fragment.
@@ -44,13 +44,19 @@ on:
     # The draft check is the RWX-native equivalent of the GHA
     # `pull_request.draft == false` guard: don't spend ~250 model calls on a
     # draft PR; the ready_for_review action kicks off the run once it's ready.
+    #
+    # The head-repo check restricts the run to same-repo branches: fork PRs
+    # must never trigger this workflow — it spends real model tokens and its
+    # tasks use secrets (Vertex credentials, a token that can push to our
+    # branches), which a fork PR could otherwise try to exfiltrate by editing
+    # this file or the scripts it runs.
     pull_request:
       actions: [opened, reopened, synchronize, ready_for_review]
-      if: ${{ event.github.pull_request.pull_request.draft == false }}
+      if: ${{ event.github.pull_request.pull_request.draft == false && event.github.pull_request.pull_request.head.repo.full_name == 'Coalesce-Software-Inc/coalesce-platform-skills' }}
       init:
         skills-sha: ${{ event.git.sha }}
-        # Pinned eng-ops harness under test — the contract with B12 (RND-316).
-        # `main` is the floating fallback; pin a real eng-ops SHA for repro.
+        # Pinned harness ref under test. `main` is the floating fallback; pin
+        # a real SHA for repro.
         harness-sha: main
         pr-number: ${{ event.github.pull_request.number }}
         base-ref: develop
@@ -78,15 +84,15 @@ on:
   cli:
     init:
       skills-sha: develop
-      # Pin of the eng-ops harness under test — the contract with B12 (RND-316).
-      # The harness lives in eng-ops (a DIFFERENT repo, cloned by harness-code),
+      # Pin of the harness under test. The harness lives in a different
+      # (private) repo, cloned by harness-code,
       # whose primary branch is `main` — NOT this repo's `develop`. Pin a real
-      # eng-ops SHA for reproducible runs; the value lands in the ledger's
+      # SHA for reproducible runs; the value lands in the ledger's
       # harness_sha column. `main` is the floating fallback for local shakeouts.
       harness-sha: main
       pr-number: ""
       base-ref: develop
-      # The PR's head branch — where the ledger row is committed back to.
+      # The PR head branch — where the ledger row is committed back to.
       head-ref: develop
       # Local/manual runs default to NOT committing the ledger back.
       commit-ledger: "false"
@@ -107,8 +113,8 @@ on:
         default: develop
         required: true
       - key: harness-sha
-        name: eng-ops harness ref
-        description: "Pinned eng-ops ref (repo primary branch is `main`) providing `toolbelt skills-eval`"
+        name: eval harness ref
+        description: "Pinned harness ref (that repo's primary branch is `main`) providing `toolbelt skills-eval`"
         default: main
         required: true
     init:
@@ -165,7 +171,7 @@ tasks:
   #      still contains the earlier real changes, so a path filter would never
   #      skip. Only the head commit itself is examined.
   #
-  #   B. Non-skill-only change (TUC-1326). The eval evaluates the skills package
+  #   B. Non-skill-only change. The eval evaluates the skills package
   #      (`--skills-dir $PWD`), so a change that touches no skills/** file
   #      (README, .rwx/**, install.sh, templates/**, history/**) can't move any
   #      score — don't spend ~250 model calls on it. This is scoped to PR runs
@@ -217,7 +223,7 @@ tasks:
         LEDGER_SKIP=true
       fi
 
-      # --- Reason B (TUC-1326): PR touches no skills/** file ---------------
+      # --- Reason B: PR touches no skills/** file ---------------------------
       # Only for PR runs; needs the full PR diff against the base branch.
       NON_SKILL_ONLY=false
       if [ -n "${PR_NUMBER:-}" ] && [ -n "${BASE_REF:-}" ]; then
@@ -244,7 +250,7 @@ tasks:
         echo "Ledger-only commit detected — skipping eval to avoid retrigger loop."
         printf 'false' > "$RWX_VALUES/should-run"
       elif [ "$NON_SKILL_ONLY" = true ]; then
-        echo "PR changes no skills/** file — skipping eval (TUC-1326)."
+        echo "PR changes no skills/** file — skipping eval."
         printf 'false' > "$RWX_VALUES/should-run"
       else
         printf 'true' > "$RWX_VALUES/should-run"
@@ -271,7 +277,7 @@ tasks:
     with:
       node-version: 20.19.4
 
-  # Install the harness (`toolbelt skills-eval run`) from the pinned eng-ops.
+  # Install the harness (`toolbelt skills-eval run`) from the pinned ref.
   - key: harness
     use: [harness-code, python]
     run: |
