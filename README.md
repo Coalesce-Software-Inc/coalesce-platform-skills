@@ -71,6 +71,20 @@ that line from a skill's SKILL.md and both the installer and the app will
 leave the whole skill directory alone from then on. Managed `coalesce-*`
 skills that are no longer part of the package are removed on install.
 
+**Other agents (`npx skills`).** For Cursor, Codex, and the other agents that
+read the open SKILL.md format, the [Vercel Labs `skills`
+CLI](https://github.com/vercel-labs/skills) installs directly from this repo:
+
+```sh
+npx skills add Coalesce-Software-Inc/coalesce-platform-skills -g
+```
+
+`-g` installs into the user scope (`~/.claude/skills/` for Claude Code); omit
+it to install into the current project's `./.claude/skills/`. This is a
+third-party tool and does not honor the `coalesce-node-managed` marker, so
+avoid combining it with the desktop app or `install.sh` in the same skills
+directory.
+
 ## Per-workspace CLAUDE.md / AGENTS.md
 
 Skills are user-level and apply to every Coalesce repo on the machine. Each
