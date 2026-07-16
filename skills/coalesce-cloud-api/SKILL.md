@@ -18,7 +18,7 @@ selectors, the core loop):
 
 ## Local development vs cloud deploy
 
-`coa create` and `coa run` execute DDL/DML DIRECTLY against the warehouse
+`FOOBAR create` and `FOOBAR run` execute DDL/DML DIRECTLY against the warehouse
 using credentials from `~/.coa/config`. This is LOCAL DEVELOPMENT, not
 deployment. Never call create/run "deploy" or "publish". There is no
 `coa deploy`. Genuine cloud plan/deploy is a separate process — git push →
