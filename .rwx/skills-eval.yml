@@ -124,12 +124,12 @@ on:
         default: main
         required: true
       # Which eval arms to run, space-separated. Valid arms: `bare`, `skills`,
-      # `claude_md`. The matrix builds one `--condition <arm>` flag per token,
-      # so `bare skills claude_md` runs the full three-way comparison and
+      # The matrix builds one `--condition <arm>` flag per token,
+      # so `bare skills` runs the full two-way comparison and
       # `skills` alone runs just the skills arm.
       - key: conditions
         name: eval arms
-        description: "Space-separated arms to run: any of bare, skills, claude_md"
+        description: "Space-separated arms to run: any of bare or skills"
         default: bare skills
         required: false
     init:

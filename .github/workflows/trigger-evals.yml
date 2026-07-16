@@ -48,11 +48,10 @@ jobs:
           conditions=""
           [ "${{ inputs.arm_bare }}" = "true" ]      && conditions="$conditions bare"
           [ "${{ inputs.arm_skills }}" = "true" ]    && conditions="$conditions skills"
-          [ "${{ inputs.arm_claude_md }}" = "true" ] && conditions="$conditions claude_md"
           # Trim leading/trailing whitespace.
           conditions="$(echo "$conditions" | xargs)"
           if [ -z "$conditions" ]; then
-            echo "::error::No arms selected — enable at least one of bare / skills / claude_md."
+            echo "::error::No arms selected — enable at least one of bare / skills."
             exit 1
           fi
           echo "Selected arms: $conditions"
