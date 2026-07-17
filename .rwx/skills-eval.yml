@@ -177,7 +177,12 @@ tasks:
     with:
       repository: https://github.com/Coalesce-Software-Inc/coalesce-platform-skills.git
       ref: ${{ init.skills-sha }}
-      github-token: ${{ github.token }}
+      # This repo is PUBLIC, so the clone needs no credential. We intentionally do
+      # NOT pass `github-token: ${{ github.token }}` here: the `github` context is
+      # only populated on runs where RWX can mint a GitHub-App installation token,
+      # so referencing it fails ("context key github is not available") on cli /
+      # dispatch runs and after this repo went public. Cross-repo/private clones
+      # (see harness-code) use an explicit vault PAT instead.
       # Keep .git so the guard can inspect the head commit and the ledger-commit
       # task can push back to the PR branch.
       preserve-git-dir: true
@@ -306,7 +311,14 @@ tasks:
     with:
       repository: https://github.com/Coalesce-Software-Inc/eng-ops.git
       ref: ${{ init.harness-sha }}
-      github-token: ${{ github.token }}
+      # eng-ops is a DIFFERENT, private repo. `${{ github.token }}` is a GitHub-App
+      # installation token scoped to the *triggering* repo (coalesce-platform-skills)
+      # and isn't valid for eng-ops — and on cli/dispatch/public runs the `github`
+      # context isn't present at all ("context key github is not available"). Use an
+      # explicit vault PAT with eng-ops read access instead, mirroring how
+      # coa-smoke-test.yml clones its fixture repo with COA_SMOKE_REPO_PAT. This is
+      # the same dispatch token the guard and commit-ledger tasks already use.
+      github-token: ${{ secrets.GH_ACTIONS_DISPATCH_TOKEN }}
       path: eng-ops
 
   - key: python
