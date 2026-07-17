@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Ledger append + rollup + regression detector for the skills-eval CI gate.
 
-This is the workflow-side half of the eval gate (TUC-1291). The harness
-(`toolbelt skills-eval run`, from eng-ops) writes one `results.jsonl` per model
+This is the workflow-side half of the eval gate. The harness
+(`toolbelt skills-eval run`) writes one `results.jsonl` per model
 run (via `--results-dir`); this script distills those raw per-rep records into
 the append-only ledger, regenerates the scorecard, and applies the RFC
 regression rule.

@@ -31,7 +31,7 @@ credentials live in `~/.coa/config`.
 
 ## The fileVersion 1 vs 2 trap
 
-V2 `.sql` nodes (preferred for all transforms) REQUIRE a node type with
+V2 `.sql` nodes (the default for staging/intermediate transforms) REQUIRE a node type with
 `fileVersion: 2` in its `definition.yml`. With fileVersion 1 (or absent), a
 `.sql` node parses to `columns: []` — no error, but broken DDL/DML at render.
 For V2, `col.dataType` is `UNKNOWN`, so templates MUST use the CTAS pattern
