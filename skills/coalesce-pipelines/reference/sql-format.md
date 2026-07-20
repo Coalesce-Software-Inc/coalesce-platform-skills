@@ -3,15 +3,24 @@
 
 `coa describe sql-format` and `coa describe concepts` are the source of truth.
 
-## Two formats
+## Two formats — choose by node role
 
-- **V2 — `.sql`, `fileVersion: 2` — PREFERRED for all transformation nodes**
-  (Stage, View, Dimension, Fact, Persistent Stage). File at
-  `nodes/<LOCATION>-<NAME>.sql`. Columns are inferred from the SELECT.
-- **V1 — `.yml`, `fileVersion: 1`** — required for Source nodes and any
-  V1-only node type. File at `nodes/<LOCATION>-<NAME>.yml`. Columns are
-  explicit, with data types and source mappings (no `.sql` annotations) — see
-  `coa describe schema node`.
+Both formats are first-class. Pick by the node's ROLE rather than defaulting
+everything to one format:
+
+- **V2 — `.sql`, `fileVersion: 2` — the default for STAGING and INTERMEDIATE
+  transforms.** Ephemeral, regenerable nodes; columns are inferred from the SELECT.
+  File at `nodes/<LOCATION>-<NAME>.sql`.
+- **V1 — `.yml`, `fileVersion: 1` — the default for SOURCE nodes and for PERSISTENT /
+  CURATED nodes** (Dimension, Fact, Persistent Stage). Columns are explicit, with data
+  types and source mappings — a durable, published contract for the layer other models
+  and dashboards depend on. Also required for any V1-only node type. File at
+  `nodes/<LOCATION>-<NAME>.yml`; see `coa describe schema node`.
+
+Rule of thumb: ephemeral, high-volume transform → **V2 `.sql`**; a persistent curated
+contract or a Source node → **V1 `.yml`**. (Both curated annotations `@isBusinessKey` and
+`@isChangeTracking` work in V2 as well — the V1 default for curated layers is about explicit,
+reviewable column contracts, not a capability gap.)
 
 ## The silently-empty-columns trap
 

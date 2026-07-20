@@ -47,11 +47,12 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    (`--include "{ NODE }+"` or a ref search).
 3. When renaming a node, update ALL downstream `{{ ref(...) }}` calls (see the
    coalesce-rename-node-cascade skill).
-4. Prefer V2 `.sql` for new transformation nodes — but only against a
-   `fileVersion: 2` node type; otherwise columns are silently empty (see
-   reference/sql-format.md). If the workspace has no V2 type of that layer,
-   install one first (greenfield install is sanctioned without asking; see
-   coalesce-workspace-config and `coa describe node-types`).
+4. Choose node format by role — V2 `.sql` for staging/intermediate transforms,
+   V1 `.yml` for Source nodes and persistent/curated nodes (Dimension, Fact,
+   Persistent Stage). A V2 `.sql` node works only against a `fileVersion: 2` node
+   type; otherwise columns are silently empty (see reference/sql-format.md). 
+   If the workspace has no V2 type of that layer, install one first 
+   (greenfield install is sanctioned without asking; see coalesce-workspace-config and `coa describe node-types`).
 5. Reference upstream nodes with `{{ ref("LOC", "NAME") }}` (both args).
    Never hardcode `db.schema.table`.
 6. Use the correct node type per layer (Stage → Persistent Stage →
