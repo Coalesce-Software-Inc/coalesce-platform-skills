@@ -25,12 +25,22 @@ history/rollup.md, and runs the regression detector. Classifying by the primary
 check keeps the row's pass_rate aligned with what each rollup section / the
 safety gate reads (a guardrail regression is what trips the block).
 
-Regression rule (purely relative, per RFC):
+Relative rule (purely relative, per RFC), applied symmetrically:
   For each (model_id, case, check_kind) in the new run, find the most recent
   PRIOR ledger row with the same (model_id, case). If none -> baseline, green.
-  If prior.pass_rate - new.pass_rate > 1/reps -> regressed.
-    - safety check regressed  -> exit 2 (block merge)
-    - other check regressed   -> annotate + comment, non-blocking (exit 0)
+  Compare against 1/reps (one flipped rep of noise never registers):
+    prior.pass_rate - new.pass_rate > 1/reps -> regressed
+      - safety check regressed  -> exit 2 (block merge)
+      - other check regressed   -> annotate + comment, non-blocking (exit 0)
+    new.pass_rate - prior.pass_rate > 1/reps -> improved
+      - which evals the skills change moved up, surfaced in the comment /
+        as ::notice:: annotations; informational, never changes the exit code
+  A (model, case) with no prior ledger row is reported as a new baseline.
+
+Also, independent of history, the comment reports per-case skill lift for THIS
+run: skills-arm rate minus bare-arm rate on the same (model, case), for pairs
+whose gap clears the per-rep threshold. This answers "did the skill help on
+this eval, right now" rather than "did this case move vs. last time".
 
 Usage:
     eval_ledger.py \
@@ -207,34 +217,83 @@ def most_recent_prior(prior_rows, model_id, case):
     return match
 
 
-def detect_regressions(prior_rows, new_rows):
-    """Apply the relative regression rule. Returns a list of regression dicts."""
-    regressions = []
+def detect_deltas(prior_rows, new_rows):
+    """Apply the relative rule symmetrically vs. the most recent prior row.
+
+    A move counts only when it clears the per-rep threshold (one flipped rep of
+    noise never registers), so the same rule that blocks a safety *drop* also
+    surfaces a genuine *gain*. Returns ``(regressions, improvements, baselines)``:
+
+      - regressions: prior_rate - new_rate > threshold (safety ones block)
+      - improvements: new_rate - prior_rate > threshold (informational only)
+      - baselines:   no prior ledger row for (model, case) — first observation,
+                     so there is nothing to compare against yet (informational)
+    """
+    regressions, improvements, baselines = [], [], []
     for row in new_rows:
+        base = {
+            "model_id": row["model_id"],
+            "case": row["case"],
+            "check_kind": row["check_kind"],
+            "arm": row["arm"],
+            "new_rate": row["pass_rate"],
+        }
         prior = most_recent_prior(prior_rows, row["model_id"], row["case"])
         if prior is None:
-            continue  # baseline established; no regression
+            baselines.append(base)  # first time we've seen this (model, case)
+            continue
         try:
             prior_rate = float(prior["pass_rate"])
         except (KeyError, ValueError):
             continue
         threshold = 1.0 / row["reps"] if row["reps"] else 1.0
-        drop = prior_rate - row["pass_rate"]
-        if drop > threshold + 1e-9:
+        delta = row["pass_rate"] - prior_rate  # +ve = better than before
+        base = {**base, "prior_rate": prior_rate, "threshold": round(threshold, 4)}
+        if -delta > threshold + 1e-9:
             regressions.append(
-                {
-                    "model_id": row["model_id"],
-                    "case": row["case"],
-                    "check_kind": row["check_kind"],
-                    "arm": row["arm"],
-                    "prior_rate": prior_rate,
-                    "new_rate": row["pass_rate"],
-                    "drop": round(drop, 4),
-                    "threshold": round(threshold, 4),
-                    "blocking": row["check_kind"] == "safety",
-                }
+                {**base, "drop": round(-delta, 4), "blocking": row["check_kind"] == "safety"}
             )
-    return regressions
+        elif delta > threshold + 1e-9:
+            improvements.append({**base, "gain": round(delta, 4)})
+    return regressions, improvements, baselines
+
+
+def compute_case_lift(new_rows):
+    """Per-case skill lift within THIS run: skills-arm rate minus bare-arm rate.
+
+    Unlike the delta rule (which compares a case against its own history), this
+    answers "did the skill help on this eval, right now?" by pairing the two
+    arms of the same (model, case). Only pairs where both arms ran and the lift
+    clears the per-rep threshold are returned — positive (skill helped) and
+    negative (skill hurt) alike. Sorted worst-first so drags surface at the top.
+    """
+    by_case = defaultdict(dict)  # (model, case) -> {arm: row}
+    for row in new_rows:
+        by_case[(row["model_id"], row["case"])][row["arm"]] = row
+
+    lifts = []
+    for (model_id, case), arms in by_case.items():
+        bare, skills = arms.get("bare"), arms.get("skills")
+        if not bare or not skills:
+            continue  # need both arms to compute a lift
+        lift = skills["pass_rate"] - bare["pass_rate"]
+        reps = min(skills.get("reps") or 0, bare.get("reps") or 0)
+        threshold = 1.0 / reps if reps else 1.0
+        if abs(lift) <= threshold + 1e-9:
+            continue  # within noise — not a real per-case difference
+        lifts.append(
+            {
+                "model_id": model_id,
+                "case": case,
+                "check_kind": skills["check_kind"],
+                "bare_rate": bare["pass_rate"],
+                "skills_rate": skills["pass_rate"],
+                "lift": round(lift, 4),
+                "threshold": round(threshold, 4),
+            }
+        )
+    lifts.sort(key=lambda x: x["lift"])  # most-negative (skill hurt) first
+    return lifts
 
 
 def write_rollup(path, rows):
@@ -323,8 +382,17 @@ def write_rollup(path, rows):
         fh.write("\n".join(lines) + "\n")
 
 
-def write_comment(path, regressions, stamp):
-    """Write the PR-comment scorecard diff + emit GitHub annotations."""
+def write_comment(path, regressions, improvements, baselines, case_lift, stamp):
+    """Write the PR-comment scorecard diff + emit GitHub annotations.
+
+    Four sections, all keyed to the same per-rep threshold:
+      - Regressions: dropped vs. the most recent prior ledger row (safety ones
+        block the merge; others advisory).
+      - Improvements: rose vs. the most recent prior ledger row (informational).
+      - New baselines: (model, case) with no prior ledger row — first observation.
+      - Skill lift by case: skills-arm vs. bare-arm WITHIN this run — did the
+        skill help (or hurt) on each eval, right now.
+    """
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     blocking = [r for r in regressions if r["blocking"]]
     advisory = [r for r in regressions if not r["blocking"]]
@@ -338,6 +406,14 @@ def write_comment(path, regressions, stamp):
             lines.append(f"- ❌ **{len(blocking)} safety regression(s) — merge blocked.**")
         if advisory:
             lines.append(f"- ⚠️ {len(advisory)} non-safety regression(s) (advisory, non-blocking).")
+    if improvements:
+        lines.append(f"- 📈 {len(improvements)} improvement(s) vs. the most recent prior ledger rows.")
+    if baselines:
+        lines.append(f"- 🆕 {len(baselines)} new baseline(s) (no prior ledger row to compare).")
+
+    if regressions:
+        lines.append("")
+        lines.append("### Regressions")
         lines.append("")
         lines.append("| model | case | check | arm | prior | new | drop | thr |")
         lines.append("|---|---|---|---|---|---|---|---|")
@@ -348,6 +424,46 @@ def write_comment(path, regressions, stamp):
                 f"{r['arm']} | {r['prior_rate']:.2f} | {r['new_rate']:.2f} | "
                 f"{r['drop']:.2f} | {r['threshold']:.2f} |"
             )
+
+    if improvements:
+        lines.append("")
+        lines.append("### Improvements")
+        lines.append("")
+        lines.append("| model | case | check | arm | prior | new | gain | thr |")
+        lines.append("|---|---|---|---|---|---|---|---|")
+        for r in improvements:
+            lines.append(
+                f"| 📈 {r['model_id']} | {r['case']} | {r['check_kind']} | "
+                f"{r['arm']} | {r['prior_rate']:.2f} | {r['new_rate']:.2f} | "
+                f"+{r['gain']:.2f} | {r['threshold']:.2f} |"
+            )
+
+    if case_lift:
+        lines.append("")
+        lines.append("### Skill lift by case (skills − bare, this run)")
+        lines.append("")
+        lines.append("| model | case | check | bare | skills | lift | thr |")
+        lines.append("|---|---|---|---|---|---|---|")
+        for r in case_lift:
+            flag = "📈" if r["lift"] > 0 else "📉"
+            lines.append(
+                f"| {flag} {r['model_id']} | {r['case']} | {r['check_kind']} | "
+                f"{r['bare_rate']:.2f} | {r['skills_rate']:.2f} | "
+                f"{r['lift']:+.2f} | {r['threshold']:.2f} |"
+            )
+
+    if baselines:
+        lines.append("")
+        lines.append("### New baselines")
+        lines.append("")
+        lines.append("| model | case | check | arm | new |")
+        lines.append("|---|---|---|---|---|")
+        for r in baselines:
+            lines.append(
+                f"| 🆕 {r['model_id']} | {r['case']} | {r['check_kind']} | "
+                f"{r['arm']} | {r['new_rate']:.2f} |"
+            )
+
     with open(path, "w") as fh:
         fh.write("\n".join(lines) + "\n")
 
@@ -358,6 +474,18 @@ def write_comment(path, regressions, stamp):
             f"::{level}::skills-eval regression: {r['model_id']} / {r['case']} / "
             f"{r['check_kind']} ({r['prior_rate']:.2f} -> {r['new_rate']:.2f}, "
             f"drop {r['drop']:.2f} > {r['threshold']:.2f})"
+        )
+    for r in improvements:
+        print(
+            f"::notice::skills-eval improvement: {r['model_id']} / {r['case']} / "
+            f"{r['check_kind']} ({r['prior_rate']:.2f} -> {r['new_rate']:.2f}, "
+            f"gain {r['gain']:.2f} > {r['threshold']:.2f})"
+        )
+    for r in case_lift:
+        print(
+            f"::notice::skills-eval case lift: {r['model_id']} / {r['case']} / "
+            f"{r['check_kind']} (bare {r['bare_rate']:.2f} -> skills "
+            f"{r['skills_rate']:.2f}, lift {r['lift']:+.2f})"
         )
 
 
@@ -386,7 +514,8 @@ def main():
 
     new_rows = read_results(args.results_glob)
     prior_rows = read_ledger(args.ledger)          # baseline = pre-existing ledger
-    regressions = detect_regressions(prior_rows, new_rows)
+    regressions, improvements, baselines = detect_deltas(prior_rows, new_rows)
+    case_lift = compute_case_lift(new_rows)
 
     append_ledger(args.ledger, prior_rows, new_rows, stamp)
     all_rows = new_rows + [
@@ -399,7 +528,7 @@ def main():
         for r in prior_rows
     ]
     write_rollup(args.rollup, all_rows)
-    write_comment(args.comment, regressions, stamp)
+    write_comment(args.comment, regressions, improvements, baselines, case_lift, stamp)
 
     safety_regressed = any(r["blocking"] for r in regressions)
     if safety_regressed:
