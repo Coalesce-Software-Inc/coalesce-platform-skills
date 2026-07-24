@@ -1,6 +1,6 @@
 ---
 name: coalesce-sql-transformation
-description:  Use when editing the SQL inside existing Coalesce V2 node files (.sql) — changing column expressions, joins, filters, CTEs, inline column annotations, or ref() macros. Not for creating/deleting node files (use coalesce-pipeline-structure).
+description: Use when editing the SQL inside existing Coalesce V2 node files (.sql) — changing column expressions, joins, filters, CTEs, inline column annotations, or ref() macros. Not for creating/deleting node files (use coalesce-pipeline-structure).
 ---
 <!-- coalesce-node-managed: true -->
 
