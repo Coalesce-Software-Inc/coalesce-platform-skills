@@ -42,7 +42,11 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
 ## Rules
 
 1. NEVER modify or reuse an existing `@id` (node or column). New `@id` values
-   are fresh UUIDs.
+   are fresh UUIDs. In a `.sql` node, `@id` and `@nodeType` are BARE first
+   lines — never prefixed with `--` or wrapped in `/* */`. A commented-out
+   annotation is invisible to `coa`: the node is silently dropped from the
+   graph (validate still shows 0 errors, but the node is never built). See
+   reference/sql-format.md → "Write the annotations BARE".
 2. NEVER delete a node without checking downstream dependents
    (`--include "{ NODE }+"` or a ref search).
 3. When renaming a node, update ALL downstream `{{ ref(...) }}` calls (see the

@@ -1,8 +1,15 @@
 ---
 name: coalesce-sql-transformation
-description: Use when editing the SQL inside existing Coalesce V2 node files (.sql) — changing column expressions, joins, filters, CTEs, inline column annotations, or ref() macros. Not for creating/deleting node files (use coalesce-pipeline-structure).
+description:  Use when editing the SQL inside existing Coalesce V2 node files (.sql) — changing column expressions, joins, filters, CTEs, inline column annotations, or ref() macros. Not for creating/deleting node files (use coalesce-pipeline-structure).
 ---
 <!-- coalesce-node-managed: true -->
+
+> **Prerequisite — load `coalesce-pipelines` first.** If you have not already
+> loaded the `coalesce-pipelines` skill in this session, load it now, read its
+> "Orient first" step, core `coa` loop, and Rules, then return here. This skill
+> assumes those invariants (bare `@id`/`@nodeType` first lines, `fileVersion: 2`
+> node types, one-node-at-a-time validate → dry-run → create loop) are already
+> in context.
 
 # SQL Transformation
 

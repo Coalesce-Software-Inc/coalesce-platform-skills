@@ -4,6 +4,13 @@ description: Add a column to an existing Coalesce V2 (.sql) transformation node,
 ---
 <!-- coalesce-node-managed: true -->
 
+> **Prerequisite — load `coalesce-pipelines` first.** If you have not already
+> loaded the `coalesce-pipelines` skill in this session, load it now, read its
+> "Orient first" step, core `coa` loop, and Rules, then return here. This skill
+> assumes those invariants (bare `@id`/`@nodeType` first lines, `fileVersion: 2`
+> node types, one-node-at-a-time validate → dry-run → create loop) are already
+> in context.
+
 Add a column to an existing node. Treat `coa describe sql-format` and `coa validate` as the source of truth; do not guess syntax.
 
 Scope guardrail (`coa describe workflow`):

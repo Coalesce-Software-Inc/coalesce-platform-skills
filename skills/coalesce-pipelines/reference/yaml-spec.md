@@ -112,7 +112,27 @@ WHERE 1=0
 {% endfor %}
 ```
 
-V1 node types use explicit-column DDL (`{{ col.name }} {{ col.dataType }}`).
+The matching `run.sql.j2` (DML) uses the same column iteration, without the
+`WHERE 1=0` guard:
+
+```jinja
+{{ stage('Truncate') }}
+TRUNCATE IF EXISTS {{ ref_no_link(node.location.name, node.name) }}
+{% for source in sources %}
+{{ stage('Insert') }}
+INSERT INTO {{ ref_no_link(node.location.name, node.name) }}
+SELECT
+{% for col in source.columns %}
+    {{ get_source_transform(col) }} AS "{{ col.name }}"{%- if not loop.last -%}, {% endif %}
+{% endfor %}
+{{ source.join }}
+{% endfor %}
+```
+
+Do NOT write a V2 body as `{{ node.sql }}` or `SELECT *` — either renders a
+zero-column table (degenerate DDL) regardless of what the node's SELECT lists.
+The projection MUST come from iterating `source.columns`. V1 node types instead
+use explicit-column DDL (`{{ col.name }} {{ col.dataType }}`).
 
 After a node-type/template edit, prove the contract holds:
 `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --verbose`

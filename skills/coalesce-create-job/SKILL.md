@@ -4,6 +4,13 @@ description: Create a Coalesce job that selects nodes to create/run, using the c
 ---
 <!-- coalesce-node-managed: true -->
 
+> **Prerequisite — load `coalesce-pipelines` first.** If you have not already
+> loaded the `coalesce-pipelines` skill in this session, load it now, read its
+> "Orient first" step, core `coa` loop, and Rules, then return here. This skill
+> assumes those invariants (bare `@id`/`@nodeType` first lines, `fileVersion: 2`
+> node types, one-node-at-a-time validate → dry-run → create loop) are already
+> in context.
+
 A **job** is a named orchestration definition that selects which nodes to operate on
 via selector strings. It is **not** a list of steps. Treat `coa describe schema job`
 as the source of truth — the schema below is current as of writing.

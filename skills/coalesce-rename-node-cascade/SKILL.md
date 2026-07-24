@@ -4,6 +4,13 @@ description: Rename a Coalesce node and cascade the new name through every downs
 ---
 <!-- coalesce-node-managed: true -->
 
+> **Prerequisite — load `coalesce-pipelines` first.** If you have not already
+> loaded the `coalesce-pipelines` skill in this session, load it now, read its
+> "Orient first" step, core `coa` loop, and Rules, then return here. This skill
+> assumes those invariants (bare `@id`/`@nodeType` first lines, `fileVersion: 2`
+> node types, one-node-at-a-time validate → dry-run → create loop) are already
+> in context.
+
 Renaming a node means renaming its file AND updating every reference to it.
 A node is referenced in three places: downstream `ref()` macros, job
 `includeSelector`/`excludeSelector` strings, and subgraph `steps` selector

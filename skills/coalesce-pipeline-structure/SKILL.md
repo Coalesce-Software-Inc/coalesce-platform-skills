@@ -4,6 +4,13 @@ description: Use when creating, deleting, renaming, or rewiring Coalesce nodes, 
 ---
 <!-- coalesce-node-managed: true -->
 
+> **Prerequisite — load `coalesce-pipelines` first.** If you have not already
+> loaded the `coalesce-pipelines` skill in this session, load it now, read its
+> "Orient first" step, core `coa` loop, and Rules, then return here. This skill
+> assumes those invariants (bare `@id`/`@nodeType` first lines, `fileVersion: 2`
+> node types, one-node-at-a-time validate → dry-run → create loop) are already
+> in context.
+
 # Pipeline Structure
 
 Scope: creating, deleting, renaming, and rewiring nodes, subgraphs, and jobs —
@@ -55,6 +62,12 @@ a brand-new type can't break existing nodes. Report it in your summary. Recipe
   `fileVersion: 2` node type, or columns are SILENTLY EMPTY (broken DDL/DML).
   If no V2 type of that layer exists yet, install one first (greenfield =
   sanctioned; see coalesce-workspace-config).
+- Write both annotations as BARE lines — do NOT prefix them with `--` or wrap
+  them in `/* */`. `@id("…")` is not valid SQL on its own, but commenting it
+  out makes `coa` unable to read it: the node is silently dropped (validate
+  shows 0 errors, node never builds). Then confirm the node loaded with
+  `coa create --dry-run --verbose --include "{ NODE }"` — not `coa validate`
+  alone, which stays green for a dropped node.
 - Use V1 (`.yml`, fileVersion 1) only for Source nodes and V1-only types.
 - Refs, column annotations, and a full example: see the sql-format reference.
   Only `@isBusinessKey`, `@isChangeTracking`, `@id`, `@description` exist.

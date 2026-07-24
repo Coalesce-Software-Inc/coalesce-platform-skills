@@ -4,6 +4,13 @@ description: Create a new Coalesce staging node from a source node — a Stage t
 ---
 <!-- coalesce-node-managed: true -->
 
+> **Prerequisite — load `coalesce-pipelines` first.** If you have not already
+> loaded the `coalesce-pipelines` skill in this session, load it now, read its
+> "Orient first" step, core `coa` loop, and Rules, then return here. This skill
+> assumes those invariants (bare `@id`/`@nodeType` first lines, `fileVersion: 2`
+> node types, one-node-at-a-time validate → dry-run → create loop) are already
+> in context.
+
 Create a Stage node that maps every column of a source node 1:1. A Stage is the
 first hop out of a Source: it selects the source's columns unchanged so later
 layers build on a stable name. `coa describe sql-format` and `coa describe

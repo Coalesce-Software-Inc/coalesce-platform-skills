@@ -1,8 +1,15 @@
 ---
 name: coalesce-workspace-config
-description: Use when a task touches Coalesce shared workspace configuration — data.yml, locations.yml, workspace.yml, environments/, or node type definitions and Jinja templates in nodeTypes/. Everything here is high-risk shared config requiring user confirmation before edits.
+description:  Use when a task touches Coalesce shared workspace configuration — data.yml, locations.yml, workspace.yml, environments/, or node type definitions and Jinja templates in nodeTypes/. Everything here is high-risk shared config requiring user confirmation before edits.
 ---
 <!-- coalesce-node-managed: true -->
+
+> **Prerequisite — load `coalesce-pipelines` first.** If you have not already
+> loaded the `coalesce-pipelines` skill in this session, load it now, read its
+> "Orient first" step, core `coa` loop, and Rules, then return here. This skill
+> assumes those invariants (bare `@id`/`@nodeType` first lines, `fileVersion: 2`
+> node types, one-node-at-a-time validate → dry-run → create loop) are already
+> in context.
 
 # Workspace Configuration
 
@@ -65,16 +72,26 @@ files (they may fail `coa validate`).
   approval, bump `fileVersion` and swap templates to the V2 pattern.
 
 **Install steps (greenfield):**
-
-1. Create `nodeTypes/<DisplayName>-<UUID>/` (prefer a real UUID for the ID to
-   avoid collisions).
+Reference `coa describe node-types` for examples of the following elements
+1. Create `nodeTypes/<DisplayName>-<UUID>/` — the folder MUST contain three
+   files: `definition.yml`, `create.sql.j2`, AND `run.sql.j2`. A node type with
+   only `definition.yml` (no templates) renders nothing — every node of that
+   type builds a zero-column / empty table. Prefer a real UUID for the ID to
+   avoid collisions.
 2. `definition.yml` — `fileVersion: 2`, `type: NodeType`, the UUID `id`, and a
    `nodeMetadataSpec` (capitalized/short/plural/tagColor; config/systemColumns
    as needed). Shape per `coa describe schema nodeType`.
-3. `create.sql.j2` and `run.sql.j2` — the V2 template pattern from
-   `coa describe node-types`. V2 `col.dataType` is `UNKNOWN`, so the create
-   template must not emit `{{ col.dataType }}`; follow the pattern `coa describe`
-   prescribes and confirm it renders (next section) rather than assuming.
+3. `create.sql.j2` and `run.sql.j2` — the V2 CTAS template pattern. Do NOT
+   hand-write your own Jinja from scratch and do NOT use `{{ node.sql }}` as the
+   body — a template that doesn't iterate `sources`/`source.columns` renders
+   degenerate DDL (empty projection or `SELECT *`), so every node of the type
+   builds a zero-column table even when the node's SELECT lists columns. Copy
+   the exact V2 templates from `coa describe node-types` verbatim; they are the
+   authoritative, working pattern. The canonical V2 Stage pair is below — use it
+   as-is (only swap the display name / colors) unless `coa describe` differs, in
+   which case `coa describe` wins.
+
+
 
 **Validate the initial state (proves the trap is gone):**
 
