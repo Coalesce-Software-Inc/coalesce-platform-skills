@@ -4,6 +4,13 @@ description: Use when editing the SQL inside existing Coalesce V2 node files (.s
 ---
 <!-- coalesce-node-managed: true -->
 
+> **Prerequisite — load `coalesce-pipelines` first.** If you have not already
+> loaded the `coalesce-pipelines` skill in this session, load it now, read its
+> "Orient first" step, core `coa` loop, and Rules, then return here. This skill
+> assumes those invariants (bare `@id`/`@nodeType` first lines, `fileVersion: 2`
+> node types, one-node-at-a-time validate → dry-run → create loop) are already
+> in context.
+
 # SQL Transformation
 
 Scope: the SQL inside V2 node files (`.sql`, fileVersion 2) — the SELECT body,
@@ -38,8 +45,12 @@ Shared format rules (refs, annotations, V1/V2, naming):
 - Do NOT create or delete node files (coalesce-pipeline-structure's job).
 - Do NOT touch non-SQL files (`.yml` nodes, jobs, subgraphs, locations,
   macros).
-- V1-only node type? STOP and surface it — do not silently bump fileVersion or
-  swap node types (the silently-empty-columns trap; see the reference).
+- Editing an existing `.sql` node whose `@nodeType` resolves to a V1 type
+  (silently-empty-columns trap)? Do NOT silently bump its `fileVersion` — that
+  type is in use, so upgrading it is a shared-config change: STOP and ASK
+  (see coalesce-workspace-config). Authoring a *new* V2 node in a greenfield
+  workspace with no V2 type is different — that install is sanctioned; see
+  coalesce-pipeline-structure / coalesce-workspace-config.
 
 ## Workflow (per node)
 

@@ -50,43 +50,28 @@ on:
     # tasks use secrets (Vertex credentials, a token that can push to our
     # branches), which a fork PR could otherwise try to exfiltrate by editing
     # this file or the scripts it runs.
-    pull_request:
-      actions: [opened, reopened, synchronize, ready_for_review]
-      if: ${{ event.github.pull_request.pull_request.draft == false && event.github.pull_request.pull_request.head.repo.full_name == 'Coalesce-Software-Inc/coalesce-platform-skills' }}
-      init:
-        skills-sha: ${{ event.git.sha }}
-        # Pinned harness ref under test. `main` is the floating fallback; pin
-        # a real SHA for repro.
-        harness-sha: main
-        pr-number: ${{ event.github.pull_request.number }}
-        base-ref: develop
-        # PR head branch — where the ledger row is committed back to, and the
-        # concurrency-pool key so a new push cancels the superseded run.
-        head-ref: ${{ event.git.branch }}
-        commit-ledger: "true"
-        concurrency-pool-name: ${{ event.git.branch }}
-        # Space-separated eval arms the matrix runs. The PR gate keeps the
-        # historical bare-vs-skills comparison; manual dispatches can widen it.
-        conditions: "bare skills"
-        # Auto-triggered: the retrigger guard IS meaningful here (a ledger
-        # commit-back would otherwise re-fire this trigger), so leave it on.
-        explicit-run: "false"
-
-    # Canonical timeline: pushes to develop write the ledger row onto develop.
-    # Feature-branch pushes are handled by the pull_request trigger above, so
-    # gate this to develop to avoid double-triggering.
-    push:
-      if: ${{ event.git.branch == 'develop' }}
-      init:
-        skills-sha: ${{ event.git.sha }}
-        harness-sha: main
-        pr-number: ""
-        base-ref: develop
-        head-ref: ${{ event.git.branch }}
-        commit-ledger: "true"
-        concurrency-pool-name: ${{ event.git.branch }}
-        conditions: "bare skills"
-        explicit-run: "false"
+    # Skipping automatic requests for now
+    # pull_request:
+    #   actions: [opened, reopened, synchronize, ready_for_review]
+    #   if: ${{ event.github.pull_request.pull_request.draft == false && event.github.pull_request.pull_request.head.repo.full_name == 'Coalesce-Software-Inc/coalesce-platform-skills' }}
+    #   init:
+    #     skills-sha: ${{ event.git.sha }}
+    #     # Pinned harness ref under test. `main` is the floating fallback; pin
+    #     # a real SHA for repro.
+    #     harness-sha: main
+    #     pr-number: ${{ event.github.pull_request.number }}
+    #     base-ref: develop
+    #     # PR head branch — where the ledger row is committed back to, and the
+    #     # concurrency-pool key so a new push cancels the superseded run.
+    #     head-ref: ${{ event.git.branch }}
+    #     commit-ledger: "true"
+    #     concurrency-pool-name: ${{ event.git.branch }}
+    #     # Space-separated eval arms the matrix runs. The PR gate keeps the
+    #     # historical bare-vs-skills comparison; manual dispatches can widen it.
+    #     conditions: "bare skills"
+    #     # Auto-triggered: the retrigger guard IS meaningful here (a ledger
+    #     # commit-back would otherwise re-fire this trigger), so leave it on.
+    #     explicit-run: "false"
 
   # Bare `rwx run .rwx/skills-eval.yml` for a quick local shakeout (no flags).
   cli:

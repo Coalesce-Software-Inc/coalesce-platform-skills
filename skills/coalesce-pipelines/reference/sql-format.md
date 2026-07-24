@@ -30,8 +30,12 @@ the node still loads but its columns are **SILENTLY EMPTY** (`columns: []`) —
 `coa create`/`coa run` then emit broken DDL/DML with no error. The built-in
 common types (Source, Stage, View, Dimension, Fact, Persistent Stage) are V1;
 using them in a `.sql` file triggers this trap. If a needed V2 node type does
-not exist, STOP and surface it — do not silently bump `fileVersion` or swap
-node types (shared config; ask first).
+not exist, install one before authoring the node: creating a NEW V2 type in a
+workspace that has none of that layer (greenfield) is sanctioned without asking;
+upgrading a V1 type that existing nodes already use changes their DDL/DML, so
+that STILL requires approval. Never silently write a `.sql` node against a V1
+type. Recipe + validate step: coalesce-workspace-config ("Installing a V2 node
+type") and `coa describe node-types`.
 
 ## File naming
 
@@ -55,6 +59,37 @@ node types (shared config; ask first).
 Keep `@id` and `@nodeType` as the first lines. Match the existing `.sql`
 nodes: only those two annotations precede the SQL (no bare `fileVersion`
 line).
+
+### Write the annotations BARE — never as SQL comments
+
+`coa` reads `@id`/`@nodeType` only when they are **bare** lines (no `--`, no
+`/* */`). They look like they belong in a comment because a bare `@id("…")`
+line is not itself valid Snowflake SQL — but do NOT "fix" that by commenting
+them. A `.sql` node whose annotations are commented out has, as far as `coa` is
+concerned, NO `@id` and NO `@nodeType`: the node is **silently dropped from the
+graph** — `coa validate` still reports 0 errors (the node simply isn't there),
+`coa create` never builds it, and lineage is missing. This is the single most
+common way a "finished" node quietly does nothing.
+
+```sql
+-- WRONG — commented out; coa ignores these, node is silently dropped
+-- @id("b2c3d4e5-f6a7-8901-bcde-f12345678901")
+-- @nodeType("STG_V2")
+SELECT ...
+```
+
+```sql
+-- RIGHT — bare annotations on the first two lines
+@id("b2c3d4e5-f6a7-8901-bcde-f12345678901")
+@nodeType("STG_V2")
+SELECT ...
+```
+
+After writing a node, confirm the node actually loaded — do not trust a green
+`coa validate` alone. Run `coa create --dry-run --verbose --include "{ NODE }"`
+and check the node appears with its columns rendered; "0 nodes matched" or empty
+columns means the annotations were not read (commented out, missing, or a V1
+`@nodeType`).
 
 ## References
 
@@ -98,6 +133,13 @@ node — but it is NOT a `.sql` column annotation.)
   node-type Jinja templates that emit generated DDL, and in some existing
   nodes — match the file you are editing.
 - Preserve existing column ordering; keep changes minimal.
+- ENUMERATE columns explicitly in a V2 node's SELECT — never `SELECT *`. A
+  V2 node type infers its column set by parsing the SELECT; `SELECT *` leaves
+  nothing to parse, so `coa create` renders a zero-column table (degenerate
+  DDL) even though `coa validate` stays green. If the task says "stage every
+  column 1:1", read the source's columns (`coa describe` or the source `.yml`)
+  and list each one. Confirm with `coa create --dry-run --verbose` that the
+  rendered DDL actually projects the columns.
 
 ## Example V2 node
 
@@ -112,4 +154,5 @@ FROM {{ ref("STG", "STG_CUSTOMERS") }}
 ```
 
 (`"Dimension"` stands in for a real V2 node type ID from `nodeTypes/` — the
-built-in `Dimension` is V1.)
+built-in `Dimension` is V1.) Note the first two lines are BARE — no leading
+`--`. That is deliberate and required (see "Write the annotations BARE" above).
