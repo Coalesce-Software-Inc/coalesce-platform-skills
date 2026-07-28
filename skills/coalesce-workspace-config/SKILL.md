@@ -111,8 +111,8 @@ Reference `coa describe node-types` for examples of the following elements
    `coa doctor --fix` can bootstrap a missing `workspace.yml` / update
    `.gitignore` — still a shared-file change, confirm with the user first.
 5. For node-type/template edits, prove the contract holds:
-   `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run
-   --verbose` (and `--json`) — confirm columns render and SQL is non-empty
+   `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --verbose`
+   (and `--json`) — confirm columns render and SQL is non-empty
    for affected nodes.
 6. `coa create`/`coa run` execute SQL DIRECTLY against the warehouse — LOCAL
    development, NOT deploy/publish. Cloud plan/deploy is separate (git push →
