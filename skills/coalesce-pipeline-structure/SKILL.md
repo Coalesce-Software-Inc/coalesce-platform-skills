@@ -68,7 +68,11 @@ a brand-new type can't break existing nodes. Report it in your summary. Recipe
   shows 0 errors, node never builds). Then confirm the node loaded with
   `coa create --dry-run --verbose --include "{ NODE }"` — not `coa validate`
   alone, which stays green for a dropped node.
-- Use V1 (`.yml`, fileVersion 1) only for Source nodes and V1-only types.
+- Use V1 (`.yml`, fileVersion 1) for Source nodes, persistent/curated layers,
+  and V1-only types (see coalesce-pipelines Rule 4). Do NOT hand-author a new
+  V1 node: generate Source nodes with `coa sources add`, and for anything else
+  either author a V2 `.sql` node or direct the user to the Coalesce UI/API.
+  Load `coalesce-v1-yaml-nodes` before touching an existing `nodes/*.yml`.
 - Refs, column annotations, and a full example: see the sql-format reference.
   Only `@isBusinessKey`, `@isChangeTracking`, `@id`, `@description` exist.
 
