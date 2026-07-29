@@ -24,7 +24,8 @@ enforced by whatever harness runs the agent, using its own permission model.
   subdirectory (coa CLI, SQL format, YAML schemas).
 - Specialist skills: `coalesce-sql-transformation`,
   `coalesce-pipeline-structure`, `coalesce-workspace-config`,
-  `coalesce-cloud-api`, `coalesce-git-publication`, `coalesce-review-risk`.
+  `coalesce-cloud-api`, `coalesce-git-publication`, `coalesce-review-risk`,
+  `coalesce-transform-mcp-install`.
 - Task recipes: `coalesce-create-stage-node`, `coalesce-add-column`,
   `coalesce-rename-node-cascade`, `coalesce-create-job`.
 - `templates/workspace-CLAUDE.md` — the small per-workspace instruction file
