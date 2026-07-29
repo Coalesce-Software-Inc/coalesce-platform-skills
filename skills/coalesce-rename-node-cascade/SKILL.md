@@ -24,9 +24,14 @@ the core loop: define the edits -> `coa validate` -> verify -> iterate.
 
 GUARDRAIL: renaming the requested node and editing its downstream node files
 is IN SCOPE without asking. Jobs (`jobs/*`) and subgraphs (`subgraphs/*`) are
-SHARED config — editing them can silently affect unrelated nodes. List the
-job/subgraph edits a rename requires and CONFIRM with the user before applying
-them. (See `coa describe workflow`.)
+SHARED config — editing them can silently affect unrelated nodes. Order
+matters: apply the in-scope edits (file move + `ref()` updates) FIRST, then
+present the job/subgraph edits the rename requires and CONFIRM with the user
+before applying them. Never hold in-scope edits hostage to a shared-config
+confirmation. If the user's request explicitly covers every reference (e.g.
+"update everything in this workspace that references it"), that constitutes
+approval for the job/subgraph edits the rename requires — apply them without
+asking again. (See `coa describe workflow`.)
 
 ## Steps
 
@@ -101,7 +106,23 @@ them. (See `coa describe workflow`.)
    node AND its upstream predecessors. These resolve by name and must be
    reported if they reference the old name.
 
-9. Confirm no broken references remain by running validate:
+9. MANDATORY final sweep — search for the bare old identifier. Run a
+   repo-wide, case-insensitive search for `<OLD_NAME>` alone (no quotes, no
+   `ref()` shape, no path restriction) across ALL tracked files:
+
+   ```
+   grep -ri "<OLD_NAME>" .
+   ```
+
+   The rename is NOT complete until this returns zero hits (excluding
+   intentional matches, e.g. the new name containing the old one). The shaped
+   patterns in the earlier steps cannot match every reference form —
+   e.g. `{ name: "<OLD_NAME>" }` inside a subgraph `steps` selector string —
+   and `coa validate` reports 0 errors when a selector names a nonexistent
+   node, so a green validate does NOT prove the sweep was complete. This crude
+   search catches whatever the shaped searches missed.
+
+10. Confirm no broken references remain by running validate:
 
    ```
    coa validate -d <workspace-dir>
@@ -133,5 +154,8 @@ them. (See `coa describe workflow`.)
 - [ ] Subgraph `steps` selector strings updated (or stale `nodes:` shape
       flagged for migration).
 - [ ] Glob/pattern and lineage-operator selectors reviewed and reported.
+- [ ] Final sweep: repo-wide case-insensitive grep for the bare old name
+      returns ZERO hits (a green `coa validate` does not prove this — it
+      passes even when a selector names a nonexistent node).
 - [ ] `coa validate` passes with no broken references (graph scanners actually
       ran — `workspace.yml` present, bootstrap with `coa doctor --fix` if not).
