@@ -49,10 +49,30 @@ claude plugin install coalesce-platform-skills@coalesce
 ```
 
 The `/plugin` UI shows a "Will install" review (the skills it adds and a
-context-cost estimate) before anything is added. There is no auto-update yet —
-pull a new version with `/plugin update coalesce-platform-skills` (a released
-version bump) or by re-running the install. After installing during a session,
-run `/reload-plugins` to pick the skills up without restarting.
+context-cost estimate) before anything is added. After installing during a
+session, run `/reload-plugins` to pick the skills up without restarting.
+
+### Updating
+
+```sh
+claude plugin marketplace update coalesce
+claude plugin update coalesce-platform-skills
+```
+
+Then `/reload-plugins`, or restart the session.
+
+Don't skip the first command. `/plugin update` decides whether a newer version
+exists by reading the marketplace manifest from your local clone, and Claude
+Code does not reliably refresh that clone first — so on its own it can report
+"already at the latest version" while a newer release exists. Uninstalling and
+reinstalling also works but is never necessary, and it discards your
+enable/disable state.
+
+The plugin is pinned to a release tag, so an update moves you between released
+versions rather than to whatever happens to be on the default branch. What
+changed in each version is on the
+[Releases](https://github.com/Coalesce-Software-Inc/coalesce-platform-skills/releases)
+page.
 
 **Standalone script.** For tools that read `~/.claude/skills/` directly (or to
 install without the plugin system):

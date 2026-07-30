@@ -1,0 +1,123 @@
+# Every push to `develop` cuts a release: bump the version, commit it back to
+# `develop`, tag it, publish a GitHub release. Version comes from the previous
+# tag — patch automatically, minor/major only via a manual run. That version is
+# Claude Code's update cache key, so tagging alone would ship nothing to users.
+
+name: Release
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      bump-type:
+        description: "Bump version"
+        required: true
+        type: choice
+        default: Patch
+        options:
+          - Patch
+          - Minor
+          - Major
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # Prevent releasing the release commit. 
+    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # Tags are the version input, and `--generate-notes` needs the history.
+          fetch-depth: 0
+
+      - name: Refuse to release from anywhere but develop
+        run: |
+          if [ "$GITHUB_REF_NAME" != "develop" ]; then
+            echo "::error::This workflow releases from develop only, but ran on '$GITHUB_REF_NAME'."
+            exit 1
+          fi
+
+      - name: Get the previous tag
+        id: previoustag
+        uses: WyriHaximus/github-action-get-previous-tag@27c04b107bd8de27966ed909e0992078a9121de8 # v1
+        with:
+          # Tags in this repo are bare semver, no `v` prefix.
+          fallback: 0.1.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute the candidate versions
+        id: semvers
+        uses: WyriHaximus/github-action-next-semvers@1b773ddb3831644dabc80ef5e791ebd4925f7651 # v1
+        with:
+          version: ${{ steps.previoustag.outputs.tag }}
+
+      # Values arrive as env vars rather than being interpolated into the script
+      - name: Choose the next version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump-type || 'Patch' }}
+          PATCH: ${{ steps.semvers.outputs.patch }}
+          MINOR: ${{ steps.semvers.outputs.minor }}
+          MAJOR: ${{ steps.semvers.outputs.major }}
+          PREVIOUS: ${{ steps.previoustag.outputs.tag }}
+        run: |
+          case "$BUMP" in
+            Patch) next="$PATCH" ;;
+            Minor) next="$MINOR" ;;
+            Major) next="$MAJOR" ;;
+            *) echo "::error::Unknown bump type '$BUMP'."; exit 1 ;;
+          esac
+          echo "next=$next" >>"$GITHUB_OUTPUT"
+          echo "Releasing $next (previous tag: $PREVIOUS, bump: $BUMP)"
+
+      - name: Bump the version in both manifests
+        env:
+          VERSION: ${{ steps.version.outputs.next }}
+        run: .github/scripts/prepare-release.sh "$VERSION"
+
+      - name: Verify the version invariants
+        run: .github/scripts/check-version-consistency.sh
+
+      - name: Commit, tag and push
+        env:
+          VERSION: ${{ steps.version.outputs.next }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .claude-plugin/plugin.json .claude-plugin/marketplace.json
+          git commit -m "chore(release): $VERSION [skip ci]"
+          # Tag the bump commit itself: the tag that marketplace.json now points at
+          # must be the one carrying the matching version.
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin HEAD:develop
+          git push origin "$VERSION"
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.next }}
+        run: gh release create "$VERSION" --title "$VERSION" --generate-notes
+
+      - name: Summarize
+        env:
+          VERSION: ${{ steps.version.outputs.next }}
+        run: |
+          {
+            echo "### Released \`$VERSION\`"
+            echo ""
+            echo "Users receive it with:"
+            echo ""
+            echo '```sh'
+            echo "claude plugin marketplace update coalesce"
+            echo "claude plugin update coalesce-platform-skills"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
