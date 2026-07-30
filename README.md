@@ -82,6 +82,10 @@ install without the plugin system):
 ./install.sh /custom/path    # or a custom skills directory
 ```
 
+Because it copies from your working tree, this is also how to try local changes.
+The marketplace entry pins a release tag, so installing the plugin from a local
+clone gets you that tag rather than your edits.
+
 The installer never overwrites a skill you have customized: every managed
 file carries an HTML comment marker, `coalesce-node-managed: true`. Remove
 that line from a skill's SKILL.md and the installer will

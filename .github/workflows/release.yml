@@ -1,7 +1,12 @@
-# Every push to `develop` cuts a release: bump the version, commit it back to
-# `develop`, tag it, publish a GitHub release. Version comes from the previous
-# tag — patch automatically, minor/major only via a manual run. That version is
-# Claude Code's update cache key, so tagging alone would ship nothing to users.
+# Each push to `develop` cuts a release from the branch tip: bump the version,
+# commit it back to `develop`, tag it, publish a GitHub release. Version comes from
+# the previous tag — patch automatically, minor/major only via a manual run. That
+# version is Claude Code's update cache key, so a tag alone ships nothing to users.
+#
+# Requires the RELEASE_APP_ID variable, the RELEASE_APP_PRIVATE_KEY secret, and
+# that App on the bypass list of develop's ruleset. The ruleset requires a pull
+# request, which blocks direct pushes to the ref, and GITHUB_TOKEN can never be
+# exempted from it — github-actions[bot] cannot be a ruleset bypass actor.
 
 name: Release
 
@@ -29,12 +34,45 @@ concurrency:
 
 jobs:
   release:
-    # Prevent releasing the release commit. 
+    # An App-token push does trigger workflows, unlike a GITHUB_TOKEN one, so this
+    # and the `[skip ci]` in the release commit stop the release releasing itself.
     if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
     runs-on: ubuntu-latest
     steps:
+      # Without the App credentials, checkout falls back to GITHUB_TOKEN and the job
+      # dies at the push as an opaque rule violation. Fail before doing any work.
+      - name: Require the release App credentials
+        env:
+          APP_ID: ${{ vars.RELEASE_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+        run: |
+          if [ -z "$APP_ID" ] || [ -z "$APP_PRIVATE_KEY" ]; then
+            echo "::error::Set the RELEASE_APP_ID variable and RELEASE_APP_PRIVATE_KEY secret. See the note at the top of this workflow."
+            exit 1
+          fi
+
+      # An installation token, not a stored credential: it expires in an hour and is
+      # revoked when the job ends. permission-contents narrows it to what a release
+      # needs regardless of what else the installation is granted.
+      - name: Mint the App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
+          # Push as the App, the one identity named on the ruleset's bypass list (see
+          # above). persist-credentials keeps the token configured for the push and
+          # rebase below.
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: true
+          # Release the branch tip, not the trigger SHA: runs are serialized, so the
+          # tip can already be ahead by the time one starts, and a bump committed
+          # onto a stale base cannot fast-forward.
+          ref: develop
           # Tags are the version input, and `--generate-notes` needs the history.
           fetch-depth: 0
 
@@ -88,26 +126,50 @@ jobs:
         run: .github/scripts/check-version-consistency.sh
 
       - name: Commit, tag and push
+        id: push
         env:
           VERSION: ${{ steps.version.outputs.next }}
         run: |
+          # A run queued behind another sees a tip the run ahead already released;
+          # cutting a second version for it would hand users an identical package
+          # under a new number. A manual run is a deliberate decision, so it stands.
+          if [ "$GITHUB_EVENT_NAME" = push ] && tag=$(git describe --exact-match --tags HEAD 2>/dev/null); then
+            echo "::notice::develop's tip is already released as $tag. Nothing to do."
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .claude-plugin/plugin.json .claude-plugin/marketplace.json
           git commit -m "chore(release): $VERSION [skip ci]"
-          # Tag the bump commit itself: the tag that marketplace.json now points at
-          # must be the one carrying the matching version.
-          git tag -a "$VERSION" -m "Release $VERSION"
-          git push origin HEAD:develop
-          git push origin "$VERSION"
+
+          # Branch and tag go up atomically: marketplace.json now points at $VERSION,
+          # so a develop carrying the bump without the tag is one nobody can install
+          # from. A merge can still land mid-run, so replay the bump onto the new tip
+          # and retry, re-cutting the tag to follow it. Only this job makes tags and
+          # only one runs at a time, so the computed version survives the rebase.
+          for attempt in 1 2 3; do
+            git tag -f -a "$VERSION" -m "Release $VERSION"
+            if git push --atomic origin HEAD:refs/heads/develop "refs/tags/$VERSION"; then
+              echo "released=true" >>"$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::notice::develop moved during this run. Rebasing onto it (attempt $attempt)."
+            git pull --rebase origin develop
+          done
+
+          echo "::error::develop kept moving while this run tried to release $VERSION. Re-run the workflow."
+          exit 1
 
       - name: Publish the GitHub release
+        if: steps.push.outputs.released == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.next }}
         run: gh release create "$VERSION" --title "$VERSION" --generate-notes
 
       - name: Summarize
+        if: steps.push.outputs.released == 'true'
         env:
           VERSION: ${{ steps.version.outputs.next }}
         run: |
