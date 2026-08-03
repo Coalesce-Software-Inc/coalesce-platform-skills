@@ -1,13 +1,4 @@
-# Each push to `develop` cuts a release from the branch tip: bump the version,
-# commit it back to `develop`, tag it, publish a GitHub release. Version comes from
-# the previous tag — patch automatically, minor/major only via a manual run. That
-# version is Claude Code's update cache key, so a tag alone ships nothing to users.
-#
-# Requires the RELEASE_APP_ID variable, the RELEASE_APP_PRIVATE_KEY secret, and
-# that App on the bypass list of develop's ruleset. The ruleset requires a pull
-# request, which blocks direct pushes to the ref, and GITHUB_TOKEN can never be
-# exempted from it — github-actions[bot] cannot be a ruleset bypass actor.
-
+# Bump the Claude Plugin version and publish a release.
 name: Release
 
 on:
@@ -34,13 +25,10 @@ concurrency:
 
 jobs:
   release:
-    # An App-token push does trigger workflows, unlike a GITHUB_TOKEN one, so this
-    # and the `[skip ci]` in the release commit stop the release releasing itself.
     if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
     runs-on: ubuntu-latest
     steps:
-      # Without the App credentials, checkout falls back to GITHUB_TOKEN and the job
-      # dies at the push as an opaque rule violation. Fail before doing any work.
+      
       - name: Require the release App credentials
         env:
           APP_ID: ${{ vars.RELEASE_APP_ID }}
@@ -51,9 +39,6 @@ jobs:
             exit 1
           fi
 
-      # An installation token, not a stored credential: it expires in an hour and is
-      # revoked when the job ends. permission-contents narrows it to what a release
-      # needs regardless of what else the installation is granted.
       - name: Mint the App token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -64,16 +49,12 @@ jobs:
 
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          # Push as the App, the one identity named on the ruleset's bypass list (see
-          # above). persist-credentials keeps the token configured for the push and
-          # rebase below.
+          
           token: ${{ steps.app-token.outputs.token }}
           persist-credentials: true
-          # Release the branch tip, not the trigger SHA: runs are serialized, so the
-          # tip can already be ahead by the time one starts, and a bump committed
-          # onto a stale base cannot fast-forward.
+    
           ref: develop
-          # Tags are the version input, and `--generate-notes` needs the history.
+          # Tags are the version input
           fetch-depth: 0
 
       - name: Refuse to release from anywhere but develop
@@ -98,7 +79,6 @@ jobs:
         with:
           version: ${{ steps.previoustag.outputs.tag }}
 
-      # Values arrive as env vars rather than being interpolated into the script
       - name: Choose the next version
         id: version
         env:
