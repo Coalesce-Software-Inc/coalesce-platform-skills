@@ -1,6 +1,7 @@
-# PR gate: the manifests validate and the version invariants hold.
-# Releases are tagged from the previous git tag, so this workflow is always
-# checking the previous release.
+# PR gate. Runs against the checked-out commit (the PR head, or the
+# develop tip on push) It validates both manifests, enforces the version invariants,
+# and confirms the tag that marketplace.json currently pins actually exists.
+
 name: Validate
 
 on:
