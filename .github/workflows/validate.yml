@@ -1,0 +1,50 @@
+# PR gate. Runs against the checked-out commit (the PR head, or the
+# develop tip on push) It validates both manifests, enforces the version invariants,
+# and confirms the tag that marketplace.json currently pins actually exists.
+
+name: Validate
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # Tags are needed for the release-tag existence check below.
+          fetch-depth: 0
+
+      - name: Validate marketplace manifest
+        run: npx --yes @anthropic-ai/claude-code@2.1.220 plugin validate . --strict
+
+      - name: Validate plugin manifest
+        run: npx --yes @anthropic-ai/claude-code@2.1.220 plugin validate .claude-plugin/plugin.json --strict
+
+      - name: Check version invariants
+        run: .github/scripts/check-version-consistency.sh
+
+      # A `source.ref` pointing at a tag that doesn't exist breaks installation for
+      # everyone, so this fails rather than warns. There is no release race to
+      # tolerate: the release workflow pushes the branch and its tag in one atomic
+      # push, so develop never carries a pin whose tag is missing.
+      - name: Check the pinned release tag exists
+        run: |
+          tag=$(jq -r '.plugins[0].source.ref' .claude-plugin/marketplace.json)
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "OK: tag $tag exists."
+          else
+            echo "::error::marketplace.json pins '$tag', which does not exist, so installing from the marketplace would fail. For the first release, create the tag before merging: git tag -a $tag -m 'Release $tag' && git push origin $tag"
+            exit 1
+          fi
