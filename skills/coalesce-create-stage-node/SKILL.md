@@ -13,15 +13,8 @@ description: Create a new Coalesce staging node from a source node — a Stage t
 
 Create a Stage node that maps every column of a source node 1:1. A Stage is the
 first hop out of a Source: it selects the source's columns unchanged so later
-layers build on a stable name. `coa describe sql-format` and `coa describe
-node-types` are the source of truth; consult them if anything below is unclear.
-
-> NOTE: the bundled example repo may currently FAIL `coa validate` for reasons
-> unrelated to your node (legacy job/subgraph/location/env/nodeType shapes, a
-> missing `workspace.yml`/`data.yml`). Treat `coa describe schema <type>` as
-> ground truth over the example files. If `coa validate`/`coa create` errors
-> point at workspace config you were not asked to touch, surface that to the
-> user rather than silently "fixing" shared config (see step 0 and step 4).
+layers build on a stable name. `coa describe sql-format` and `coa describe node-types`
+ are the source of truth; consult them if anything below is unclear.
 
 ## 0. Critical preflight — does a V2 Stage node type exist?
 
@@ -50,12 +43,10 @@ Then branch:
   in your summary. Follow `coa describe node-types` for the folder layout,
   `definition.yml` (`fileVersion: 2`), and the V2 `create.sql.j2` / `run.sql.j2`
   template pattern — the full recipe and the validate step live in the
-  **coalesce-workspace-config** skill ("Installing a V2 node type"). Note the
-  new type's `id` for step 3.
-- **Only a V1 Stage type exists AND other nodes already use it** — upgrading it
-  changes DDL/DML for every node of that type, so **STOP and ASK the user
-  first** before bumping its `fileVersion`. (Do not fall back to a V1 `.yml`
-  node — `.yml` is legacy, reserved for Source nodes.)
+  **coalesce-workspace-config** skill ("Installing a V2 node type"). Note the new type's `id` for step 3.
+- **Only a V1 Stage type exists AND other nodes already use it** —      
+
+  upgrading it changes DDL/DML for every node of that type, so **STOP and ASK the user first** before bumping its `fileVersion`. (Do not fall back to a V1 `.yml` node — `.yml` is legacy, reserved for Source nodes.)
 
   Never silently write a `.sql` node against a V1 Stage type — that is the
   empty-columns trap above.
@@ -63,8 +54,8 @@ Then branch:
 ## 1. Gather the source
 
 1. Identify the source node, its location, and its columns. Use `coa` as the
-   authoritative surface: `coa create -d <dir> --list-nodes` (or `coa run -d
-   <dir> --list-nodes`) to enumerate nodes, and read the source file
+   authoritative surface: `coa create -d <dir> --list-nodes` 
+   (or `coa run -d <dir> --list-nodes`) to enumerate nodes, and read the source file
    (`nodes/<SRC_LOCATION>-<SRC_NAME>.yml`) for its column names. Do not rely on
    cached context as ground truth.
 2. Note every source column name; the Stage maps them 1:1.
