@@ -13,7 +13,7 @@ description: Create a Coalesce job that selects nodes to create/run, using the c
 
 A **job** is a named orchestration definition that selects which nodes to operate on
 via selector strings. It is **not** a list of steps. Treat `coa describe schema job`
-as the source of truth — the schema below is current as of writing.
+as the source of truth.
 
 > GUARDRAIL: Jobs live in shared workspace config (`jobs/`), like locations,
 > workspaces, environments, macros, and `data.yml`. Creating or editing a job is
@@ -21,56 +21,8 @@ as the source of truth — the schema below is current as of writing.
 > confirm before writing one. (`coa describe workflow` → "Ask before doing".)
 
 ## Job schema (`coa describe schema job`)
-
-A job file is `jobs/<JOB_NAME>.yml` with exactly these fields:
-
-| Field | Required | Type | Notes |
-|-------|----------|------|-------|
-| `id` | yes | string | **Integer** string matching `^-?\d+$`, e.g. `"1"`. NOT a UUID. Must be unique among jobs. |
-| `type` | yes | string | Constant `Job`. |
-| `fileVersion` | yes | number | Constant `1`. |
-| `name` | no | string | Human-readable job name. |
-| `includeSelector` | no | string | A selector string (see below) — the nodes the job targets. |
-| `excludeSelector` | no | string | Optional selector string subtracted from the include set. |
-
-There is **no `steps` array** on a job (that belongs to subgraphs). The selection is
-expressed entirely through `includeSelector` / `excludeSelector`.
-
-### Correct YAML example
-
-```yaml
-id: "1"
-type: Job
-fileVersion: 1
-name: BUILD_TARGET
-includeSelector: '{ location: "TARGET" }+'
-excludeSelector: '{ name: "TEST_*" }'
-```
-
-## Selectors (`coa describe selectors`)
-
-Selector matching is case-insensitive and uses brace blocks. Common forms:
-
-- `{ NAME }` or `{ name: "ORDERS" }` — match a node by name (glob ok: `{ name: "STG_*" }`)
-- `{ location: "STG" }` — all nodes in a location
-- `{ nodeType: "Stage" }` — all nodes of a type (Source, Stage, Dimension, Fact, View, ...)
-- `{ subgraph: "My Group" }` — all nodes in a subgraph
-- `{ nodeID: "123" }` — by internal node id
-- `{ * }` — all nodes
-
-**Lineage operators** (do not get these backwards):
-
-- `{ NODE }+` — the node **and all downstream successors** (suffix `+`)
-- `+{ NODE }` — the node **and all upstream predecessors** (prefix `+`)
-
-**Combining**: OR via `||` / `OR` (union — multiple different nodes);
-AND via `,` / space / `AND` (intersection — one node filtered by several properties).
-
-```text
-{ name: "ORDERS" } || { name: "CUSTOMER" }     # either node (OR)
-{ name: "ORDERS", location: "SRC" }            # ORDERS in SRC (AND)
-{ location: "STG" }+                           # everything in STG and downstream
-```
+View job defintion via `coa describe`. Which nodes are included in a job are defined 
+by selectors, so view those rules as well with `coa describe selectors`
 
 ## Procedure
 

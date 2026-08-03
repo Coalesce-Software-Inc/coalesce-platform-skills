@@ -79,9 +79,21 @@ inside a legacy-shaped file — flag it for migration first.
 ## Subgraph (subgraphs/<NAME>.yml) — `coa describe schema subgraph`
 
 NOT a nodes array. Shape: `{ id, type: "Subgraph", fileVersion: 1, name,
-steps: ["<selector string>", ...] }` — each step is a selector string.
-Legacy trap: example subgraphs with a `nodes:` list of bare names are NOT the
-schema shape and fail validate.
+steps: ["<node id>", ...] }` — each step is a node's `id` (a node file's `id:`,
+or a `.sql` node's `@id`), NOT a node name and NOT a selector string.
+
+```yaml
+id: "1"
+type: Subgraph
+fileVersion: 1
+name: ANALYTICS
+steps: ["a1b2c3d4", "e5f6a7b8"]   # node IDs — node file `id:` / .sql `@id`
+```
+
+The serve UI resolves subgraph membership as `steps ∩ live-node-ids` and
+silently drops any step that isn't a real node ID.
+Legacy trap: example subgraphs with a `nodes:` list of bare names, or `steps`
+holding selector strings/node names, are NOT the schema shape.
 
 ## Node types (nodeTypes/<DisplayName>-<ID>/)
 

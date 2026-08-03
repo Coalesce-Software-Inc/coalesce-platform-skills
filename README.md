@@ -23,9 +23,9 @@ enforced by whatever harness runs the agent, using its own permission model.
   routing to the other skills. Shared reference docs live in its `reference/`
   subdirectory (coa CLI, SQL format, YAML schemas).
 - Specialist skills: `coalesce-sql-transformation`,
-  `coalesce-v1-yaml-nodes`, `coalesce-pipeline-structure`,
-  `coalesce-workspace-config`, `coalesce-cloud-api`,
-  `coalesce-git-publication`, `coalesce-review-risk`.
+  `coalesce-v1-yaml-nodes`, `coalesce-pipeline-structure`, `coalesce-workspace-config`,
+  `coalesce-cloud-api`, `coalesce-git-publication`, `coalesce-review-risk`,
+  `coalesce-transform-mcp-install`.
 - Task recipes: `coalesce-create-stage-node`, `coalesce-add-column`,
   `coalesce-rename-node-cascade`, `coalesce-create-job`.
 - `templates/workspace-CLAUDE.md` — the small per-workspace instruction file

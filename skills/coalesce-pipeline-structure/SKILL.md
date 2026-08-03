@@ -94,8 +94,11 @@ Use these (not manual text search) before deleting or renaming.
 ## Job and subgraph shapes
 
 Jobs are NOT a steps array (`includeSelector`/`excludeSelector` strings,
-integer-string `id`); subgraphs store selector STRINGS in `steps` (NOT a
-`nodes` array). Exact schemas, examples, and legacy-shape warnings: see the
+integer-string `id`). Subgraphs store node IDs in `steps` (NOT a `nodes`
+array): each entry is a node's `id` — a node file's `id:`, or a `.sql` node's
+`@id` — NOT a node name and NOT a selector string. The serve UI resolves
+subgraph membership as `steps ∩ live-node-ids` and silently drops any step that
+isn't a real node ID. Exact schemas, examples, and legacy-shape warnings: see the
 yaml-spec reference, and confirm with `coa describe schema job` /
 `coa describe schema subgraph`. Jobs and subgraphs are shared config — ask
 first.
