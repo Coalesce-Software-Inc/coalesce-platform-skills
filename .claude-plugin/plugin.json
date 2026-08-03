@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "coalesce-platform-skills",
   "displayName": "Coalesce Platform Skills",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Agent skills for working with the Coalesce Platform: building, editing, validating, and running Transform Workspace data pipelines with the coa CLI.",
   "author": {
     "name": "Coalesce",
