@@ -86,6 +86,9 @@ nodes. Report it in your summary. See coalesce-workspace-config.
 
 - **coalesce-sql-transformation** — editing SQL inside existing V2 nodes
   (columns, joins, annotations, refs).
+- **coalesce-v1-yaml-nodes** — reading/explaining V1 `.yml` nodes (the
+  UI/API-generated format): file shape, the id-based column graph, and what is
+  safe to edit. Use it whenever a task touches a `nodes/*.yml` file.
 - **coalesce-pipeline-structure** — creating/deleting/renaming/rewiring nodes,
   jobs, subgraphs (DAG topology).
 - **coalesce-workspace-config** — data.yml, locations, workspace,
