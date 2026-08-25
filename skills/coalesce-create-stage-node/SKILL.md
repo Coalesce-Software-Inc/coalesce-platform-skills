@@ -26,24 +26,24 @@ DDL/DML with no error. (`coa describe sql-format`, `coa describe node-types`.)
 
 Check what Stage type actually exists:
 
-- Look in `nodeTypes/` for a Stage definition. Node types live in
+- `coa describe node-types` — the authoritative list. The normal Stage type is a
+  package type from the base node types package, with an ID of the form
+  `<alias>:::<id>`; that is what `@nodeType()` takes.
+- A workspace-local definition, if any, lives in
   `nodeTypes/<DisplayName>-<ID>/definition.yml`; the `@nodeType()` value is the
   `id` field (also the part after the last dash in the folder name). Read its
-  `fileVersion` (absent or `1` = V1; `2` = V2).
-- `coa describe schema nodeType` documents the shape; `coa describe node-types`
-  covers authoring.
+  `fileVersion` (absent or `1` = V1; `2` = V2). `coa describe schema nodeType`
+  documents the shape.
 
 Then branch:
 
 - **A V2 Stage node type exists (`fileVersion: 2`)** — proceed; author a `.sql`
   node (preferred for all transformations). Note its `id` for step 3.
-- **`nodeTypes/` has no V2 Stage type (greenfield)** — install one, then
-  proceed. This is a sanctioned setup step: a brand-new node type can't break
-  existing nodes because none use it yet, so do it WITHOUT asking and report it
-  in your summary. Follow `coa describe node-types` for the folder layout,
-  `definition.yml` (`fileVersion: 2`), and the V2 `create.sql.j2` / `run.sql.j2`
-  template pattern — the full recipe and the validate step live in the
-  **coalesce-workspace-config** skill ("Installing a V2 node type"). Note the new type's `id` for step 3.
+- **`nodeTypes/` has no V2 Stage type** — run `coa install -d <dir>` to hydrate
+  the workspace's packages (safe, no need to ask), then re-check `nodeTypes/`
+  and `.coa/cache/packages/*/nodeTypes/`. Do NOT create a node type yourself:
+  V2 types come from the platform's base node types package (`coa init`
+  declares it; the package may be unavailable outside production registries).
 - **Only a V1 Stage type exists (`fileVersion` absent or `1`)**: author the
   Stage as a V1 `.yml` node. Do NOT upgrade the node type and do NOT stop: V1
   is the supported authoring format whenever the workspace's node types are V1.
@@ -86,8 +86,9 @@ Required top annotations, before any SQL:
 
 - `@id("<UUID>")` — PREFER a fresh UUID v4. NEVER reuse or modify an existing
   node's `@id`; duplicate IDs collide across the workspace.
-- `@nodeType("<TypeID>")` — the V2 Stage type ID you found in step 0 (the `id`
-  from `nodeTypes/<DisplayName>-<ID>/definition.yml`, or a package type ID).
+- `@nodeType("<TypeID>")` — the V2 Stage type ID you found in step 0. Normally a
+  package ID, `<alias>:::<id>`; a workspace-local type uses the `id` from
+  `nodeTypes/<DisplayName>-<ID>/definition.yml`.
 
 Then a `SELECT` mapping each source column 1:1, and a `FROM` using a
 double-quoted `ref()` with BOTH args:
@@ -104,10 +105,11 @@ FROM {{ ref("SRC", "CUSTOMER") }} CUSTOMER
 ```
 
 In the example above, `"Stage"` stands in for the actual V2 Stage type ID from
-step 0. `Stage` is a valid built-in common type ID, but the built-in `Stage` is
-V1 — only use `@nodeType("Stage")` literally if a `fileVersion: 2` node type
-with that exact `id` exists in `nodeTypes/`. Otherwise substitute the real V2
-type ID.
+step 0 — usually a package ID of the form `<alias>:::<id>`. `Stage` is a valid
+built-in common type ID, but the built-in `Stage` is V1: only use
+`@nodeType("Stage")` literally if a `fileVersion: 2` node type with that exact
+`id` exists. Otherwise substitute the real V2 type ID verbatim as
+`coa describe node-types` prints it.
 
 Rules:
 
@@ -131,8 +133,8 @@ Run the core loop and fix issues before moving on:
    validate pass.
 2. `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose` — inspect the
    generated DDL. If the column list is empty, the node type is still V1 — go
-   back to step 0 (install a V2 type if greenfield; ask before upgrading an
-   in-use type).
+   back to step 0 and point `@nodeType` at a V2 package type (ask before
+   upgrading an in-use type).
 
 `coa create`/`coa run` execute SQL DIRECTLY against the warehouse (local
 development, not deployment). Stop after the dry-run unless the user wants to

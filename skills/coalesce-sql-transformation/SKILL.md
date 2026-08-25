@@ -48,9 +48,8 @@ Shared format rules (refs, annotations, V1/V2, naming):
 - Editing an existing `.sql` node whose `@nodeType` resolves to a V1 type
   (silently-empty-columns trap)? Do NOT silently bump its `fileVersion` — that
   type is in use, so upgrading it is a shared-config change: STOP and ASK
-  (see coalesce-workspace-config). Authoring a *new* V2 node in a greenfield
-  workspace with no V2 type is different — that install is sanctioned; see
-  coalesce-pipeline-structure / coalesce-workspace-config.
+  (see coalesce-workspace-config). The fix is a V2 type from the installed base
+  node types package, not a hand-written one — never author a node type here.
 
 ## Workflow (per node)
 

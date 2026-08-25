@@ -36,7 +36,7 @@ are supported, and V1 is not a workaround.
 - [SQL format](reference/sql-format.md) — V2 vs V1 nodes, `@id`/`@nodeType`,
   `ref()` macros, the complete column annotation set, naming.
 - [YAML spec](reference/yaml-spec.md) — data.yml, locations, workspace,
-  environments, job/subgraph schemas, node type authoring.
+  environments, job/subgraph schemas, where node types come from.
 
 ## Core loop (every change)
 
@@ -61,11 +61,15 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
 4. Choose node format by role — V2 `.sql` for staging/intermediate transforms,
    V1 `.yml` for Source nodes and persistent/curated nodes (Dimension, Fact,
    Persistent Stage). A V2 `.sql` node works only against a `fileVersion: 2` node
-   type; otherwise columns are silently empty (see reference/sql-format.md). 
-   If the workspace has no V2 type of that layer, install one first 
-   (greenfield install is sanctioned without asking; see coalesce-workspace-config and `coa describe node-types`).
-   When the target node type has no `fileVersion: 2` definition at all,
-   author V1 `.yml` instead; that is supported, not a workaround.
+   type; otherwise columns are silently empty (see reference/sql-format.md).
+   V2 types come from the installed base node types package — `coa install`
+   materializes them under `.coa/cache/packages/<alias>/nodeTypes/`, and each
+   materialized definition.yml carries the resolvable `<alias>:::<id>` id to
+   use in `@nodeType()`. If none are present, run `coa install -d <dir>`;
+   never author one (see coalesce-workspace-config).
+   When no `fileVersion: 2` type exists for the target node type (the package
+   may be unavailable), author V1 `.yml` instead; that is supported, not a
+   workaround.
 5. Reference upstream nodes with `{{ ref("LOC", "NAME") }}` (both args).
    Never hardcode `db.schema.table`.
 6. Use the correct node type per layer (Stage → Persistent Stage →
@@ -81,15 +85,17 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
 In scope without asking: create/edit the specific nodes the user requested,
 and read-only commands (`coa validate`, `coa describe`, any `--dry-run`).
 
-ASK FIRST: editing nodes NOT in the request; modifying/removing a node type
-that existing nodes use (incl. bumping its `fileVersion` or swapping its
-template pattern); changing locations, workspace/environments, jobs, macros, or
+ASK FIRST: editing nodes NOT in the request; creating, modifying, or removing
+ANY node type (incl. bumping its `fileVersion` or swapping its template
+pattern); changing locations, workspace/environments, jobs, macros, or
 `data.yml`; `coa init` / `coa doctor --fix`. These are shared across many nodes
 and can silently break unrelated ones — stop and surface the choice.
 
-Sanctioned without asking: installing a NEW `fileVersion: 2` node type when the
-workspace has none of that layer (greenfield setup) — it can't break existing
-nodes. Report it in your summary. See coalesce-workspace-config.
+Never author a node type to satisfy a `.sql` node. Base types come from the
+installed base node types package; if none are present, run `coa install -d
+<dir>` (safe without asking) and, failing that, tell the user `coa init`
+installs it. A custom net-new type is authored only when the user explicitly
+asks — and even then, ASK FIRST. See coalesce-workspace-config.
 
 ## When to use the other coalesce-* skills
 

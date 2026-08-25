@@ -35,13 +35,14 @@ A V2 `.sql` node REQUIRES a node type whose `nodeTypes/<ID>/definition.yml` has
 the node still loads but its columns are **SILENTLY EMPTY** (`columns: []`) —
 `coa create`/`coa run` then emit broken DDL/DML with no error. The built-in
 common types (Source, Stage, View, Dimension, Fact, Persistent Stage) are V1;
-using them in a `.sql` file triggers this trap. If a needed V2 node type does
-not exist, install one before authoring the node: creating a NEW V2 type in a
-workspace that has none of that layer (greenfield) is sanctioned without asking;
-upgrading a V1 type that existing nodes already use changes their DDL/DML, so
-that STILL requires approval. Never silently write a `.sql` node against a V1
-type. Recipe + validate step: coalesce-workspace-config ("Installing a V2 node
-type") and `coa describe node-types`.
+using them in a `.sql` file triggers this trap. V2 types come from the installed
+base node types package for the platform — list them with
+`coa describe node-types` (package IDs look like `<alias>:::<id>`). If none are
+present, run `coa install -d <dir>` to hydrate packages; if that still yields
+nothing, STOP and tell the user `coa init` installs the package. Do NOT author a
+node type. Upgrading a V1 type that existing nodes already use changes their
+DDL/DML and STILL requires approval. Never silently write a `.sql` node against
+a V1 type. See coalesce-workspace-config ("Getting V2 node types").
 
 The other way out of the trap: when the node type you need has no
 `fileVersion: 2` definition available at all, do not force `.sql`. Author the
@@ -64,9 +65,10 @@ coalesce-pipeline-structure skill ("Creating a V1 (.yml) node").
 
 - `@id("<UUID>")` — stable, immutable identifier. PREFER a fresh UUID v4 for
   new nodes. NEVER reuse or modify an existing `@id` (node or column).
-- `@nodeType("<TypeID>")` — must match a node type in `nodeTypes/<ID>/` (the
-  ID after the last dash in the folder name) or a package node type ID
-  (e.g. `"dynamic-tables:::347"`).
+- `@nodeType("<TypeID>")` — normally a package node type ID, `<alias>:::<id>`
+  (e.g. `"dynamic-tables:::347"`), from the installed base node types package.
+  A workspace-local type uses the ID after the last dash in its
+  `nodeTypes/<ID>/` folder name.
 
 Keep `@id` and `@nodeType` as the first lines. Match the existing `.sql`
 nodes: only those two annotations precede the SQL (no bare `fileVersion`
@@ -165,6 +167,6 @@ SELECT
 FROM {{ ref("STG", "STG_CUSTOMERS") }}
 ```
 
-(`"Dimension"` stands in for a real V2 node type ID from `nodeTypes/` — the
-built-in `Dimension` is V1.) Note the first two lines are BARE — no leading
+(`"Dimension"` stands in for a real V2 node type ID from
+`coa describe node-types` — the built-in `Dimension` is V1.) Note the first two lines are BARE — no leading
 `--`. That is deliberate and required (see "Write the annotations BARE" above).

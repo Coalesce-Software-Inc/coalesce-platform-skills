@@ -92,6 +92,9 @@ Coalesce cloud API and caches them locally so `create`/`run` can render
 package-provided node types. REQUIRED for any workspace that uses packages:
 run it after init or after pulling a repo that uses packages. It only fetches
 and caches (no shared-config mutation), so it is safe to run without asking.
+This is how the base node types package for the platform (installed by
+`coa init`) becomes usable — it is the fix for "no V2 node type available",
+never hand-writing one.
 
 ## Credentials
 
@@ -109,5 +112,5 @@ files.
   preview, `coa install`, and `coa doctor` without `--fix`.
 - ASK FIRST: anything that writes credentials or shared config — `coa init`,
   `coa doctor --fix`, editing `data.yml` / `locations.yml` / `workspace.yml`,
-  node types, jobs, macros, environments. Never auto-bootstrap, auto-fix, or
-  push to a remote without explicit approval.
+  node types (creating one included), jobs, macros, environments. Never
+  auto-bootstrap, auto-fix, or push to a remote without explicit approval.

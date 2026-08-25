@@ -41,15 +41,15 @@ plan/deploy is separate (git push → web UI/CI).
 ## ASK FIRST (shared config — can silently break unrelated nodes)
 
 - Editing nodes NOT in the request.
-- Modifying or removing a node type that existing nodes already use, incl.
-  bumping its `fileVersion` or swapping its template pattern.
+- Creating, modifying, or removing any node type, incl. bumping its
+  `fileVersion` or swapping its template pattern.
 - Changing locations, workspaces, environments, jobs, macros, or `data.yml`.
 
-**Sanctioned without asking:** if a V2 `.sql` node needs a node type and the
-workspace has NO V2 type of that layer (greenfield), install one and proceed —
-a brand-new type can't break existing nodes. Report it in your summary. Recipe
-+ validate step: coalesce-workspace-config ("Installing a V2 node type") and
-`coa describe node-types`.
+**Never author a node type for a `.sql` node.** Base types come from the
+installed base node types package (`coa describe node-types`; package IDs look
+like `<alias>:::<id>`). If none are present, run `coa install -d <dir>` — safe
+without asking — and if that still yields nothing, STOP and tell the user
+`coa init` installs the package. See coalesce-workspace-config.
 
 ## Creating a node (V2 .sql, when a `fileVersion: 2` node type exists)
 
@@ -60,8 +60,8 @@ a brand-new type can't break existing nodes. Report it in your summary. Recipe
 - Required top annotations before any SQL: `@id("<fresh UUID>")` (never reuse
   an existing one) and `@nodeType("<TypeID>")` — which MUST resolve to a
   `fileVersion: 2` node type, or columns are SILENTLY EMPTY (broken DDL/DML).
-  If no V2 type of that layer exists yet, install one first (greenfield =
-  sanctioned; see coalesce-workspace-config).
+  Normally a package ID from the base node types package; if none is available,
+  `coa install -d <dir>` first (see coalesce-workspace-config).
 - Write both annotations as BARE lines — do NOT prefix them with `--` or wrap
   them in `/* */`. `@id("…")` is not valid SQL on its own, but commenting it
   out makes `coa` unable to read it: the node is silently dropped (validate

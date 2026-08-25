@@ -31,8 +31,8 @@ it automatically).
    local development, NOT deploy. Work reaches the cloud only via git push,
    then plan/deploy in the Coalesce web UI or CI.
 2. Ask before editing shared config (`data.yml`, `locations.yml`,
-   `workspace.yml`, `environments/`, `jobs/`, `macros/`, `nodeTypes/`) — an
-   edit there can silently break unrelated nodes.
+   `workspace.yml`, `environments/`, `jobs/`, `macros/`, `packages/`,
+   `nodeTypes/`) — an edit there can silently break unrelated nodes.
 
 If `.claude/workspace-context.json` exists, read it first — it holds the
 current node inventory, edges, jobs, environments, and diagnostics.

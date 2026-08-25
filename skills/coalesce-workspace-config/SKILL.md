@@ -19,8 +19,8 @@ Treat `coa describe <topic>` and `coa describe schema <type>` as the source of
 truth — NOT the example files (the bundled example-repository fails
 `coa validate`).
 
-File shapes, the location-name consistency rule, node type authoring, and the
-V2 CTAS template pattern:
+File shapes, the location-name consistency rule, where node types come from, and
+the V2 CTAS template pattern:
 [yaml-spec reference](../coalesce-pipelines/reference/yaml-spec.md).
 Credentials and `~/.coa/config`:
 [coa-cli reference](../coalesce-pipelines/reference/coa-cli.md).
@@ -36,11 +36,10 @@ go-ahead. Read-only commands (`coa describe`, `coa validate`, `coa doctor`
 without `--fix`, any `--dry-run`) you may run freely. Never put secrets in repo
 files — credentials live in `~/.coa/config`.
 
-**One sanctioned exception (see "Installing a V2 node type" below):** creating a
-brand-new `fileVersion: 2` node type in a workspace that has *no* V2 type of
-that layer is a greenfield setup step — do it without asking, then report it.
-Modifying or upgrading a node type that existing nodes already depend on is NOT
-covered by this exception and still requires approval.
+**Do NOT author node types** (see "Getting V2 node types" below). Base types
+come from the installed base node types package, not from files you write.
+Creating, modifying, or upgrading anything under `nodeTypes/` requires the
+user's explicit request and approval.
 
 ## The fileVersion 1 vs 2 trap
 
@@ -49,56 +48,38 @@ V2 `.sql` nodes (the default for staging/intermediate transforms) REQUIRE a node
 `.sql` node parses to `columns: []` — no error, but broken DDL/DML at render.
 For V2, `col.dataType` is `UNKNOWN`, so templates MUST use the CTAS pattern
 (iterate `sources` → `source.columns`, guard create with `WHERE 1=0`) and
-never emit `{{ col.dataType }}`. V1 node types use explicit-column DDL. Full
-template example in the yaml-spec reference.
+never emit `{{ col.dataType }}`. V1 node types use explicit-column DDL. The
+remedy is never to write a template: point `@nodeType` at a V2 type from the
+installed base node types package (hydrate with `coa install` if none are
+present — see below).
 
-## Installing a V2 node type
+## Getting V2 node types
 
-When a task needs a V2 `.sql` node but no `fileVersion: 2` node type of that
-layer exists, the workspace must gain one before the `.sql` node can render.
-`coa describe node-types` is the authoritative how-to — it documents the folder
-layout, `nodeMetadataSpec`, and the exact V1-vs-V2 template patterns. Read it
-and `coa describe schema nodeType`; do NOT copy template bodies from example
-files (they may fail `coa validate`).
+V2 node types are NOT authored. They ship in the base node types package for
+your platform, which `coa init` installs and `coa install` hydrates. Hydrated
+package types show up as package node types with IDs of the form
+`<alias>:::<id>` — that is the normal value for `@nodeType()`.
 
-**Decide the path first:**
+**Find them:**
 
-- **Greenfield (no V2 type of that layer in `nodeTypes/`)** — install one
-  WITHOUT asking. This is the sanctioned setup step: it can't break existing
-  nodes because none use it yet. Report the new node type in your summary
-  (name, `fileVersion: 2`, template pattern used).
-- **A V1 type is already in use by other nodes** — upgrading it changes the
-  generated DDL/DML for *every* node of that type. STOP and ASK first; on
-  approval, bump `fileVersion` and swap templates to the V2 pattern.
+- `coa describe node-types` — the authoritative list of what this workspace can
+  use, package types included.
+- `packages/` (the package declarations) and `.coa/cache` (the hydrated
+  contents) confirm the package is present locally.
 
-**Install steps (greenfield):**
-Reference `coa describe node-types` for examples of the following elements
-1. Create `nodeTypes/<DisplayName>-<UUID>/` — the folder MUST contain three
-   files: `definition.yml`, `create.sql.j2`, AND `run.sql.j2`. A node type with
-   only `definition.yml` (no templates) renders nothing — every node of that
-   type builds a zero-column / empty table. Prefer a real UUID for the ID to
-   avoid collisions.
-2. `definition.yml` — `fileVersion: 2`, `type: NodeType`, the UUID `id`, and a
-   `nodeMetadataSpec` (capitalized/short/plural/tagColor; config/systemColumns
-   as needed). Shape per `coa describe schema nodeType`.
-3. `create.sql.j2` and `run.sql.j2` — the V2 CTAS template pattern. Do NOT
-   hand-write your own Jinja from scratch and do NOT use `{{ node.sql }}` as the
-   body — a template that doesn't iterate `sources`/`source.columns` renders
-   degenerate DDL (empty projection or `SELECT *`), so every node of the type
-   builds a zero-column table even when the node's SELECT lists columns. Copy
-   the exact V2 templates from `coa describe node-types` verbatim; they are the
-   authoritative, working pattern. The canonical V2 Stage pair is below — use it
-   as-is (only swap the display name / colors) unless `coa describe` differs, in
-   which case `coa describe` wins.
+**If no V2 type is available:**
 
+1. `coa install -d <dir>` — hydrates declared packages. Safe, run it without
+   asking, then re-check `coa describe node-types`.
+2. Still none — STOP. Tell the user the base node types package isn't installed
+   for this workspace and that `coa init` installs it. Do NOT create
+   `nodeTypes/*` to fill the gap.
 
-
-**Validate the initial state (proves the trap is gone):**
-
-- `coa validate -d <dir>` passes.
-- `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --json` —
-  columns render and the SQL is non-empty. Empty columns mean the type is still
-  effectively V1; fix before authoring nodes against it.
+**Custom node types** are only for a genuinely net-new type the user explicitly
+asks for. ASK FIRST, then follow `coa describe node-types` (folder layout,
+`nodeMetadataSpec`, V2 template pattern) and `coa describe schema nodeType`.
+Modifying or upgrading a type existing nodes already depend on changes the
+generated DDL/DML for *every* node of that type — always ask.
 
 ## Workflow (define → validate → dry-run → verify)
 

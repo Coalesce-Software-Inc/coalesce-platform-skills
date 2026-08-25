@@ -14,7 +14,8 @@ break unrelated nodes, so ask the user before changing any of them.
 ├── locations.yml     # storage location names (required)
 ├── workspace.yml     # local db/schema mappings (optional, local-only)
 ├── nodes/            # node files: <LOCATION>-<NAME>.sql / .yml (flat)
-├── nodeTypes/        # node type definitions: <DisplayName>-<ID>/
+├── nodeTypes/        # workspace-local node types: <DisplayName>-<ID>/
+├── packages/         # package declarations (base node types package)
 ├── environments/     # environment configs
 ├── subgraphs/        # logical node groupings
 ├── jobs/             # orchestration definitions
@@ -97,8 +98,12 @@ holding selector strings/node names, are NOT the schema shape.
 
 ## Node types (nodeTypes/<DisplayName>-<ID>/)
 
-The `<ID>` after the last dash is the `@nodeType()` value — PREFER a UUID.
-Each folder holds:
+Base node types are NOT authored here — they ship in the base node types package
+for the platform, declared under `packages/`, hydrated into `.coa/cache` by
+`coa install`, and referenced as `<alias>:::<id>`. `coa describe node-types`
+lists everything the workspace can use. `nodeTypes/` holds only workspace-local
+types; the `<ID>` after the last dash is their `@nodeType()` value. Each folder
+holds:
 
 - **definition.yml** — `{ isDisabled, name, id, type: "NodeType", fileVersion,
   metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML

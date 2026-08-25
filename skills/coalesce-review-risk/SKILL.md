@@ -65,11 +65,10 @@ Format rules being checked:
 - Edits to SHARED config — `nodeTypes/*`, locations, workspace, environments,
   jobs, macros, `data.yml`, `fileVersion` bumps, template swaps. These were
   likely OUT of the request's scope and can silently break unrelated nodes;
-  surface them prominently. Exception: a NEW `fileVersion: 2` node type added to
-  a workspace that had none of that layer (greenfield setup) is expected when
-  the change introduces V2 `.sql` nodes — verify it's a net-new type (not a
-  modification of one existing nodes already use) and that it validates, rather
-  than flagging it as an unscoped edit.
+  surface them prominently. A NEW `nodeTypes/*` directory is no exception: V2
+  types normally arrive via the installed base node types package, so a
+  hand-authored one in a diff is a shared-config change to surface — ask whether
+  the user actually requested a custom type.
 
 ## Constraints
 
