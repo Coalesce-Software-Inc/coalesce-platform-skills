@@ -1,6 +1,6 @@
 ---
 name: coalesce-v1-yaml-nodes
-description: Use when reading, explaining, or making narrow edits to Coalesce V1 YAML nodes (nodes/<LOCATION>-<NAME>.yml) — the UI/API-generated node format. Covers the file shape, the id-based column lineage graph, and what an agent should and should not touch. Not for authoring new V1 nodes by hand.
+description: Use when reading, explaining, editing, or authoring Coalesce V1 YAML nodes (nodes/<LOCATION>-<NAME>.yml) — the node format the UI/API also generates. Covers the file shape, the id-based column lineage graph, safe edits, and the checklist for authoring a new V1 node by hand.
 ---
 <!-- coalesce-node-managed: true -->
 
@@ -8,15 +8,20 @@ description: Use when reading, explaining, or making narrow edits to Coalesce V1
 > loaded the `coalesce-pipelines` skill in this session, load it now, read its
 > "Orient first" step, core `coa` loop, and Rules, then return here.
 
-V1 nodes are the YAML node format at `nodes/<LOCATION>-<NAME>.yml`. They are
-what the Coalesce **UI and API produce** — a serialized form of the node graph,
-including an id-based column lineage graph. Most existing workspaces are
-entirely or mostly V1.
+V1 nodes are the YAML node format at `nodes/<LOCATION>-<NAME>.yml`. The
+Coalesce **UI and API produce** this format natively — a serialized form of
+the node graph, including an id-based column lineage graph. Most existing
+workspaces are entirely or mostly V1.
 
-**The point of this skill is comprehension, not authorship.** Read a V1 node
-confidently, answer questions about it, trace lineage through it, and make the
-narrow edits listed below. Do NOT hand-author new V1 nodes or restructure their
-column graph — see "Scope" at the end.
+**Policy: nodes are authored freely** — via files + CLI or via the UI, V1 and
+V2 alike. This skill makes you competent in the V1 format: read a node, answer
+questions about it, trace lineage, make safe edits, and author a new V1 node
+by hand when the task calls for one (config-driven types like an SCD2
+Dimension are the common reason). Hand-authoring is supported but intricate —
+the id graph and per-type config defaults have sharp edges — so follow the
+"Authoring a new V1 node" checklist below and verify every step with `coa`.
+For Source nodes, always generate with `coa sources add` instead of writing
+YAML.
 
 ## Schema is authoritative — read it
 
@@ -220,18 +225,15 @@ catch exactly the damage a careless V1 edit does:
 
 **Do NOT do these:**
 
-- Do not change any `id`, `columnCounter`, or `stepCounter`. Ever. They are the
-  graph.
-- Do not hand-author a new V1 `.yml` node, and do not convert a V2 `.sql` node
-  into one. For a NEW transformation node, author a V2 `.sql` node instead (see
-  `coalesce-create-stage-node` and `coalesce-pipelines`). For new **Source**
-  nodes, use `coa sources add` — it generates correct V1 YAML from the warehouse
-  tables; never scaffold source YAML by hand.
-- Do not add or remove columns in a V1 node, and do not restructure
-  `sourceMapping` (adding a source group, making a node multisource). Both
-  require minting and cross-wiring ids that only the UI/API and `coa sources`
-  produce reliably. Say so and offer the alternatives: do it in the Coalesce UI,
-  or build the new shape as a V2 `.sql` node.
+- Do not change any EXISTING `id`, `columnCounter`, or `stepCounter`. Ever.
+  They are the graph. (Minting fresh ids for a NEW node you are authoring is
+  fine — see the authoring checklist.)
+- Do not scaffold Source-node YAML by hand — use `coa sources add`, which
+  generates correct V1 YAML from the warehouse tables.
+- When adding columns to or restructuring an EXISTING V1 node (adding a source
+  group, making a node multisource), be aware you are cross-wiring ids by
+  hand: follow the authoring checklist's id rules, and prefer the Coalesce UI
+  when one is at hand — it does this bookkeeping for you.
 - Do not "tidy" a V1 node — no key reordering, no dropping fields that look
   redundant (`aliases`, `noLinkRefs`, `columnReference` on a derived column),
   no rewriting single-quoted `ref()` calls to double quotes. These files are
@@ -242,10 +244,37 @@ catch exactly the damage a careless V1 edit does:
   `sourceMapping[].dependencies[]`, every `ref()` string, and job/subgraph
   selectors all have to move together. Use `coalesce-rename-node-cascade`.
 
-**If the user insists on an out-of-scope V1 edit:** say plainly that hand-editing
-the V1 column graph is error-prone and that the UI/API is the supported path.
-If they reaffirm, proceed carefully on the smallest possible change — a fresh
-UUID for any new `columnCounter`, `stepCounter` set to the node's own `id`,
-`sourceColumnReferences` pointing at real upstream `columnCounter` values you
-looked up — then `coa validate` and a `--dry-run --verbose` and show them the
-rendered SQL before anything executes.
+## Authoring a new V1 node by hand — checklist
+
+Verified end to end (a hand-authored SCD2 Dimension runs green), but every
+step matters:
+
+1. **Schema first**: `coa describe schema node` is the authoritative shape.
+   Do not copy a sibling file's quirks.
+2. **Ids**: node `id` = fresh UUID. Every column's
+   `columnReference.stepCounter` = the node's own `id`;
+   `columnReference.columnCounter` = fresh UUID per column.
+   `sourceColumnReferences[].columnReferences[]` must point at the REAL
+   upstream node `id` and the upstream column's `columnCounter` — read them
+   out of the upstream file; never fabricate.
+3. **Transforms**: `sourceColumnReferences[0].transform` is what
+   `get_source_transform(col)` emits — put the aliased SQL expression there
+   (e.g. `"CUSTOMER"."C_CUSTKEY"`). Derived columns (aggregates, literals) use
+   empty `columnReferences: []` with the expression in `transform`.
+4. **Join**: `sourceMapping[].join.joinCondition` is the literal
+   `FROM ... JOIN ... [GROUP BY ...]` SQL with `{{ ref('LOC','NODE') }}`
+   macros; also list `dependencies[]` explicitly.
+5. **Config defaults are load-bearing**: built-in Stage renders ZERO run
+   stages unless `config.insertStrategy: 'INSERT'` is set (plus
+   `truncateBefore` / `testsEnabled` as desired). The UI writes these
+   invisibly; you must write them yourself. If a run dry-run reports
+   "Template rendered zero SQL stages", check config first.
+6. **SCD2 Dimension**: business key column gets `isBusinessKey: true`; tracked
+   columns get `isChangeTracking: true`; add the system columns your Dimension
+   type's `systemColumns` spec names (surrogate key with
+   `isSurrogateKey: true`, `SYSTEM_VERSION`, `SYSTEM_CURRENT_FLAG`,
+   start/end/create/update dates with their `isSystem*` flags and transforms).
+7. **Verify before executing**: `coa validate`, then
+   `coa create --dry-run --verbose --include "{ NODE }"` AND
+   `coa run --dry-run --verbose --include "{ NODE }"` — inspect the rendered
+   SQL both ways. Show the user the rendered SQL before anything executes.

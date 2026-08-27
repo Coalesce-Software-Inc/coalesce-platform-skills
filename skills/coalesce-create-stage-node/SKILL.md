@@ -37,16 +37,17 @@ Then branch:
 
 - **A V2 Stage node type exists (`fileVersion: 2`)** — proceed; author a `.sql`
   node (preferred for all transformations). Note its `id` for step 3.
-- **`nodeTypes/` has no V2 Stage type (greenfield)** — install one, then
-  proceed. This is a sanctioned setup step: a brand-new node type can't break
-  existing nodes because none use it yet, so do it WITHOUT asking and report it
-  in your summary. Follow `coa describe node-types` for the folder layout,
-  `definition.yml` (`fileVersion: 2`), and the V2 `create.sql.j2` / `run.sql.j2`
-  template pattern — the full recipe and the validate step live in the
-  **coalesce-workspace-config** skill ("Installing a V2 node type"). Note the new type's `id` for step 3.
+- **`nodeTypes/` has no V2 Stage type** — get one, SEARCH-FIRST: prefer an
+  existing packaged node type (official) via `coa install` / the package
+  registry / asking which packages the org uses; only when nothing fits,
+  create a custom `fileVersion: 2` type per `coa describe node-types` — the
+  full recipe and the validate step live in the **coalesce-workspace-config**
+  skill ("Installing a V2 node type"). Neither path can break existing nodes
+  (nothing uses the type yet), so proceed and report which path you took.
+  Note the type's `id` for step 3.
 - **Only a V1 Stage type exists AND other nodes already use it** —      
 
-  upgrading it changes DDL/DML for every node of that type, so **STOP and ASK the user first** before bumping its `fileVersion`. (Do not fall back to a V1 `.yml` node — `.yml` is legacy, reserved for Source nodes.)
+  upgrading it changes DDL/DML for every node of that type, so **STOP and ASK the user first** before bumping its `fileVersion`. (A V1 `.yml` Stage authored via the UI is also a legitimate path — nodes may be authored freely in either format; a `.sql` file just needs a V2 type behind it.)
 
   Never silently write a `.sql` node against a V1 Stage type — that is the
   empty-columns trap above.
@@ -106,10 +107,12 @@ Rules:
   There is no name-only form. `ref()` creates the lineage edge and resolves to
   the real `database.schema.table`; NEVER hardcode `db.schema.table`.
 - A plain 1:1 Stage needs no column annotations. If you want lineage IDs or
-  docs, the only valid column annotations are `@id("col-id")` and
-  `@description("text")` (both metadata-only), placed AFTER the alias and BEFORE
-  the comma. `@isBusinessKey` / `@isChangeTracking` belong on Persistent
-  Stage/Dimension, not a plain Stage. Do NOT invent annotations.
+  docs, use `@id("col-id")` and `@description("text")` (both metadata-only),
+  placed AFTER the alias and BEFORE the comma. `@isBusinessKey` /
+  `@isChangeTracking` belong on Persistent Stage/Dimension, not a plain Stage.
+  Additional annotations exist ONLY if the node type declares them in its
+  `annotations:` block — an undeclared annotation silently zeroes out ALL of
+  the node's columns (see sql-format reference). Do NOT invent annotations.
 
 ## 4. Verify with coa (mandatory)
 

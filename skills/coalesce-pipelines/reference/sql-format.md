@@ -3,24 +3,26 @@
 
 `coa describe sql-format` and `coa describe concepts` are the source of truth.
 
-## Two formats — choose by node role
+## Two formats — choose by where the node's value lives
 
-Both formats are first-class. Pick by the node's ROLE rather than defaulting
-everything to one format:
+Both formats are first-class and both are freely authorable (files + CLI or
+the Coalesce UI). Neither is "legacy". Pick by what carries the node's value:
 
-- **V2 — `.sql`, `fileVersion: 2` — the default for STAGING and INTERMEDIATE
-  transforms.** Ephemeral, regenerable nodes; columns are inferred from the SELECT.
-  File at `nodes/<LOCATION>-<NAME>.sql`.
-- **V1 — `.yml`, `fileVersion: 1` — the default for SOURCE nodes and for PERSISTENT /
-  CURATED nodes** (Dimension, Fact, Persistent Stage). Columns are explicit, with data
-  types and source mappings — a durable, published contract for the layer other models
-  and dashboards depend on. Also required for any V1-only node type. File at
-  `nodes/<LOCATION>-<NAME>.yml`; see `coa describe schema node`.
+- **V2 — `.sql`, `fileVersion: 2` — the node's value is its SQL.** Transforms,
+  metrics, joins, business logic. Columns AND data types are inferred from the
+  SELECT (aggregates included), so the rendered DDL is fully typed. The natural
+  format for file-based and agent authoring. File at
+  `nodes/<LOCATION>-<NAME>.sql`.
+- **V1 — `.yml`, `fileVersion: 1` — the node's value is its configuration.**
+  Source nodes (generate with `coa sources add`, never by hand) and
+  config-driven patterns like SCD2 Dimensions, where business-key +
+  change-tracking flags drive a generated merge no one should write by hand.
+  Explicit columns with source mappings. Also required for any V1-only node
+  type. File at `nodes/<LOCATION>-<NAME>.yml`; see `coa describe schema node`
+  and the coalesce-v1-yaml-nodes skill before authoring or editing one.
 
-Rule of thumb: ephemeral, high-volume transform → **V2 `.sql`**; a persistent curated
-contract or a Source node → **V1 `.yml`**. (Both curated annotations `@isBusinessKey` and
-`@isChangeTracking` work in V2 as well — the V1 default for curated layers is about explicit,
-reviewable column contracts, not a capability gap.)
+(Both curated annotations `@isBusinessKey` and `@isChangeTracking` work in V2
+as well — the choice is about authoring ergonomics, not a capability gap.)
 
 ## The silently-empty-columns trap
 
@@ -108,10 +110,12 @@ Refs are quote-agnostic in practice — existing repos often use single quotes
 case-insensitively. Leave existing valid single-quoted refs alone; do not
 rewrite them just to change quote style.
 
-## Column annotations — the COMPLETE set
+## Column annotations — a native set plus what the node type declares
 
 Placed AFTER the alias and BEFORE the comma, e.g.
-`CREATED_AT @isChangeTracking,`:
+`CREATED_AT @isChangeTracking,`.
+
+**Native annotations** (always available):
 
 - `@isBusinessKey` — required on Persistent Stage + Dimension (optional on
   Stage); the MERGE/SCD key; **affects DDL**.
@@ -119,10 +123,32 @@ Placed AFTER the alias and BEFORE the comma, e.g.
 - `@id("col-id")` — column lineage; metadata only.
 - `@description("text")` — docs; metadata only.
 
-Do NOT invent annotations: `@isSurrogateKey`, `@pii`, `@synqMonitor`,
-`@prgTest` are NOT in the coa SQL annotation spec. (`isSurrogateKey` exists as
-a boolean column field in the V1 node JSON schema — legitimate in a `.yml`
-node — but it is NOT a `.sql` column annotation.)
+**Declared annotations**: a node type's `nodeMetadataSpec` may carry an
+`annotations:` block declaring additional node- and column-level annotations
+(e.g. a data quality test library). Declaring a column annotation makes the
+parser accept it inline and flatten it onto the column object in template
+context (`{parameters: [...]}`, or `true` for parameterless). Check the node
+type's `definition.yml` for what is legal on that type.
+
+Hazards, all verified:
+
+- **An UNDECLARED column annotation silently zeroes out ALL columns of the
+  node** — validate may stay green while create renders empty DDL. If a node's
+  columns vanish, check for a typo'd or undeclared annotation first.
+- Repeated annotations collapse (last one wins), even with
+  `allowsMultiple: true`. Pass lists variadically in ONE call:
+  `@accepted_values("A", "B", "C")`.
+- An annotation named `unique` collides with the SQL keyword and fails
+  validation; use a different name (or a parameterized form like
+  `@tests("unique")` where the type declares it).
+- Node-level declared annotations (other than `@materializationType` and
+  `@description`) do NOT currently reach template context — declaring them
+  documents intent but templates cannot act on them locally.
+
+Do NOT invent annotations that are neither native nor declared by the node
+type: `@isSurrogateKey`, `@pii`, `@synqMonitor` are NOT in the spec.
+(`isSurrogateKey` exists as a boolean column field in the V1 node JSON schema —
+legitimate in a `.yml` node — but it is NOT a `.sql` column annotation.)
 
 ## SQL conventions
 

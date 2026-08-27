@@ -46,10 +46,11 @@ plan/deploy is separate (git push → web UI/CI).
 - Changing locations, workspaces, environments, jobs, macros, or `data.yml`.
 
 **Sanctioned without asking:** if a V2 `.sql` node needs a node type and the
-workspace has NO V2 type of that layer (greenfield), install one and proceed —
-a brand-new type can't break existing nodes. Report it in your summary. Recipe
-+ validate step: coalesce-workspace-config ("Installing a V2 node type") and
-`coa describe node-types`.
+workspace has NO V2 type of that layer — search-first: install an existing
+packaged node type if one fits (packages are official); create a custom type
+only when nothing does. Neither can break existing nodes. Report which path
+you took. Recipe + validate step: coalesce-workspace-config ("Installing a V2
+node type") and `coa describe node-types`.
 
 ## Creating a node (V2 .sql — preferred for ALL transformations)
 
@@ -68,13 +69,16 @@ a brand-new type can't break existing nodes. Report it in your summary. Recipe
   shows 0 errors, node never builds). Then confirm the node loaded with
   `coa create --dry-run --verbose --include "{ NODE }"` — not `coa validate`
   alone, which stays green for a dropped node.
-- Use V1 (`.yml`, fileVersion 1) for Source nodes, persistent/curated layers,
-  and V1-only types (see coalesce-pipelines Rule 4). Do NOT hand-author a new
-  V1 node: generate Source nodes with `coa sources add`, and for anything else
-  either author a V2 `.sql` node or direct the user to the Coalesce UI/API.
-  Load `coalesce-v1-yaml-nodes` before touching an existing `nodes/*.yml`.
+- Use V1 (`.yml`, fileVersion 1) for Source nodes (generate with
+  `coa sources add`, never by hand), config-driven types (e.g. SCD2
+  Dimension), and V1-only types (see coalesce-pipelines Rule 4 and glossary).
+  V1 nodes may be authored via the UI or by hand in files — hand-authoring is
+  intricate, so load `coalesce-v1-yaml-nodes` and follow its "Authoring a new
+  V1 node" checklist before writing or touching any `nodes/*.yml`.
 - Refs, column annotations, and a full example: see the sql-format reference.
-  Only `@isBusinessKey`, `@isChangeTracking`, `@id`, `@description` exist.
+  Native annotations are `@isBusinessKey`, `@isChangeTracking`, `@id`,
+  `@description`; node types may DECLARE more in their `annotations:` block —
+  an undeclared annotation silently empties the node's columns.
 
 ## Impact analysis (lineage selectors)
 

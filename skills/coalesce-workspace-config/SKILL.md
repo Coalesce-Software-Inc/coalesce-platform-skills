@@ -36,20 +36,26 @@ go-ahead. Read-only commands (`coa describe`, `coa validate`, `coa doctor`
 without `--fix`, any `--dry-run`) you may run freely. Never put secrets in repo
 files — credentials live in `~/.coa/config`.
 
-**One sanctioned exception (see "Installing a V2 node type" below):** creating a
-brand-new `fileVersion: 2` node type in a workspace that has *no* V2 type of
-that layer is a greenfield setup step — do it without asking, then report it.
-Modifying or upgrading a node type that existing nodes already depend on is NOT
-covered by this exception and still requires approval.
+**One sanctioned exception (see "Installing a V2 node type" below):** getting a
+node type into a workspace that has *no* type of that layer — SEARCH-FIRST:
+install an existing packaged node type when one fits (packages are official);
+create a brand-new custom `fileVersion: 2` type only when nothing does. Either
+way it can't break existing nodes, so proceed without asking and report which
+path you took and why. Modifying or upgrading a node type that existing nodes
+already depend on is NOT covered by this exception and still requires approval.
 
 ## The fileVersion 1 vs 2 trap
 
-V2 `.sql` nodes (the default for staging/intermediate transforms) REQUIRE a node type with
-`fileVersion: 2` in its `definition.yml`. With fileVersion 1 (or absent), a
-`.sql` node parses to `columns: []` — no error, but broken DDL/DML at render.
-For V2, `col.dataType` is `UNKNOWN`, so templates MUST use the CTAS pattern
-(iterate `sources` → `source.columns`, guard create with `WHERE 1=0`) and
-never emit `{{ col.dataType }}`. V1 node types use explicit-column DDL. Full
+V2 `.sql` nodes REQUIRE a node type with `fileVersion: 2` in its
+`definition.yml`. With fileVersion 1 (or absent), a `.sql` node parses to
+`columns: []` — no error, but broken DDL/DML at render.
+
+Template pattern note: current `coa` INFERS `col.dataType` for V2 nodes
+(verified: fully typed DDL renders even for aggregate SELECTs), so
+explicit-column DDL templates work. Older builds surfaced `UNKNOWN`; the CTAS
+pattern (iterate `sources` → `source.columns`, guard create with `WHERE 1=0`)
+remains the conservative fallback. Whichever pattern you use, PROVE it with
+`coa create --dry-run --verbose` before authoring nodes against it. Full
 template example in the yaml-spec reference.
 
 ## Installing a V2 node type
@@ -61,15 +67,21 @@ layout, `nodeMetadataSpec`, and the exact V1-vs-V2 template patterns. Read it
 and `coa describe schema nodeType`; do NOT copy template bodies from example
 files (they may fail `coa validate`).
 
-**Decide the path first:**
+**Decide the path first — search before you author:**
 
-- **Greenfield (no V2 type of that layer in `nodeTypes/`)** — install one
-  WITHOUT asking. This is the sanctioned setup step: it can't break existing
-  nodes because none use it yet. Report the new node type in your summary
-  (name, `fileVersion: 2`, template pattern used).
-- **A V1 type is already in use by other nodes** — upgrading it changes the
-  generated DDL/DML for *every* node of that type. STOP and ASK first; on
-  approval, bump `fileVersion` and swap templates to the V2 pattern.
+1. **Search existing packaged node types FIRST.** Packages are the official,
+   maintained types: check what the org already installed (`packages/`,
+   `coa install`), the package registry, and ask the user which packages their
+   team uses. If a packaged type covers the use case, install and use it.
+2. **No existing type fits (greenfield)** — create a custom `fileVersion: 2`
+   type WITHOUT asking; it can't break existing nodes because none use it yet.
+   Report the new node type in your summary (name, `fileVersion: 2`, template
+   pattern used) and note WHY no existing type fit.
+3. **A V1 type is already in use by other nodes** — upgrading it changes the
+   generated DDL/DML for *every* node of that type. STOP and ASK first; on
+   approval, bump `fileVersion` and swap templates to the V2 pattern.
+4. **Extending an existing type** (new declared annotations, template changes)
+   follows the same rule as upgrading: if nodes already use it, ASK first.
 
 **Install steps (greenfield):**
 Reference `coa describe node-types` for examples of the following elements
