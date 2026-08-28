@@ -1,6 +1,6 @@
 ---
 name: coalesce-v1-yaml-nodes
-description: Use when reading, explaining, or making narrow edits to Coalesce V1 YAML nodes (nodes/<LOCATION>-<NAME>.yml) — the UI/API-generated node format. Covers the file shape, the id-based column lineage graph, and what an agent should and should not touch. Not for authoring new V1 nodes by hand.
+description: Use when reading, explaining, or making narrow edits to Coalesce V1 YAML nodes (nodes/<LOCATION>-<NAME>.yml) — the UI/API-generated node format. Covers the file shape, the id-based column lineage graph, authoring a V1 node when no fileVersion 2 node type exists, and what an agent should and should not touch.
 ---
 <!-- coalesce-node-managed: true -->
 
@@ -15,8 +15,11 @@ entirely or mostly V1.
 
 **The point of this skill is comprehension, not authorship.** Read a V1 node
 confidently, answer questions about it, trace lineage through it, and make the
-narrow edits listed below. Do NOT hand-author new V1 nodes or restructure their
-column graph — see "Scope" at the end.
+narrow edits listed below. Hand-authoring a whole V1 node is a deliberate,
+narrow exception: do it when the node type you need has no `fileVersion: 2`
+definition (every Databricks and BigQuery workspace today), following the
+recipe in coalesce-pipeline-structure. Otherwise prefer V2 `.sql` and do not
+restructure an existing column graph. See "Scope" at the end.
 
 ## Schema is authoritative — read it
 
@@ -222,16 +225,19 @@ catch exactly the damage a careless V1 edit does:
 
 - Do not change any `id`, `columnCounter`, or `stepCounter`. Ever. They are the
   graph.
-- Do not hand-author a new V1 `.yml` node, and do not convert a V2 `.sql` node
-  into one. For a NEW transformation node, author a V2 `.sql` node instead (see
-  `coalesce-create-stage-node` and `coalesce-pipelines`). For new **Source**
-  nodes, use `coa sources add` — it generates correct V1 YAML from the warehouse
-  tables; never scaffold source YAML by hand.
-- Do not add or remove columns in a V1 node, and do not restructure
-  `sourceMapping` (adding a source group, making a node multisource). Both
-  require minting and cross-wiring ids that only the UI/API and `coa sources`
-  produce reliably. Say so and offer the alternatives: do it in the Coalesce UI,
-  or build the new shape as a V2 `.sql` node.
+- Do not convert a V2 `.sql` node into a V1 `.yml` one. For a NEW
+  transformation node, author a V2 `.sql` node when a `fileVersion: 2` node
+  type exists (see `coalesce-create-stage-node` and `coalesce-pipelines`); when
+  none exists, hand-author the V1 `.yml` per the coalesce-pipeline-structure
+  recipe. For new **Source** nodes, use `coa sources add` — it generates
+  correct V1 YAML from the warehouse tables; never scaffold source YAML by hand.
+- Adding a column to an existing V1 node is in scope (mint a fresh
+  `columnCounter`, point `sourceColumnReferences` at real upstream ids, then
+  validate and dry-run, see `coalesce-add-column`). Do NOT remove columns or
+  restructure `sourceMapping` (adding a source group, making a node
+  multisource): those require cross-wiring ids that only the UI/API and
+  `coa sources` produce reliably. Offer the alternatives instead: do it in the
+  Coalesce UI, or build the new shape as a V2 `.sql` node.
 - Do not "tidy" a V1 node — no key reordering, no dropping fields that look
   redundant (`aliases`, `noLinkRefs`, `columnReference` on a derived column),
   no rewriting single-quoted `ref()` calls to double quotes. These files are

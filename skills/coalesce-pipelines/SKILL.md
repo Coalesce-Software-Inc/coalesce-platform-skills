@@ -8,10 +8,16 @@ description: Use when working in a Coalesce Transform repository (data.yml + nod
 
 A Coalesce Transform repository is a Git-backed representation of a data
 transformation DAG. Nodes are authored as SQL files with lightweight
-annotations (`nodes/<LOCATION>-<NAME>.sql`) or YAML (`.yml` for Source and
-V1-only types); workspace metadata (locations, environments, jobs, subgraphs,
-node types, macros) is YAML. The `coa` CLI validates the repo and executes SQL
-against the warehouse for local development.
+annotations (`nodes/<LOCATION>-<NAME>.sql`, the V2 format) or YAML
+(`nodes/<LOCATION>-<NAME>.yml`, the V1 format); workspace metadata (locations,
+environments, jobs, subgraphs, node types, macros) is YAML. The `coa` CLI
+validates the repo and executes SQL against the warehouse for local
+development.
+
+**Format rule:** author a V2 `.sql` node when a `fileVersion: 2` node type
+exists for the target node type; otherwise author a V1 `.yml` node. Databricks
+and BigQuery workspaces currently have V1 node types only, so their
+transformation nodes are V1 `.yml`. This is supported, not a workaround.
 
 ## Orient first
 
@@ -57,6 +63,9 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    type; otherwise columns are silently empty (see reference/sql-format.md). 
    If the workspace has no V2 type of that layer, install one first 
    (greenfield install is sanctioned without asking; see coalesce-workspace-config and `coa describe node-types`).
+   When the target node type has no `fileVersion: 2` definition at all
+   (every Databricks and BigQuery workspace today), author V1 `.yml` instead;
+   that is supported, not a workaround.
 5. Reference upstream nodes with `{{ ref("LOC", "NAME") }}` (both args).
    Never hardcode `db.schema.table`.
 6. Use the correct node type per layer (Stage → Persistent Stage →
