@@ -14,10 +14,11 @@ environments, jobs, subgraphs, node types, macros) is YAML. The `coa` CLI
 validates the repo and executes SQL against the warehouse for local
 development.
 
-**Format rule:** author a V2 `.sql` node when a `fileVersion: 2` node type
-exists for the target node type; otherwise author a V1 `.yml` node. Databricks
-and BigQuery workspaces currently have V1 node types only, so their
-transformation nodes are V1 `.yml`. This is supported, not a workaround.
+**Format rule:** Source nodes are always V1 `.yml`. For every other node,
+author a V2 `.sql` node when a `fileVersion: 2` node type exists for the target
+node type; otherwise author a V1 `.yml` node. The `fileVersion` in
+`nodeTypes/<ID>/definition.yml` decides this, never the platform. Both formats
+are supported, and V1 is not a workaround.
 
 ## Orient first
 
@@ -63,9 +64,8 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    type; otherwise columns are silently empty (see reference/sql-format.md). 
    If the workspace has no V2 type of that layer, install one first 
    (greenfield install is sanctioned without asking; see coalesce-workspace-config and `coa describe node-types`).
-   When the target node type has no `fileVersion: 2` definition at all
-   (every Databricks and BigQuery workspace today), author V1 `.yml` instead;
-   that is supported, not a workaround.
+   When the target node type has no `fileVersion: 2` definition at all,
+   author V1 `.yml` instead; that is supported, not a workaround.
 5. Reference upstream nodes with `{{ ref("LOC", "NAME") }}` (both args).
    Never hardcode `db.schema.table`.
 6. Use the correct node type per layer (Stage → Persistent Stage →

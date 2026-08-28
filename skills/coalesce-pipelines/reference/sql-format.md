@@ -5,12 +5,14 @@
 
 ## Two formats: choose by the node type's fileVersion
 
-Both formats are first-class. The hard rule: author a V2 `.sql` node when a
-`fileVersion: 2` node type exists for the target node type; otherwise author a
-V1 `.yml` node. Databricks and BigQuery workspaces currently have V1 node types
-only, so their transformation nodes are V1 `.yml`. This is supported, not a
-workaround. Within that constraint, pick by the node's ROLE rather than
-defaulting everything to one format:
+Both formats are first-class. The hard rule: Source nodes are always V1
+`.yml`; for every other node, author a V2 `.sql` node when a `fileVersion: 2`
+node type exists for the target node type, otherwise author a V1 `.yml` node.
+The `fileVersion` in `nodeTypes/<ID>/definition.yml` decides this, never the
+platform. A workspace whose node types are all V1 authors all of its
+transformation nodes as V1 `.yml`, and that is supported, not a workaround.
+Within that constraint, pick by the node's ROLE rather than defaulting
+everything to one format:
 
 - **V2 — `.sql`, `fileVersion: 2` — the default for STAGING and INTERMEDIATE
   transforms.** Ephemeral, regenerable nodes; columns are inferred from the SELECT.
@@ -43,8 +45,8 @@ type") and `coa describe node-types`.
 
 The other way out of the trap: when the node type you need has no
 `fileVersion: 2` definition available at all, do not force `.sql`. Author the
-node as a V1 `.yml` instead. That is the normal path on Databricks and
-BigQuery, whose node types are all V1 today. Field recipe: the
+node as a V1 `.yml` instead. That is the normal path in any workspace whose
+node types are all V1. Field recipe: the
 coalesce-pipeline-structure skill ("Creating a V1 (.yml) node").
 
 ## File naming

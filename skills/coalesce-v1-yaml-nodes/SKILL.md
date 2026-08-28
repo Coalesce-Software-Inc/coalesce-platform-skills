@@ -16,9 +16,9 @@ entirely or mostly V1.
 **The point of this skill is comprehension, not authorship.** Read a V1 node
 confidently, answer questions about it, trace lineage through it, and make the
 narrow edits listed below. Hand-authoring a whole V1 node is a deliberate,
-narrow exception: do it when the node type you need has no `fileVersion: 2`
-definition (every Databricks and BigQuery workspace today), following the
-recipe in coalesce-pipeline-structure. Otherwise prefer V2 `.sql` and do not
+narrow exception: do it for Source nodes, and when the node type you need has
+no `fileVersion: 2` definition, following the recipe in
+coalesce-pipeline-structure. Otherwise prefer V2 `.sql` and do not
 restructure an existing column graph. See "Scope" at the end.
 
 ## Schema is authoritative — read it

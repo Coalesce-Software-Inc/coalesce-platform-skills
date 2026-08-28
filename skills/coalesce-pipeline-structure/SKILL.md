@@ -69,8 +69,7 @@ a brand-new type can't break existing nodes. Report it in your summary. Recipe
   `coa create --dry-run --verbose --include "{ NODE }"` — not `coa validate`
   alone, which stays green for a dropped node.
 - Use V1 (`.yml`, fileVersion 1) whenever the node type you need has no
-  `fileVersion: 2` definition (every transformation node in a Databricks or
-  BigQuery workspace today), and for Source nodes and V1-only types. Generate
+  `fileVersion: 2` definition, and for Source nodes and V1-only types. Generate
   Source nodes with `coa sources add`, never by hand. Load
   `coalesce-v1-yaml-nodes` before touching an existing `nodes/*.yml`.
 - Refs, column annotations, and a full example: see the sql-format reference.
@@ -79,7 +78,7 @@ a brand-new type can't break existing nodes. Report it in your summary. Recipe
 ## Creating a V1 (.yml) node
 
 Use this when no `fileVersion: 2` node type exists for the type you need. It is
-the normal path on Databricks and BigQuery, not a workaround. File:
+a supported authoring path, not a workaround. File:
 `nodes/<LOCATION>-<NAME>.yml`. Identity comes from the YAML, not the filename,
 so keep both in sync.
 

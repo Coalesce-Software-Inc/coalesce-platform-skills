@@ -46,8 +46,9 @@ Then branch:
   **coalesce-workspace-config** skill ("Installing a V2 node type"). Note the new type's `id` for step 3.
 - **Only a V1 Stage type exists (`fileVersion` absent or `1`)**: author the
   Stage as a V1 `.yml` node. Do NOT upgrade the node type and do NOT stop: V1
-  is the supported authoring format whenever the workspace's node types are V1,
-  which today is every Databricks and BigQuery workspace. Follow the recipe in
+  is the supported authoring format whenever the workspace's node types are V1.
+  The `fileVersion` in `nodeTypes/<ID>/definition.yml` decides this, never the
+  platform. Follow the recipe in
   **coalesce-pipeline-structure** ("Creating a V1 (.yml) node"), copy the
   column list from the source node in `nodes/`, then go straight to step 4 to
   verify. Bumping an in-use type's `fileVersion` changes DDL/DML for every node
