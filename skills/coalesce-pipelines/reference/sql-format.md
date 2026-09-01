@@ -3,9 +3,15 @@
 
 `coa describe sql-format` and `coa describe concepts` are the source of truth.
 
-## Two formats — choose by node role
+## Two formats: choose by the node type's fileVersion
 
-Both formats are first-class. Pick by the node's ROLE rather than defaulting
+Both formats are first-class. The hard rule: Source nodes are always V1
+`.yml`; for every other node, author a V2 `.sql` node when a `fileVersion: 2`
+node type exists for the target node type, otherwise author a V1 `.yml` node.
+The `fileVersion` in `nodeTypes/<ID>/definition.yml` decides this, never the
+platform. A workspace whose node types are all V1 authors all of its
+transformation nodes as V1 `.yml`, and that is supported, not a workaround.
+Within that constraint, pick by the node's ROLE rather than defaulting
 everything to one format:
 
 - **V2 — `.sql`, `fileVersion: 2` — the default for STAGING and INTERMEDIATE
@@ -17,7 +23,7 @@ everything to one format:
   and dashboards depend on. Also required for any V1-only node type. File at
   `nodes/<LOCATION>-<NAME>.yml`; see `coa describe schema node`.
 
-Rule of thumb: ephemeral, high-volume transform → **V2 `.sql`**; a persistent curated
+Rule of thumb, once a V2 node type is available: ephemeral, high-volume transform → **V2 `.sql`**; a persistent curated
 contract or a Source node → **V1 `.yml`**. (Both curated annotations `@isBusinessKey` and
 `@isChangeTracking` work in V2 as well — the V1 default for curated layers is about explicit,
 reviewable column contracts, not a capability gap.)
@@ -36,6 +42,12 @@ upgrading a V1 type that existing nodes already use changes their DDL/DML, so
 that STILL requires approval. Never silently write a `.sql` node against a V1
 type. Recipe + validate step: coalesce-workspace-config ("Installing a V2 node
 type") and `coa describe node-types`.
+
+The other way out of the trap: when the node type you need has no
+`fileVersion: 2` definition available at all, do not force `.sql`. Author the
+node as a V1 `.yml` instead. That is the normal path in any workspace whose
+node types are all V1. Field recipe: the
+coalesce-pipeline-structure skill ("Creating a V1 (.yml) node").
 
 ## File naming
 

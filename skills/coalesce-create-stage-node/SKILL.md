@@ -44,9 +44,15 @@ Then branch:
   `definition.yml` (`fileVersion: 2`), and the V2 `create.sql.j2` / `run.sql.j2`
   template pattern — the full recipe and the validate step live in the
   **coalesce-workspace-config** skill ("Installing a V2 node type"). Note the new type's `id` for step 3.
-- **Only a V1 Stage type exists AND other nodes already use it** —      
-
-  upgrading it changes DDL/DML for every node of that type, so **STOP and ASK the user first** before bumping its `fileVersion`. (Do not fall back to a V1 `.yml` node — `.yml` is legacy, reserved for Source nodes.)
+- **Only a V1 Stage type exists (`fileVersion` absent or `1`)**: author the
+  Stage as a V1 `.yml` node. Do NOT upgrade the node type and do NOT stop: V1
+  is the supported authoring format whenever the workspace's node types are V1.
+  The `fileVersion` in `nodeTypes/<ID>/definition.yml` decides this, never the
+  platform. Follow the recipe in
+  **coalesce-pipeline-structure** ("Creating a V1 (.yml) node"), copy the
+  column list from the source node in `nodes/`, then go straight to step 4 to
+  verify. Bumping an in-use type's `fileVersion` changes DDL/DML for every node
+  of that type, so that still requires **STOP and ASK the user first**.
 
   Never silently write a `.sql` node against a V1 Stage type — that is the
   empty-columns trap above.
@@ -72,6 +78,9 @@ Then branch:
   fixed location.
 
 ## 3. Write the V2 `.sql` node
+
+(If step 0 sent you down the V1 path, write the `.yml` per the
+coalesce-pipeline-structure recipe and skip to step 4.)
 
 Required top annotations, before any SQL:
 

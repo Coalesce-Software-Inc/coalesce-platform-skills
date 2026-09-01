@@ -51,7 +51,7 @@ a brand-new type can't break existing nodes. Report it in your summary. Recipe
 + validate step: coalesce-workspace-config ("Installing a V2 node type") and
 `coa describe node-types`.
 
-## Creating a node (V2 .sql — preferred for ALL transformations)
+## Creating a node (V2 .sql, when a `fileVersion: 2` node type exists)
 
 - File: `nodes/<LOCATION>-<NAME>.sql`. The filename sets location + name;
   `@location` is ignored. Case-sensitive; NAME unique (`.yml` and `.sql`
@@ -68,13 +68,72 @@ a brand-new type can't break existing nodes. Report it in your summary. Recipe
   shows 0 errors, node never builds). Then confirm the node loaded with
   `coa create --dry-run --verbose --include "{ NODE }"` — not `coa validate`
   alone, which stays green for a dropped node.
-- Use V1 (`.yml`, fileVersion 1) for Source nodes, persistent/curated layers,
-  and V1-only types (see coalesce-pipelines Rule 4). Do NOT hand-author a new
-  V1 node: generate Source nodes with `coa sources add`, and for anything else
-  either author a V2 `.sql` node or direct the user to the Coalesce UI/API.
-  Load `coalesce-v1-yaml-nodes` before touching an existing `nodes/*.yml`.
+- Use V1 (`.yml`, fileVersion 1) whenever the node type you need has no
+  `fileVersion: 2` definition, and for Source nodes and V1-only types. Generate
+  Source nodes with `coa sources add`, never by hand. Load
+  `coalesce-v1-yaml-nodes` before touching an existing `nodes/*.yml`.
 - Refs, column annotations, and a full example: see the sql-format reference.
   Only `@isBusinessKey`, `@isChangeTracking`, `@id`, `@description` exist.
+
+## Creating a V1 (.yml) node
+
+Use this when no `fileVersion: 2` node type exists for the type you need. It is
+a supported authoring path, not a workaround. File:
+`nodes/<LOCATION>-<NAME>.yml`. Identity comes from the YAML, not the filename,
+so keep both in sync.
+
+Copy the column list from the imported source node in `nodes/` rather than
+inventing one: names, `dataType`, and the upstream `columnCounter` values you
+need for lineage all live there.
+
+```yaml
+fileVersion: 1
+id: <fresh UUID v4>                 # this node's id; never reuse another node's
+name: <NAME>
+type: Node
+operation:
+  type: sql                         # sourceInput only for Source nodes
+  sqlType: Stage                    # Stage | View | Dimension | Fact | persistentStage
+  locationName: <LOCATION>
+  name: <NAME>                      # mirrors the top-level name
+  isMultisource: false
+  materializationType: table        # table | view
+  config: {}                        # node-type options; {} is valid
+  metadata:
+    columns:
+      - name: <COLUMN>
+        dataType: <TYPE>            # copy from the upstream column
+        nullable: true
+        columnReference:
+          stepCounter: <this node's id>
+          columnCounter: <fresh UUID v4>
+        sourceColumnReferences:
+          - columnReferences:
+              - stepCounter: <upstream node id>
+                columnCounter: <upstream column's columnCounter>
+            transform: ""           # "" = pass-through; else the SQL expression
+    sourceMapping:
+      - name: <NAME>
+        dependencies:
+          - {locationName: <SRC_LOCATION>, nodeName: <SRC_NAME>}
+        join:
+          joinCondition: |-
+            FROM {{ ref('<SRC_LOCATION>', '<SRC_NAME>') }} "<ALIAS>"
+        customSQL:
+          customSQL: ""
+```
+
+- `columnReference.stepCounter` is ALWAYS this node's own `id`; `columnCounter`
+  is a fresh UUID per column. Never reuse an id.
+- `sourceColumnReferences[].columnReferences[]` names the UPSTREAM node's `id`
+  and the UPSTREAM column's `columnCounter`. That is the lineage edge. A
+  computed column with no upstream uses `columnReferences: []` and carries the
+  expression in `transform`.
+- Verify with `coa validate -d <dir> --include "{ <NAME> }"`, then
+  `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose`; confirm the
+  rendered DDL has a populated column list.
+- Deeper reference (the id graph, multisource, what not to touch):
+  `coalesce-v1-yaml-nodes` and `coa describe schema node`.
 
 ## Impact analysis (lineage selectors)
 
