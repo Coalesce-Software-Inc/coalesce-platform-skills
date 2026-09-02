@@ -46,10 +46,14 @@ plan/deploy is separate (git push → web UI/CI).
 - Changing locations, workspaces, environments, jobs, macros, or `data.yml`.
 
 **Never author a node type for a `.sql` node.** Base types come from the
-installed base node types package (`coa describe node-types`; package IDs look
-like `<alias>:::<id>`). If none are present, run `coa install -d <dir>` — safe
-without asking — and if that still yields nothing, STOP and tell the user
-`coa init` installs the package. See coalesce-workspace-config.
+installed base node types package, which `coa install` materializes as a
+read-only tree at `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/`; each
+materialized `definition.yml` carries the resolvable `<alias>:::<id>` id to put
+in `@nodeType()`. Discovery is file-system based: check `nodeTypes/` and
+`.coa/cache/packages/*/nodeTypes/`. If none are present, run
+`coa install -d <dir>` — safe without asking — and if that still yields
+nothing, author the node as V1 `.yml` and continue. See
+coalesce-workspace-config.
 
 ## Creating a node (V2 .sql, when a `fileVersion: 2` node type exists)
 

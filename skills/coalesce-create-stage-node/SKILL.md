@@ -14,21 +14,26 @@ description: Create a new Coalesce staging node from a source node — a Stage t
 Create a Stage node that maps every column of a source node 1:1. A Stage is the
 first hop out of a Source: it selects the source's columns unchanged so later
 layers build on a stable name. `coa describe sql-format` and `coa describe node-types`
- are the source of truth; consult them if anything below is unclear.
+ document the node file and node type formats; consult them if anything below is
+ unclear.
 
 ## 0. Critical preflight — does a V2 Stage node type exist?
 
 A `.sql` node is a V2 node and REQUIRES a node type whose `definition.yml` has
-`fileVersion: 2`. If you point `@nodeType(...)` at a V1 Stage type (the built-in
-default, `fileVersion: 1` or absent), the node loads but its columns are
+`fileVersion: 2`. If you point `@nodeType(...)` at a V1 Stage type
+(`fileVersion: 1` or absent), the node loads but its columns are
 **silently empty** (`columns: []`) — `coa create`/`coa run` then emit broken
 DDL/DML with no error. (`coa describe sql-format`, `coa describe node-types`.)
 
 Check what Stage type actually exists:
 
-- `coa describe node-types` — the authoritative list. The normal Stage type is a
-  package type from the base node types package, with an ID of the form
-  `<alias>:::<id>`; that is what `@nodeType()` takes.
+- `.coa/cache/packages/*/nodeTypes/<Name>-<id>/definition.yml` — the installed
+  package types, materialized as a read-only file tree by `coa install`. The
+  normal Stage type is a package type from the base node types package; each
+  materialized `definition.yml` carries the resolvable id in `<alias>:::<id>`
+  form, and that exact id is what `@nodeType()` takes. Never edit this tree —
+  `coa install` regenerates it. (`coa describe node-types` documents the folder
+  layout and `definition.yml` fields; it does not list what is installed.)
 - A workspace-local definition, if any, lives in
   `nodeTypes/<DisplayName>-<ID>/definition.yml`; the `@nodeType()` value is the
   `id` field (also the part after the last dash in the folder name). Read its
@@ -106,10 +111,10 @@ FROM {{ ref("SRC", "CUSTOMER") }} CUSTOMER
 
 In the example above, `"Stage"` stands in for the actual V2 Stage type ID from
 step 0 — usually a package ID of the form `<alias>:::<id>`. `Stage` is a valid
-built-in common type ID, but the built-in `Stage` is V1: only use
+common type ID, but a `Stage` type is typically V1: only use
 `@nodeType("Stage")` literally if a `fileVersion: 2` node type with that exact
-`id` exists. Otherwise substitute the real V2 type ID verbatim as
-`coa describe node-types` prints it.
+`id` exists. Otherwise substitute the real V2 type ID verbatim as the type's
+`definition.yml` on disk spells it.
 
 Rules:
 

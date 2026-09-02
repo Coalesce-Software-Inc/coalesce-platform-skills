@@ -11,21 +11,21 @@ node type exists for the target node type, otherwise author a V1 `.yml` node.
 The `fileVersion` in `nodeTypes/<ID>/definition.yml` decides this, never the
 platform. A workspace whose node types are all V1 authors all of its
 transformation nodes as V1 `.yml`, and that is supported, not a workaround.
-Within that constraint, pick by the node's ROLE rather than defaulting
-everything to one format:
+Within that constraint, here is what each format is:
 
-- **V2 — `.sql`, `fileVersion: 2` — the default for STAGING and INTERMEDIATE
+- **V2 — `.sql`, `fileVersion: 2` — used for STAGING and INTERMEDIATE
   transforms.** Ephemeral, regenerable nodes; columns are inferred from the SELECT.
   File at `nodes/<LOCATION>-<NAME>.sql`.
-- **V1 — `.yml`, `fileVersion: 1` — the default for SOURCE nodes and for PERSISTENT /
-  CURATED nodes** (Dimension, Fact, Persistent Stage). Columns are explicit, with data
+- **V1 — `.yml`, `fileVersion: 1` — required for SOURCE nodes, and used for
+  PERSISTENT / CURATED nodes** (Dimension, Fact, Persistent Stage). Columns are explicit, with data
   types and source mappings — a durable, published contract for the layer other models
   and dashboards depend on. Also required for any V1-only node type. File at
   `nodes/<LOCATION>-<NAME>.yml`; see `coa describe schema node`.
 
-Rule of thumb, once a V2 node type is available: ephemeral, high-volume transform → **V2 `.sql`**; a persistent curated
+Rule of thumb, when the target node type has BOTH a V1 and a V2 definition available:
+ephemeral, high-volume transform → **V2 `.sql`**; a persistent curated
 contract or a Source node → **V1 `.yml`**. (Both curated annotations `@isBusinessKey` and
-`@isChangeTracking` work in V2 as well — the V1 default for curated layers is about explicit,
+`@isChangeTracking` work in V2 as well — preferring V1 for curated layers is about explicit,
 reviewable column contracts, not a capability gap.)
 
 ## The silently-empty-columns trap
@@ -33,13 +33,17 @@ reviewable column contracts, not a capability gap.)
 A V2 `.sql` node REQUIRES a node type whose `nodeTypes/<ID>/definition.yml` has
 `fileVersion: 2`. If `@nodeType` points at a V1 (or absent-fileVersion) type,
 the node still loads but its columns are **SILENTLY EMPTY** (`columns: []`) —
-`coa create`/`coa run` then emit broken DDL/DML with no error. The built-in
-common types (Source, Stage, View, Dimension, Fact, Persistent Stage) are V1;
-using them in a `.sql` file triggers this trap. V2 types come from the installed
-base node types package for the platform — list them with
-`coa describe node-types` (package IDs look like `<alias>:::<id>`). If none are
-present, run `coa install -d <dir>` to hydrate packages; if that still yields
-nothing, STOP and tell the user `coa init` installs the package. Do NOT author a
+`coa create`/`coa run` then emit broken DDL/DML with no error. The workspace's
+common types (Source, Stage, View, Dimension, Fact, Persistent Stage) are
+typically V1; using them in a `.sql` file triggers this trap. V2 types come from
+the installed base node types package for the platform. Discovery is
+file-system based: read `nodeTypes/<ID>/definition.yml` for workspace-local
+types and `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/definition.yml`
+for the package types `coa install` materialized — each of those carries the
+resolvable id in `<alias>:::<id>` form, which is what `@nodeType()` takes. If
+none are present, run `coa install -d <dir>` to hydrate packages and re-check
+the file system; if that still yields nothing, the package may be unavailable —
+author the node as V1 `.yml` and continue. Do NOT author a
 node type. Upgrading a V1 type that existing nodes already use changes their
 DDL/DML and STILL requires approval. Never silently write a `.sql` node against
 a V1 type. See coalesce-workspace-config ("Getting V2 node types").
@@ -167,6 +171,7 @@ SELECT
 FROM {{ ref("STG", "STG_CUSTOMERS") }}
 ```
 
-(`"Dimension"` stands in for a real V2 node type ID from
-`coa describe node-types` — the built-in `Dimension` is V1.) Note the first two lines are BARE — no leading
+(`"Dimension"` stands in for a real V2 node type ID read off disk from
+`nodeTypes/` or `.coa/cache/packages/*/nodeTypes/` — a plain `Dimension` type is
+typically V1.) Note the first two lines are BARE — no leading
 `--`. That is deliberate and required (see "Write the annotations BARE" above).

@@ -56,28 +56,37 @@ present — see below).
 ## Getting V2 node types
 
 V2 node types are NOT authored. They ship in the base node types package for
-your platform, which `coa init` installs and `coa install` hydrates. Hydrated
-package types show up as package node types with IDs of the form
-`<alias>:::<id>` — that is the normal value for `@nodeType()`.
+your platform, which `coa init` declares in `packages/base-node-types.yml` and
+`coa install` hydrates. Hydrated package types show up as package node types
+with IDs of the form `<alias>:::<id>` — that is the normal value for
+`@nodeType()`.
 
-**Find them:**
+**Find them — node type discovery is file-system based:**
 
-- `coa describe node-types` — the authoritative list of what this workspace can
-  use, package types included.
-- `packages/` (the package declarations) and `.coa/cache` (the hydrated
-  contents) confirm the package is present locally.
+- `nodeTypes/<DisplayName>-<ID>/definition.yml` — the workspace's own types.
+- `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/definition.yml` — the
+  installed package types, materialized as a READ-ONLY file tree by
+  `coa install` (definition.yml plus `create.sql.j2` / `run.sql.j2`). Each
+  materialized `definition.yml` carries the resolvable id in `<alias>:::<id>`
+  form — that exact id is what goes in `@nodeType()`. The tree is derived;
+  `coa install` regenerates it, so never edit it. (`.coa/cache/packages.json`
+  is the machine cache the tree mirrors.)
+- `packages/` (the package declarations) confirms which packages the workspace
+  expects.
 
 **If no V2 type is available:**
 
 1. `coa install -d <dir>` — hydrates declared packages. Safe, run it without
-   asking, then re-check `coa describe node-types`.
-2. Still none — STOP. Tell the user the base node types package isn't installed
-   for this workspace and that `coa init` installs it. Do NOT create
-   `nodeTypes/*` to fill the gap.
+   asking, then re-check `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`.
+2. Still none — the base node types package may be unavailable (it exists only
+   in the production registry; lower environments 404). Author the node as a V1
+   `.yml` node and continue; that is supported, not a workaround. Do NOT create
+   `nodeTypes/*` to fill the gap and do NOT stop.
 
 **Custom node types** are only for a genuinely net-new type the user explicitly
-asks for. ASK FIRST, then follow `coa describe node-types` (folder layout,
-`nodeMetadataSpec`, V2 template pattern) and `coa describe schema nodeType`.
+asks for. ASK FIRST, then follow `coa describe node-types` — the authoring
+manual for the format (folder layout, `definition.yml` fields,
+`nodeMetadataSpec`, V2 template pattern) — and `coa describe schema nodeType`.
 Modifying or upgrading a type existing nodes already depend on changes the
 generated DDL/DML for *every* node of that type — always ask.
 

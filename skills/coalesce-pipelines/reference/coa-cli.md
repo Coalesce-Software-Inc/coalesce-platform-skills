@@ -12,6 +12,10 @@ job/subgraph/location/env/nodeType shapes, missing `data.yml`).
 - `coa describe` (overview), `coa describe concepts`, `coa describe sql-format`,
   `coa describe selectors`, `coa describe node-types`, `coa describe workflow`,
   `coa describe structure`
+- These are STATIC manuals, not listings. `coa describe node-types` documents
+  the node type format (folder layout, `definition.yml` fields, template
+  patterns); it does not list the types this workspace has. For that, read
+  `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/` on disk.
 - `coa describe schema <type>` — `node`, `nodeType`, `job`, `subgraph`,
   `locations`, `environment`, `macro`, `workspace`, `data`
 - `coa describe command <name>` — `create`, `run`, `validate`, etc.
@@ -92,9 +96,15 @@ Coalesce cloud API and caches them locally so `create`/`run` can render
 package-provided node types. REQUIRED for any workspace that uses packages:
 run it after init or after pulling a repo that uses packages. It only fetches
 and caches (no shared-config mutation), so it is safe to run without asking.
-This is how the base node types package for the platform (installed by
-`coa init`) becomes usable — it is the fix for "no V2 node type available",
-never hand-writing one.
+This is how the base node types package for the platform (declared by
+`coa init` in `packages/base-node-types.yml`) becomes usable — it is the fix
+for "no V2 node type available", never hand-writing one. It materializes each
+package type as a READ-ONLY file tree at
+`.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/` (definition.yml plus
+`create.sql.j2` / `run.sql.j2`), and every materialized `definition.yml`
+carries the resolvable `<alias>:::<id>` id to put in `@nodeType()`. Node type
+discovery is file-system based: read that tree and `nodeTypes/`. The tree is
+derived — `coa install` regenerates it, so never edit it.
 
 ## Credentials
 

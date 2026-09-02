@@ -99,11 +99,17 @@ holding selector strings/node names, are NOT the schema shape.
 ## Node types (nodeTypes/<DisplayName>-<ID>/)
 
 Base node types are NOT authored here — they ship in the base node types package
-for the platform, declared under `packages/`, hydrated into `.coa/cache` by
-`coa install`, and referenced as `<alias>:::<id>`. `coa describe node-types`
-lists everything the workspace can use. `nodeTypes/` holds only workspace-local
-types; the `<ID>` after the last dash is their `@nodeType()` value. Each folder
-holds:
+for the platform, declared under `packages/` (`coa init` writes
+`packages/base-node-types.yml`) and hydrated by `coa install`, which
+materializes them as a READ-ONLY file tree at
+`.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/` (definition.yml plus
+`create.sql.j2` / `run.sql.j2`). Each materialized `definition.yml` carries the
+resolvable id in `<alias>:::<id>` form — that exact id is the `@nodeType()`
+value. The tree is derived: `coa install` regenerates it, so never edit it
+(`.coa/cache/packages.json` is the machine cache the tree mirrors). Discovery
+is file-system based — read those folders plus `nodeTypes/`, which holds only
+workspace-local types; there, the `<ID>` after the last dash is the
+`@nodeType()` value. Each node type folder holds:
 
 - **definition.yml** — `{ isDisabled, name, id, type: "NodeType", fileVersion,
   metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML

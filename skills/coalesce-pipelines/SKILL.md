@@ -58,9 +58,10 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    (`--include "{ NODE }+"` or a ref search).
 3. When renaming a node, update ALL downstream `{{ ref(...) }}` calls (see the
    coalesce-rename-node-cascade skill).
-4. Choose node format by role — V2 `.sql` for staging/intermediate transforms,
-   V1 `.yml` for Source nodes and persistent/curated nodes (Dimension, Fact,
-   Persistent Stage). A V2 `.sql` node works only against a `fileVersion: 2` node
+4. Choose node format by the node type's `fileVersion` (format rule above), not
+   by layer: Source nodes are always V1 `.yml`; every other node is V2 `.sql`
+   when a `fileVersion: 2` node type exists for its target type, otherwise V1
+   `.yml`. A V2 `.sql` node works only against a `fileVersion: 2` node
    type; otherwise columns are silently empty (see reference/sql-format.md).
    V2 types come from the installed base node types package — `coa install`
    materializes them under `.coa/cache/packages/<alias>/nodeTypes/`, and each
@@ -93,8 +94,8 @@ and can silently break unrelated ones — stop and surface the choice.
 
 Never author a node type to satisfy a `.sql` node. Base types come from the
 installed base node types package; if none are present, run `coa install -d
-<dir>` (safe without asking) and, failing that, tell the user `coa init`
-installs it. A custom net-new type is authored only when the user explicitly
+<dir>` (safe without asking) and, failing that, author the node as V1 `.yml`
+and continue. A custom net-new type is authored only when the user explicitly
 asks — and even then, ASK FIRST. See coalesce-workspace-config.
 
 ## When to use the other coalesce-* skills
