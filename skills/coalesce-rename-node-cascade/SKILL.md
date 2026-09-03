@@ -24,9 +24,14 @@ the core loop: define the edits -> `coa validate` -> verify -> iterate.
 
 GUARDRAIL: renaming the requested node and editing its downstream node files
 is IN SCOPE without asking. Jobs (`jobs/*`) and subgraphs (`subgraphs/*`) are
-SHARED config — editing them can silently affect unrelated nodes. List the
-job/subgraph edits a rename requires and CONFIRM with the user before applying
-them. (See `coa describe workflow`.)
+SHARED config — editing them can silently affect unrelated nodes. Order
+matters: apply the in-scope edits (file move + `ref()` updates) FIRST, then
+present the job/subgraph edits the rename requires and CONFIRM with the user
+before applying them. Never hold in-scope edits hostage to a shared-config
+confirmation. If the user's request explicitly covers every reference (e.g.
+"update everything in this workspace that references it"), that constitutes
+approval for the job/subgraph edits the rename requires — apply them without
+asking again. (See `coa describe workflow`.)
 
 ## Steps
 
@@ -41,6 +46,11 @@ them. (See `coa describe workflow`.)
    `nodes/<LOCATION>-<NEW_NAME>.yml` may already exist (`.sql` and `.yml` for
    the same location+name cannot coexist; `nodes/` has no subdirectories).
    Abort if either exists.
+   Also check for SAME-NAMED nodes at OTHER locations: list every
+   `nodes/*-<OLD_NAME>.sql` / `.yml` besides the node being renamed. Names are
+   only unique per location+name, so these can legitimately coexist (only
+   `@id` is unique workspace-wide). If any exist, note them now — they change
+   how the selector updates (steps 6–8) and the final sweep (step 9) apply.
 
 4. Move the file: `nodes/<LOCATION>-<OLD_NAME>.sql` ->
    `nodes/<LOCATION>-<NEW_NAME>.sql` (or `.yml` for a V1 node). The filename —
@@ -74,6 +84,12 @@ them. (See `coa describe workflow`.)
    `{ <OLD_NAME> }` / `{ name: "<OLD_NAME>" }` in those strings to the new
    name. (Schema: `{ id (INTEGER string), type: "Job", fileVersion: 1, name,
    includeSelector, excludeSelector }`.)
+   CAUTION — same name, different location: selectors match by NAME across
+   ALL locations (`location:` is a separate filter combined with AND — see
+   `coa describe selectors`). If step 3 found a same-named node at another
+   location, a name-only token is AMBIGUOUS: rewriting it drops the other
+   node from the selection; leaving it drops the renamed node. Do NOT rewrite
+   it silently — report it for the user to decide (step 8).
    WARNING — stale shape: the bundled example job(s) currently use a
    `steps: [{ selector }]` array, which is NOT the schema shape and FAILS
    `coa validate`. If the target job is in that legacy form it has no
@@ -83,7 +99,8 @@ them. (See `coa describe workflow`.)
 
 7. Update subgraphs (`subgraphs/*.yml`). Per `coa describe schema subgraph`, a
    subgraph stores selector STRINGS in a `steps` array (NOT a `nodes` array).
-   Update any exact name token in each `steps` entry. (Schema:
+   Update any exact name token in each `steps` entry. The same-name/different-
+   location caution from step 6 applies to `steps` selectors too. (Schema:
    `{ id, type: "Subgraph", fileVersion: 1, name, steps: [selector strings] }`.)
    WARNING — stale shape: the bundled example subgraphs currently use a
    `nodes:` list (bare name strings), which is NOT the schema shape and FAILS
@@ -99,9 +116,44 @@ them. (See `coa describe workflow`.)
    set could shift when `<OLD_NAME>` becomes `<NEW_NAME>`. Also note lineage
    operators: `{ NODE }+` = node AND its downstream successors; `+{ NODE }` =
    node AND its upstream predecessors. These resolve by name and must be
-   reported if they reference the old name.
+   reported if they reference the old name. If step 3 found same-named nodes
+   at other locations, include in this report every name-only selector
+   matching the old name, left un-rewritten per steps 6–7, and ask the user
+   which node(s) each selector should keep targeting.
 
-9. Confirm no broken references remain by running validate:
+9. MANDATORY final sweep — search for the bare old identifier. Run BOTH a
+   repo-wide, case-insensitive CONTENT search for `<OLD_NAME>` alone (no
+   quotes, no `ref()` shape, no path restriction) AND a FILENAME search —
+   `grep -r` matches file contents only, never file names, so a stale file
+   still named after the old node (e.g. a forgotten `.yml` sibling) is
+   invisible to the content search:
+
+   ```
+   grep -ri "<OLD_NAME>" .
+   git ls-files | grep -i "<OLD_NAME>"
+   ```
+
+   First discard intentional matches from either output: hits where the
+   matched text is a DIFFERENT identifier that merely contains the old name
+   (e.g. the new name containing the old one, or an unrelated node like
+   `<OLD_NAME>_ARCHIVE`). Then:
+   - If step 3 found NO same-named node at another location, the rename is
+     NOT complete until both searches return zero remaining hits.
+   - If a same-named node DOES exist, zero hits is the WRONG target: that
+     node's own filename (filename search), its location-qualified `ref()`s
+     (content search), and any name-only selectors deliberately left for the
+     user (step 8) are EXPECTED residue. Account for every remaining hit as
+     one of those — any hit you cannot attribute to the other node is a
+     missed reference. NEVER edit references to the other node just to force
+     the count to zero.
+
+   The shaped patterns in the earlier steps cannot match every reference
+   form — e.g. `{ name: "<OLD_NAME>" }` inside a subgraph `steps` selector
+   string — and `coa validate` reports 0 errors when a selector names a
+   nonexistent node, so a green validate does NOT prove the sweep was
+   complete. This crude search catches whatever the shaped searches missed.
+
+10. Confirm no broken references remain by running validate:
 
    ```
    coa validate -d <workspace-dir>
@@ -144,6 +196,15 @@ them. (See `coa describe workflow`.)
 - [ ] Subgraph `steps` selector strings updated (or stale `nodes:` shape
       flagged for migration).
 - [ ] Glob/pattern and lineage-operator selectors reviewed and reported.
+- [ ] Same-named nodes at other locations checked (step 3); if any exist,
+      name-only selectors were reported for user decision, NOT silently
+      rewritten.
+- [ ] Final sweep: repo-wide case-insensitive CONTENT grep AND FILENAME
+      search (`git ls-files`) for the bare old name return ZERO hits after
+      discarding different-identifier substring matches — or, when a
+      same-named node exists at another location, every remaining hit is
+      accounted to that node (a green `coa validate` does not prove this —
+      it passes even when a selector names a nonexistent node).
 - [ ] `coa validate` passes with no broken references (graph scanners actually
       ran — `workspace.yml` present, bootstrap with `coa doctor --fix` if not).
 - [ ] `coa create --dry-run --verbose` AND `coa run --dry-run --verbose` both
