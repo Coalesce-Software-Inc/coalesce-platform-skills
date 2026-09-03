@@ -82,9 +82,10 @@ credentials), scaffolds `data.yml` / `locations.yml` / `workspace.yml` /
 `.gitignore`, optionally hydrates packages, and verifies via doctor. Phases are
 skipped silently when already satisfied. ALWAYS use `--non-interactive` (plus
 per-field flags like `--token`, `--environmentID`, `--snowflakeAccount`) so it
-fails fast instead of prompting. The per-field init flags are Snowflake-only;
-`~/.coa/config` itself also supports Databricks and BigQuery credential
-families. `--skip-install` / `--skip-doctor` / `--force` are available.
+fails fast instead of prompting. `init` and `coa profile create` share one set
+of per-field warehouse flags, so `--platformKind Snowflake|Databricks|BigQuery`
+plus that platform's flags works on either. `--skip-install` / `--skip-doctor` /
+`--force` are available.
 init writes credentials and shared config — ask the user before running it.
 
 ## doctor — diagnose config/auth/warehouse
@@ -96,6 +97,42 @@ output. doctor (without `--fix`) is non-mutating but DOES reach the cloud and
 live warehouse with your token — treat it as low-risk read-only. `--fix`
 repairs what it can (bootstrap a missing `workspace.yml`, update `.gitignore`)
 — that mutates shared config, so ask the user first.
+
+## profile — manage `~/.coa/config` profiles
+
+Every section of `~/.coa/config` is a profile. Manage them with the CLI; NEVER
+hand-edit the ini file.
+
+- `coa profile list [-d <dir>]` — every section with its platform and whether it
+  carries cloud credentials, plus which profile a command run in `-d` would use
+  and why. Each row shows that section's OWN fields.
+- `coa profile show <name>` — one section's fields AND the effective profile
+  (that section layered over `[default]`). Secrets redacted in both.
+- `coa profile use <name> [-d <dir>]` — bind this workspace to a profile, so
+  local commands in that directory use it without `--profile`. Refuses a profile
+  whose platform does not match the workspace.
+- `coa profile unset [-d <dir>]` — remove the binding; selection falls back to
+  the config's own default.
+- `coa profile create <name> --platformKind <Snowflake|Databricks|BigQuery>
+  <per-field flags>` — runs a LIVE connection test and writes the new section
+  only if it passes. Pass `--non-interactive` so a missing value fails instead of
+  prompting. Configures the warehouse half only; cloud auth (`token`,
+  `environmentID`) is `coa init`'s job.
+- `coa profile delete <name> [-d <dir>]` / `coa profile rename <old> <new>
+  [-d <dir>]` — both refuse `default` (every other profile inherits from it), and
+  both repair the binding in `-d <dir>` if it pointed at the affected profile.
+
+Every subcommand takes `--format json` for machine output, with secrets redacted.
+
+`coa profile create` examples (flags come from the same set `coa init` uses):
+
+```
+coa profile create staging --platformKind Snowflake
+coa profile create dbx --non-interactive --platformKind Databricks \
+  --databricksHost <h> --databricksPath <p> --databricksToken <t>
+coa profile create bq --non-interactive --platformKind BigQuery \
+  --bigQueryServiceAccountKey ./key.json
+```
 
 ## install — hydrate packages
 
@@ -122,8 +159,21 @@ derived — `coa install` regenerates it, so never edit it.
 ## Credentials
 
 Platform credentials, `token`, and `environmentID` live in `~/.coa/config`
-(INI, named `[profile]` sections, selected via `--profile`; override the file
-path with `--config <path>`).
+(INI; every section is a profile, selected via `--profile`; override the file
+path with `--config <path>`). Manage sections with `coa profile` — never by
+editing the ini.
+
+Profile resolution, highest precedence first:
+
+1. `--profile <name>` on the command.
+2. The workspace's binding — `profile: <name>` in its `workspace.yml`, written
+   by `coa profile use <name> -d <dir>`.
+3. The config's own `[default] profile=` key.
+4. `default`.
+
+`coa profile list` and `coa doctor` both report the active profile AND which of
+those four selected it. A named profile inherits any field it omits from
+`[default]`; `coa profile show <name>` prints that effective, inherited view.
 
 **Pass `--profile <name>` explicitly**, matching the workspace's platform, on
 every command that accepts it — `sources`, `create`, `run`, `install`,
@@ -133,11 +183,21 @@ goes wrong: a `[default]` whose platform differs from the workspace fails
 every warehouse-touching command with `Profile "default" uses <x>, but
 data.yml does not declare a platformKind`.
 
-Supports Snowflake (Basic / KeyPair), Databricks
-(Token / OAuth M2M), and BigQuery (Service Account); any field has an
-equivalent CLI flag. `workspace.yml` holds ONLY local storage mappings
-(location → database/schema), never credentials. NEVER put secrets in repo
-files.
+A binding covers only commands that act on a workspace directory (`create`,
+`run`, `serve`, `install`, `doctor`, `profile`). Cloud-side commands resolve
+from flags alone and ignore the binding, so pass `--profile` there.
+
+Per-workspace bindings are how several workspaces on different platforms coexist
+on one machine. Binding is validated up front: `coa profile use` refuses a
+profile whose platform disagrees with the workspace's `data.yml` (a workspace
+that records no platform is treated as Snowflake), so the mismatch surfaces at
+bind time rather than mid-run.
+
+Supports Snowflake (Basic / KeyPair), Databricks (Token / OAuthM2M), and
+BigQuery (ServiceAccount / ApplicationDefault); every field has an equivalent
+CLI flag on `coa init` and `coa profile create`. Beyond the profile binding,
+`workspace.yml` holds only local storage mappings (location → database/schema)
+and runtime parameters — never credentials. NEVER put secrets in repo files.
 
 ## Approval gates (`coa describe workflow`)
 

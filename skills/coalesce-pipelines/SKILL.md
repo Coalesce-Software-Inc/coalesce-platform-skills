@@ -104,7 +104,10 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    `coa run --dry-run --verbose`, before executing anything. Also pass
    `--profile <name>` matching the workspace platform on every command that
    accepts one (`sources`, `create`, `run`, `install`, `doctor`);
-   `coa validate` has no `--profile` flag.
+   `coa validate` has no `--profile` flag. `coa profile list -d <dir>` names the
+   profiles available and which one that workspace resolves to. If the workspace
+   is bound (`profile:` in `workspace.yml`, set by `coa profile use`), the flag
+   still wins, so keep passing it.
 9. Treat `coa describe` as the source of truth. The bundled example-repository
    FAILS `coa validate` — never copy its shapes.
 

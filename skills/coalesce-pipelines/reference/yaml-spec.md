@@ -12,7 +12,7 @@ break unrelated nodes, so ask the user before changing any of them.
 .
 ├── data.yml          # central manifest (required)
 ├── locations.yml     # storage location names (required)
-├── workspace.yml     # local db/schema mappings (optional, local-only)
+├── workspace.yml     # profile binding + local db/schema mappings (optional, local-only)
 ├── nodes/            # node files: <LOCATION>-<NAME>.sql / .yml (flat)
 ├── nodeTypes/        # workspace-local node types: <DisplayName>-<ID>/
 ├── packages/         # package declarations (base node types package)
@@ -41,9 +41,13 @@ touches all of them.
 
 ## workspace.yml (optional, local-only)
 
-`{ locations: { <NAME>: { database, schema } } }` — local db/schema mappings
-used by `coa create`/`coa run` and required for the validate graph scanners to
-resolve refs. Credentials do NOT go here (they live in `~/.coa/config`).
+`{ profile: <name>, locations: { <NAME>: { database, schema } },
+parameters: { <name>: <json-value> } }`. The locations map is the local
+db/schema mapping used by `coa create`/`coa run` and required for the validate
+graph scanners to resolve refs. `profile` is this workspace's profile binding —
+the NAME of a `~/.coa/config` section, never credentials. Set it with
+`coa profile use <name> -d <dir>`, clear it with `coa profile unset`; do not
+hand-write it. The file is local-only and should stay gitignored.
 `coa doctor --fix` can bootstrap a missing `workspace.yml` (ask first).
 
 ## environments/<NAME>.yml

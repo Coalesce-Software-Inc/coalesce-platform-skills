@@ -34,7 +34,10 @@ type that other nodes already use (including bumping its `fileVersion` /
 swapping its template pattern): STOP, explain the impact, and get the user's
 go-ahead. Read-only commands (`coa describe`, `coa validate`, `coa doctor`
 without `--fix`, any `--dry-run`) you may run freely. Never put secrets in repo
-files — credentials live in `~/.coa/config`.
+files — credentials live in `~/.coa/config`, managed with `coa profile`, never
+by hand-editing the ini. `workspace.yml` may carry a `profile:` binding: that is
+a profile NAME, not a credential, and it is written by
+`coa profile use <name> -d <dir>` rather than by editing the file.
 
 **Do NOT author node types** (see "Getting V2 node types" below). Base types
 come from the installed base node types package, not from files you write.
