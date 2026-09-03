@@ -60,13 +60,34 @@ resolved from `workspace.yml`/environment mappings, not from here),
 `preSQL`/`postSQL`/`truncateBefore`/`insertStrategy`/`testsEnabled`),
 `materializationType` (`table`/`view`), `overrideSQL`, `version: 1`.
 
+`config` is not decoration: node type run templates GATE their DML on it
+(Work-204 emits its INSERT only when `config.insertStrategy == 'INSERT'`, and
+its truncate only when `config.truncateBefore`). A hand-authored node must
+carry the type's config defaults, copied from its `definition.yml`
+`nodeMetadataSpec` — typical staging values `insertStrategy: INSERT`,
+`truncateBefore: true`, `testsEnabled: false`. An empty `config: {}` still
+passes `coa validate` and `coa create --dry-run` while rendering ZERO run SQL,
+so always confirm with `coa run --include "{ NAME }" --dry-run --verbose`.
+
 ### `sqlType` is the node type — the V1 analogue of `@nodeType`
 
 `operation.sqlType` names the node type. It is either a built-in name
 (`Source`, `Stage`, `View`, `Dimension`, `Fact`, `persistentStage`) or a
 numeric string for a workspace/package type: `sqlType: "41"` resolves to
 `nodeTypes/PersistentStage-41/`, `"42"` to `nodeTypes/Stage-42/`. Resolve one
-by looking for the folder whose suffix after the last dash matches. V1 nodes
+by looking for the folder whose suffix after the last dash matches.
+
+**The names available VARY BY WORKSPACE — check before you write one.** The
+built-in names resolve only where those built-in V1 types exist in
+`nodeTypes/`, which `coa init` writes when the base node types package is
+unavailable; the base packages themselves ship no `Stage` type at all — their
+staging/work-layer type is `Work` (`base-node-types:::204`). So list
+`nodeTypes/` and `.coa/cache/packages/*/nodeTypes/` and read each
+`definition.yml` (`name`, `description`, `nodeMetadataSpec`) to pick the type.
+A name that isn't there fails as
+`error[missingNodeType]: node type "X" is not available`.
+
+V1 nodes
 require a `fileVersion: 1` (or absent) node type — the V2 `.sql` node format is
 the one that requires `fileVersion: 2`.
 
@@ -163,7 +184,7 @@ operation:
             GROUP BY DATE
         noLinkRefs: []
   name: CALL_HISTORY                          # mirrors the top-level name
-  sqlType: Stage                              # the node type
+  sqlType: Stage                              # the node type — name varies; often "Work"
   type: sql
   overrideSQL: false
 type: Node
@@ -183,7 +204,7 @@ with `type: sourceInput`, `sqlType: Source`, and a single
 | What are this node's upstreams? | `sourceMapping[].dependencies[]` (and the `ref()` calls in `joinCondition`) |
 | What are its downstreams? | `coa create --include "{ NAME }+" --dry-run`, or grep `nodeName: NAME` across `nodes/` |
 | What's the merge/SCD key? | columns with `isBusinessKey: true` / `keyColumnType` |
-| What node type / layer? | `operation.sqlType` → `nodeTypes/<Name>-<sqlType>/definition.yml` |
+| What node type / layer? | `operation.sqlType` → `nodeTypes/<Name>-<sqlType>/definition.yml` or `.coa/cache/packages/*/nodeTypes/<Name>-<id>/definition.yml` |
 | Table or view? | `operation.materializationType` |
 
 Prefer `coa` over reading raw YAML when you can: `coa create -d <dir>

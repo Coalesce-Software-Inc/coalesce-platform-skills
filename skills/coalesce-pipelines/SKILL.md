@@ -28,6 +28,12 @@ are supported, and V1 is not a workaround.
 2. If it does not exist (running outside the Coalesce Node app), orient with
    `coa describe structure`, `coa create -d <repo> --list-nodes`, and file
    inspection.
+3. In a COLD workspace — no `nodes/` directory, or `--list-nodes` empty — the
+   entry points are the warehouse, not the graph: `coa sources list` shows the
+   tables available per location, and `coa sources add` scaffolds Source nodes
+   from them. Start there, then build downstream nodes on top.
+4. Also list the node types you actually have before naming one: read
+   `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/` (see Rules 4 and 6).
 
 ## Reference (read as needed)
 
@@ -41,8 +47,12 @@ are supported, and V1 is not a workaround.
 ## Core loop (every change)
 
 Define → `coa validate -d <repo>` → `coa create --dry-run --include "{ NODE }"`
-(add `--verbose` for SQL) → `coa create` → `coa run` → verify → iterate, one
-node at a time. `coa create`/`coa run` execute SQL DIRECTLY against the
+(add `--verbose` for SQL) → `coa run --dry-run --verbose --include "{ NODE }"`
+→ `coa create` → `coa run` → verify → iterate, one node at a time. Both
+dry-runs are mandatory: `create --dry-run` only proves the DDL renders, while a
+node whose `config` is missing its node-type defaults renders ZERO run SQL and
+would silently load no data (see coalesce-pipeline-structure).
+`coa create`/`coa run` without `--dry-run` execute SQL DIRECTLY against the
 warehouse — that is LOCAL development, NOT deploy. Work reaches the cloud only
 via git push, then plan/deploy in the Coalesce web UI or CI.
 
@@ -67,17 +77,34 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    materializes them under `.coa/cache/packages/<alias>/nodeTypes/`, and each
    materialized definition.yml carries the resolvable `<alias>:::<id>` id to
    use in `@nodeType()`. If none are present, run `coa install -d <dir>`;
-   never author one (see coalesce-workspace-config).
+   never author one (see coalesce-workspace-config). `coa install` hydrates
+   only packages already declared under `packages/` and prints "No packages to
+   install." otherwise — `coa init` writes that declaration, so if `packages/`
+   is absent the fix is to re-run `coa init` (ask the user first), never to
+   hand-create shared config.
    When no `fileVersion: 2` type exists for the target node type (the package
    may be unavailable), author V1 `.yml` instead; that is supported, not a
    workaround.
 5. Reference upstream nodes with `{{ ref("LOC", "NAME") }}` (both args).
    Never hardcode `db.schema.table`.
-6. Use the correct node type per layer (Stage → Persistent Stage →
-   Fact/Dimension → View); don't use Stage for everything.
+6. Use the correct node type per layer (staging → persistent staging →
+   fact/dimension → view); don't use the staging type for everything. NODE
+   TYPE NAMES VARY BY WORKSPACE — never assume a type called `Stage` exists.
+   In the base node types packages the staging-layer type is typically named
+   `Work` (e.g. `base-node-types:::204`). Discover the real names before
+   naming one: list `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/` and
+   read each `definition.yml` (`name`, `description`, `nodeMetadataSpec`).
+   Plain built-in names (`Stage`, `View`, `Dimension`, `Fact`,
+   `persistentStage`) resolve ONLY when those built-in V1 types are present in
+   `nodeTypes/` — `coa init` writes them there when the base package is
+   unavailable. Guessing a name yields
+   `error[missingNodeType]: node type "X" is not available`.
 7. Keep changes minimal — modify only what the task requires.
-8. After editing, run `coa validate` then `coa create --dry-run` before
-   executing anything.
+8. After editing, run `coa validate`, then `coa create --dry-run` AND
+   `coa run --dry-run --verbose`, before executing anything. Also pass
+   `--profile <name>` matching the workspace platform on every command that
+   accepts one (`sources`, `create`, `run`, `install`, `doctor`);
+   `coa validate` has no `--profile` flag.
 9. Treat `coa describe` as the source of truth. The bundled example-repository
    FAILS `coa validate` — never copy its shapes.
 
@@ -94,8 +121,9 @@ and can silently break unrelated ones — stop and surface the choice.
 
 Never author a node type to satisfy a `.sql` node. Base types come from the
 installed base node types package; if none are present, run `coa install -d
-<dir>` (safe without asking) and, failing that, author the node as V1 `.yml`
-and continue. A custom net-new type is authored only when the user explicitly
+<dir>` (safe without asking — but it is a no-op unless `packages/` already
+declares a package) and, failing that, author the node as V1 `.yml` and
+continue. A custom net-new type is authored only when the user explicitly
 asks — and even then, ASK FIRST. See coalesce-workspace-config.
 
 ## When to use the other coalesce-* skills

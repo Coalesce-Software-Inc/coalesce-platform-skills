@@ -114,7 +114,14 @@ workspace-local types; there, the `<ID>` after the last dash is the
 - **definition.yml** — `{ isDisabled, name, id, type: "NodeType", fileVersion,
   metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML
   STRING: required `capitalized`, `short`, `plural`, `tagColor`; optional
-  `config`, `systemColumns`.
+  `config`, `systemColumns`. Read `name`/`description`/`nodeMetadataSpec` to
+  identify a type — names vary by workspace, and the base packages ship no
+  `Stage` type (their staging/work-layer type is `Work`,
+  `base-node-types:::204`). `nodeMetadataSpec.config` holds the config
+  DEFAULTS a hand-authored node must copy into `operation.config`: run
+  templates gate their DML on those values (Work-204 on
+  `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so an
+  empty `config: {}` renders zero run SQL.
 - **create.sql.j2** (DDL) and **run.sql.j2** (DML) — Jinja templates.
 
 **fileVersion 1 vs 2:** V2 `.sql` nodes require `fileVersion: 2` in the node
@@ -157,9 +164,11 @@ zero-column table (degenerate DDL) regardless of what the node's SELECT lists.
 The projection MUST come from iterating `source.columns`. V1 node types instead
 use explicit-column DDL (`{{ col.name }} {{ col.dataType }}`).
 
-After a node-type/template edit, prove the contract holds:
+After a node-type/template edit, prove the contract holds on both templates:
 `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --verbose`
-— confirm columns render and SQL is non-empty for affected nodes.
+and the same with `coa run` — confirm columns render and SQL is non-empty for
+affected nodes. `run.sql.j2` is where config gating lives, so create alone
+proves nothing about whether data would load.
 
 ## Macros (macros/)
 

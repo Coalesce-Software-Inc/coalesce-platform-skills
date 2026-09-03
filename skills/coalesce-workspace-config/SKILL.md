@@ -74,10 +74,24 @@ with IDs of the form `<alias>:::<id>` — that is the normal value for
 - `packages/` (the package declarations) confirms which packages the workspace
   expects.
 
+Read each `definition.yml` you find (`name`, `description`,
+`nodeMetadataSpec`) rather than assuming a type name: **names vary by
+workspace**, and the base packages ship no `Stage` type — their
+staging/work-layer type is `Work` (`base-node-types:::204`). The built-in V1
+names (`Stage`, `View`, `Dimension`, `Fact`, `persistentStage`) resolve only
+where `coa init` wrote those built-in types into `nodeTypes/`, which it does
+when the base package is unavailable. `nodeMetadataSpec` also carries the
+type's `config` defaults, which a hand-authored V1 node must copy — a run
+template gates its DML on them.
+
 **If no V2 type is available:**
 
 1. `coa install -d <dir>` — hydrates declared packages. Safe, run it without
    asking, then re-check `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`.
+   It hydrates only packages already declared under `packages/` and otherwise
+   prints "No packages to install."; `coa init` writes that declaration, so if
+   `packages/` is absent, re-running `coa init` (ask first) is the fix — never
+   hand-create the declaration or any other shared config instead.
 2. Still none — the base node types package may be unavailable (it exists only
    in the production registry; lower environments 404). Author the node as a V1
    `.yml` node and continue; that is supported, not a workaround. Do NOT create
@@ -100,10 +114,11 @@ generated DDL/DML for *every* node of that type — always ask.
    data.yml/locations.yml/workspace.yml, auth, and warehouse connectivity.
    `coa doctor --fix` can bootstrap a missing `workspace.yml` / update
    `.gitignore` — still a shared-file change, confirm with the user first.
-5. For node-type/template edits, prove the contract holds:
+5. For node-type/template edits, prove the contract holds on BOTH templates:
    `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --verbose`
-   (and `--json`) — confirm columns render and SQL is non-empty
-   for affected nodes.
+   and the same command with `coa run` (add `--json`) — confirm columns render
+   and SQL is non-empty for affected nodes. `run.sql.j2` is where config
+   gating lives, so a create dry-run alone never proves data would load.
 6. `coa create`/`coa run` execute SQL DIRECTLY against the warehouse — LOCAL
    development, NOT deploy/publish. Cloud plan/deploy is separate (git push →
    Coalesce web UI/CI).

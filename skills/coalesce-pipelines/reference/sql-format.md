@@ -33,16 +33,24 @@ reviewable column contracts, not a capability gap.)
 A V2 `.sql` node REQUIRES a node type whose `nodeTypes/<ID>/definition.yml` has
 `fileVersion: 2`. If `@nodeType` points at a V1 (or absent-fileVersion) type,
 the node still loads but its columns are **SILENTLY EMPTY** (`columns: []`) —
-`coa create`/`coa run` then emit broken DDL/DML with no error. The workspace's
-common types (Source, Stage, View, Dimension, Fact, Persistent Stage) are
-typically V1; using them in a `.sql` file triggers this trap. V2 types come from
+`coa create`/`coa run` then emit broken DDL/DML with no error. The built-in
+type names (Source, Stage, View, Dimension, Fact, persistentStage) are V1;
+using them in a `.sql` file triggers this trap — and they resolve at all only
+where those built-in types exist in `nodeTypes/`, which `coa init` writes when
+the base package is unavailable. Never assume a name: the base packages ship
+no `Stage` type, their staging/work-layer type being `Work`
+(`base-node-types:::204`). V2 types come from
 the installed base node types package for the platform. Discovery is
 file-system based: read `nodeTypes/<ID>/definition.yml` for workspace-local
 types and `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/definition.yml`
 for the package types `coa install` materialized — each of those carries the
 resolvable id in `<alias>:::<id>` form, which is what `@nodeType()` takes. If
 none are present, run `coa install -d <dir>` to hydrate packages and re-check
-the file system; if that still yields nothing, the package may be unavailable —
+the file system — `coa install` hydrates only packages already declared under
+`packages/` and otherwise prints "No packages to install.", and `coa init`
+writes that declaration, so an absent `packages/` means re-running `coa init`
+(ask the user first), never hand-creating shared config. If that still yields
+nothing, the package may be unavailable —
 author the node as V1 `.yml` and continue. Do NOT author a
 node type. Upgrading a V1 type that existing nodes already use changes their
 DDL/DML and STILL requires approval. Never silently write a `.sql` node against
@@ -173,5 +181,5 @@ FROM {{ ref("STG", "STG_CUSTOMERS") }}
 
 (`"Dimension"` stands in for a real V2 node type ID read off disk from
 `nodeTypes/` or `.coa/cache/packages/*/nodeTypes/` — a plain `Dimension` type is
-typically V1.) Note the first two lines are BARE — no leading
+typically V1, and may not exist in the workspace at all.) Note the first two lines are BARE — no leading
 `--`. That is deliberate and required (see "Write the annotations BARE" above).

@@ -54,6 +54,11 @@ Format rules being checked:
 
 - V2 `.sql` node whose `@nodeType` definition lacks `fileVersion: 2` →
   columns are SILENTLY EMPTY (`columns: []`), producing broken DDL/DML.
+- Hand-authored V1 `.yml` node with an empty or partial `operation.config` →
+  run templates gate their DML on config values (a staging type typically
+  needs `insertStrategy: INSERT`, `truncateBefore: true`), so the node passes
+  validate and the create dry-run yet renders ZERO run SQL and loads nothing.
+  Check the `coa run --dry-run` output per node, not just create.
 - Deleted/renamed nodes with downstream dependents (stale `{{ ref() }}`
   edges).
 - One-arg `ref()`, hardcoded `db.schema.table`, or invented column

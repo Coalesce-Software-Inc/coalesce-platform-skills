@@ -35,8 +35,11 @@ on every command (the repo root, where `data.yml`/`locations.yml`/`nodes/` live)
    validation only.
 3. **Dry-run** — `coa create -d <repo> --include "{ NODE }" --dry-run`
    (add `--verbose` to see the generated SQL, `--json` for machine output).
-   Confirms the DDL renders and columns are populated. `coa run ... --dry-run`
-   for DML.
+   Confirms the DDL renders and columns are populated. Then
+   `coa run -d <repo> --include "{ NODE }" --dry-run --verbose` for the DML —
+   both are required. A node type's run template gates its DML on `config`
+   values, so a node with an empty/incomplete `config` renders ZERO run SQL
+   while `create --dry-run` still looks perfect.
 4. **Create** — `coa create -d <repo> --include "{ NODE }"` — executes the DDL.
 5. **Run** — `coa run -d <repo> --include "{ NODE }"` — executes the DML.
 6. **Verify** — query the table (warehouse client or Coalesce web UI).
@@ -44,6 +47,11 @@ on every command (the repo root, where `data.yml`/`locations.yml`/`nodes/` live)
 
 `coa create -d <dir> --list-nodes` (or `coa run ... --list-nodes`) enumerates
 nodes and IDs.
+
+In a cold workspace (no `nodes/`, or `--list-nodes` empty) the loop starts one
+step earlier: `coa sources list -d <dir> [--profile <p>]` lists the warehouse
+tables available per location, and `coa sources add -d <dir>` scaffolds Source
+nodes from them (always generate Source nodes this way, never by hand).
 
 ## Local development vs cloud deploy
 
@@ -58,7 +66,7 @@ web UI or CI (it diffs the pushed Git state against the deployed environment).
 Case-insensitive; minimatch globs supported. Quote selectors; escape inner
 quotes in the shell (e.g. `--include "{ location: \"STG\" }"`).
 
-- `{ NAME }`, `{ name: "X" }`, `{ location: "STG" }`, `{ nodeType: "Stage" }`,
+- `{ NAME }`, `{ name: "X" }`, `{ location: "STG" }`, `{ nodeType: "Work" }`,
   `{ subgraph: "G" }`, `{ nodeID: "123" }`, `{ * }`
 - Globs: `{ name: "STG_*" }`, `{ name: "?RDERS" }`, `{ location: "S*" }`
 - Combine: OR via `||` / `OR` (union); AND via `,` / space / `AND`
@@ -96,6 +104,11 @@ Coalesce cloud API and caches them locally so `create`/`run` can render
 package-provided node types. REQUIRED for any workspace that uses packages:
 run it after init or after pulling a repo that uses packages. It only fetches
 and caches (no shared-config mutation), so it is safe to run without asking.
+It hydrates ONLY packages already declared under `packages/`: with no
+declaration it is a no-op that prints "No packages to install." `coa init`
+writes the declaration, so if `packages/` is absent, re-running `coa init` (or
+asking the user to) is the fix — never hand-create the declaration or any
+other shared config to work around it.
 This is how the base node types package for the platform (declared by
 `coa init` in `packages/base-node-types.yml`) becomes usable — it is the fix
 for "no V2 node type available", never hand-writing one. It materializes each
@@ -110,7 +123,17 @@ derived — `coa install` regenerates it, so never edit it.
 
 Platform credentials, `token`, and `environmentID` live in `~/.coa/config`
 (INI, named `[profile]` sections, selected via `--profile`; override the file
-path with `--config <path>`). Supports Snowflake (Basic / KeyPair), Databricks
+path with `--config <path>`).
+
+**Pass `--profile <name>` explicitly**, matching the workspace's platform, on
+every command that accepts it — `sources`, `create`, `run`, `install`,
+`doctor`, `init`. `coa validate` has NO `--profile` flag (it reads no profile
+at all and needs no warehouse). Relying on the default profile is where this
+goes wrong: a `[default]` whose platform differs from the workspace fails
+every warehouse-touching command with `Profile "default" uses <x>, but
+data.yml does not declare a platformKind`.
+
+Supports Snowflake (Basic / KeyPair), Databricks
 (Token / OAuth M2M), and BigQuery (Service Account); any field has an
 equivalent CLI flag. `workspace.yml` holds ONLY local storage mappings
 (location → database/schema), never credentials. NEVER put secrets in repo

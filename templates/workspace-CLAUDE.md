@@ -37,3 +37,7 @@ it automatically).
 
 If `.claude/workspace-context.json` exists, read it first — it holds the
 current node inventory, edges, jobs, environments, and diagnostics.
+
+In a cold workspace with no `nodes/` yet, start from the warehouse instead:
+`coa sources list` shows the tables per location and `coa sources add`
+scaffolds the Source nodes to build on.
