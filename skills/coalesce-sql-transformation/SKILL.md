@@ -48,9 +48,8 @@ Shared format rules (refs, annotations, V1/V2, naming):
 - Editing an existing `.sql` node whose `@nodeType` resolves to a V1 type
   (silently-empty-columns trap)? Do NOT silently bump its `fileVersion` — that
   type is in use, so upgrading it is a shared-config change: STOP and ASK
-  (see coalesce-workspace-config). Authoring a *new* V2 node in a greenfield
-  workspace with no V2 type is different — that install is sanctioned; see
-  coalesce-pipeline-structure / coalesce-workspace-config.
+  (see coalesce-workspace-config). The fix is a V2 type from the installed base
+  node types package, not a hand-written one — never author a node type here.
 
 ## Workflow (per node)
 
@@ -60,8 +59,10 @@ Shared format rules (refs, annotations, V1/V2, naming):
 3. Verify with coa (LOCAL warehouse commands, not deployment):
    - `coa validate -d <dir>` (schema + scanners)
    - `coa create -d <dir> --include "{ NODE }" --dry-run --verbose` (inspect DDL)
-   - `coa run -d <dir> --include "{ NODE }" --dry-run --verbose` (inspect DML,
-     if relevant)
+   - `coa run -d <dir> --include "{ NODE }" --dry-run --verbose` (inspect DML
+     — always, not just "if relevant": run templates gate their DML on
+     `config`, so a node can pass validate and the create dry-run and still
+     render ZERO run SQL)
 4. Fix and re-validate until clean. Iterate downstream nodes only if asked.
 
 ## Ask first (shared config — can break unrelated nodes)

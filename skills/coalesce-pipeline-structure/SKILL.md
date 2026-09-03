@@ -29,9 +29,12 @@ schemas, node types).
 
 Define → `coa validate -d <dir>` →
 `coa create --dry-run --include "{ NODE }"` (add `--verbose` for SQL) →
-`coa create` → `coa run` → verify → iterate. `coa create`/`coa run` execute
-SQL DIRECTLY against the warehouse — LOCAL development, NOT deploy. Cloud
-plan/deploy is separate (git push → web UI/CI).
+`coa run --dry-run --verbose --include "{ NODE }"` → `coa create` → `coa run`
+→ verify → iterate. Both dry-runs are required: `create --dry-run` proves only
+that the DDL renders, not that the node can load any data (see "Creating a V1
+(.yml) node"). `coa create`/`coa run` without `--dry-run` execute SQL DIRECTLY
+against the warehouse — LOCAL development, NOT deploy. Cloud plan/deploy is
+separate (git push → web UI/CI).
 
 ## In scope without asking
 
@@ -41,15 +44,24 @@ plan/deploy is separate (git push → web UI/CI).
 ## ASK FIRST (shared config — can silently break unrelated nodes)
 
 - Editing nodes NOT in the request.
-- Modifying or removing a node type that existing nodes already use, incl.
-  bumping its `fileVersion` or swapping its template pattern.
+- Creating, modifying, or removing any node type, incl. bumping its
+  `fileVersion` or swapping its template pattern.
 - Changing locations, workspaces, environments, jobs, macros, or `data.yml`.
 
-**Sanctioned without asking:** if a V2 `.sql` node needs a node type and the
-workspace has NO V2 type of that layer (greenfield), install one and proceed —
-a brand-new type can't break existing nodes. Report it in your summary. Recipe
-+ validate step: coalesce-workspace-config ("Installing a V2 node type") and
-`coa describe node-types`.
+**Never author a node type for a `.sql` node.** Base types come from the
+installed base node types package, which `coa install` materializes as a
+read-only tree at `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/`; each
+materialized `definition.yml` carries the resolvable `<alias>:::<id>` id to put
+in `@nodeType()`. Discovery is file-system based: check `nodeTypes/` and
+`.coa/cache/packages/*/nodeTypes/`, and read each `definition.yml` — TYPE
+NAMES VARY BY WORKSPACE, so never assume a type called `Stage` exists (in the
+base packages the staging-layer type is typically `Work`, e.g.
+`base-node-types:::204`). If none are present, run `coa install -d <dir>` —
+safe without asking, though it hydrates only packages already declared under
+`packages/` and prints "No packages to install." otherwise; `coa init` writes
+that declaration, so an absent `packages/` means re-running `coa init` (ask
+the user), never hand-creating shared config. If that still yields nothing,
+author the node as V1 `.yml` and continue. See coalesce-workspace-config.
 
 ## Creating a node (V2 .sql, when a `fileVersion: 2` node type exists)
 
@@ -60,8 +72,8 @@ a brand-new type can't break existing nodes. Report it in your summary. Recipe
 - Required top annotations before any SQL: `@id("<fresh UUID>")` (never reuse
   an existing one) and `@nodeType("<TypeID>")` — which MUST resolve to a
   `fileVersion: 2` node type, or columns are SILENTLY EMPTY (broken DDL/DML).
-  If no V2 type of that layer exists yet, install one first (greenfield =
-  sanctioned; see coalesce-workspace-config).
+  Normally a package ID from the base node types package; if none is available,
+  `coa install -d <dir>` first (see coalesce-workspace-config).
 - Write both annotations as BARE lines — do NOT prefix them with `--` or wrap
   them in `/* */`. `@id("…")` is not valid SQL on its own, but commenting it
   out makes `coa` unable to read it: the node is silently dropped (validate
@@ -86,6 +98,26 @@ Copy the column list from the imported source node in `nodes/` rather than
 inventing one: names, `dataType`, and the upstream `columnCounter` values you
 need for lineage all live there.
 
+Two values you cannot guess:
+
+- **`sqlType`** — the node type's real name or id, read off disk. Type names
+  vary by workspace: list `nodeTypes/` and
+  `.coa/cache/packages/*/nodeTypes/` and read each `definition.yml` (`name`,
+  `description`, `nodeMetadataSpec`) to pick the right one. In the base
+  packages the staging-layer type is typically `Work`, not `Stage`. Plain
+  built-in names (`Stage`, `View`, `Dimension`, `Fact`, `persistentStage`)
+  resolve only where those built-in V1 types exist in `nodeTypes/`, which
+  `coa init` writes when the base package is unavailable. A name that isn't
+  there fails as `error[missingNodeType]: node type "X" is not available`.
+- **`config`** — copy the node type's config DEFAULTS from its
+  `definition.yml` `nodeMetadataSpec`. Node type run templates gate their DML
+  on config values (Work-204 gates the INSERT on
+  `config.insertStrategy == 'INSERT'` and the truncate on
+  `config.truncateBefore`), so `config: {}` passes `coa validate` and
+  `coa create --dry-run` yet renders ZERO run SQL — a node that can never load
+  data. Typical staging values: `insertStrategy: INSERT`,
+  `truncateBefore: true`, `testsEnabled: false`.
+
 ```yaml
 fileVersion: 1
 id: <fresh UUID v4>                 # this node's id; never reuse another node's
@@ -93,16 +125,20 @@ name: <NAME>
 type: Node
 operation:
   type: sql                         # sourceInput only for Source nodes
-  sqlType: Stage                    # Stage | View | Dimension | Fact | persistentStage
+  sqlType: <TYPE_NAME_OR_ID>        # read off disk; often Work, not Stage
   locationName: <LOCATION>
   name: <NAME>                      # mirrors the top-level name
   isMultisource: false
   materializationType: table        # table | view
-  config: {}                        # node-type options; {} is valid
+  config:                           # copy the type's nodeMetadataSpec defaults
+    insertStrategy: INSERT          # {} renders zero run SQL — never ship {}
+    truncateBefore: true
+    testsEnabled: false
   metadata:
     columns:
       - name: <COLUMN>
         dataType: <TYPE>            # copy from the upstream column
+        description: ""             # REQUIRED by validate; "" is fine
         nullable: true
         columnReference:
           stepCounter: <this node's id>
@@ -114,11 +150,13 @@ operation:
             transform: ""           # "" = pass-through; else the SQL expression
     sourceMapping:
       - name: <NAME>
+        aliases: {<ALIAS>: <upstream node id>}   # SQL alias → node id
         dependencies:
           - {locationName: <SRC_LOCATION>, nodeName: <SRC_NAME>}
         join:
           joinCondition: |-
             FROM {{ ref('<SRC_LOCATION>', '<SRC_NAME>') }} "<ALIAS>"
+        noLinkRefs: []              # refs that create no edge (often self)
         customSQL:
           customSQL: ""
 ```
@@ -131,7 +169,10 @@ operation:
   expression in `transform`.
 - Verify with `coa validate -d <dir> --include "{ <NAME> }"`, then
   `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose`; confirm the
-  rendered DDL has a populated column list.
+  rendered DDL has a populated column list. Then
+  `coa run -d <dir> --include "{ <NAME> }" --dry-run --verbose` — mandatory,
+  not optional: empty run SQL here means `config` is missing the node type's
+  defaults, and the node would build a table it never loads.
 - Deeper reference (the id graph, multisource, what not to touch):
   `coalesce-v1-yaml-nodes` and `coa describe schema node`.
 

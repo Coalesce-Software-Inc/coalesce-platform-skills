@@ -31,7 +31,11 @@ by selectors, so view those rules as well with `coa describe selectors`
    coa create -d <dir> --list-nodes                                 # list available nodes/IDs
    coa create -d <dir> --include "<selector>" --dry-run             # preview matched nodes
    coa create -d <dir> --include "<selector>" --dry-run --verbose   # also show generated SQL
+   coa run    -d <dir> --include "<selector>" --dry-run --verbose   # confirm the DML renders too
    ```
+   Check the run dry-run, not just the create one: a node whose `config` lacks
+   its node type's defaults renders ZERO run SQL, so a job can select it and
+   still load no data.
 2. Pick the next free integer `id` (string form, e.g. `"2"`) — do not reuse an
    existing job id and do not use a UUID.
 3. Write `jobs/<JOB_NAME>.yml` with the fields above.
