@@ -14,7 +14,8 @@ break unrelated nodes, so ask the user before changing any of them.
 ├── locations.yml     # storage location names (required)
 ├── workspace.yml     # local db/schema mappings (optional, local-only)
 ├── nodes/            # node files: <LOCATION>-<NAME>.sql / .yml (flat)
-├── nodeTypes/        # node type definitions: <DisplayName>-<ID>/
+├── nodeTypes/        # workspace-local node types: <DisplayName>-<ID>/
+├── packages/         # package declarations (base node types package)
 ├── environments/     # environment configs
 ├── subgraphs/        # logical node groupings
 ├── jobs/             # orchestration definitions
@@ -97,13 +98,30 @@ holding selector strings/node names, are NOT the schema shape.
 
 ## Node types (nodeTypes/<DisplayName>-<ID>/)
 
-The `<ID>` after the last dash is the `@nodeType()` value — PREFER a UUID.
-Each folder holds:
+Base node types are NOT authored here — they ship in the base node types package
+for the platform, declared under `packages/` (`coa init` writes
+`packages/base-node-types.yml`) and hydrated by `coa install`, which
+materializes them as a READ-ONLY file tree at
+`.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/` (definition.yml plus
+`create.sql.j2` / `run.sql.j2`). Each materialized `definition.yml` carries the
+resolvable id in `<alias>:::<id>` form — that exact id is the `@nodeType()`
+value. The tree is derived: `coa install` regenerates it, so never edit it
+(`.coa/cache/packages.json` is the machine cache the tree mirrors). Discovery
+is file-system based — read those folders plus `nodeTypes/`, which holds only
+workspace-local types; there, the `<ID>` after the last dash is the
+`@nodeType()` value. Each node type folder holds:
 
 - **definition.yml** — `{ isDisabled, name, id, type: "NodeType", fileVersion,
   metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML
   STRING: required `capitalized`, `short`, `plural`, `tagColor`; optional
-  `config`, `systemColumns`.
+  `config`, `systemColumns`. Read `name`/`description`/`nodeMetadataSpec` to
+  identify a type — names vary by workspace, and the base packages ship no
+  `Stage` type (their staging/work-layer type is `Work`,
+  `base-node-types:::204`). `nodeMetadataSpec.config` holds the config
+  DEFAULTS a hand-authored node must copy into `operation.config`: run
+  templates gate their DML on those values (Work-204 on
+  `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so an
+  empty `config: {}` renders zero run SQL.
 - **create.sql.j2** (DDL) and **run.sql.j2** (DML) — Jinja templates.
 
 **fileVersion 1 vs 2:** V2 `.sql` nodes require `fileVersion: 2` in the node
@@ -146,9 +164,11 @@ zero-column table (degenerate DDL) regardless of what the node's SELECT lists.
 The projection MUST come from iterating `source.columns`. V1 node types instead
 use explicit-column DDL (`{{ col.name }} {{ col.dataType }}`).
 
-After a node-type/template edit, prove the contract holds:
+After a node-type/template edit, prove the contract holds on both templates:
 `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --verbose`
-— confirm columns render and SQL is non-empty for affected nodes.
+and the same with `coa run` — confirm columns render and SQL is non-empty for
+affected nodes. `run.sql.j2` is where config gating lives, so create alone
+proves nothing about whether data would load.
 
 ## Macros (macros/)
 

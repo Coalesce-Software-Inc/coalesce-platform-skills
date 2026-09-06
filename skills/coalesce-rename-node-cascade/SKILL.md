@@ -122,6 +122,17 @@ them. (See `coa describe workflow`.)
    job/subgraph/location/env/nodeType shapes, missing data.yml). Use
    `coa describe schema <type>` as ground truth, not the example files.
 
+10. Prove the renamed node still renders, on BOTH halves:
+
+    ```
+    coa create -d <workspace-dir> --include "{ <NEW_NAME> }+" --dry-run --verbose
+    coa run    -d <workspace-dir> --include "{ <NEW_NAME> }+" --dry-run --verbose
+    ```
+
+    Validate alone is not enough, and neither is the create dry-run: run
+    templates gate their DML on `config`, so empty run SQL is possible while
+    the DDL looks fine. Include the `+` so downstream nodes render too.
+
 ## Cascade checklist
 
 - [ ] File moved; `@id` and `@nodeType` untouched; new name collision-free.
@@ -135,3 +146,5 @@ them. (See `coa describe workflow`.)
 - [ ] Glob/pattern and lineage-operator selectors reviewed and reported.
 - [ ] `coa validate` passes with no broken references (graph scanners actually
       ran — `workspace.yml` present, bootstrap with `coa doctor --fix` if not).
+- [ ] `coa create --dry-run --verbose` AND `coa run --dry-run --verbose` both
+      render non-empty SQL for `{ <NEW_NAME> }+`.

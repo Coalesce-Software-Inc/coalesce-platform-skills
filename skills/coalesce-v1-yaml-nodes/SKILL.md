@@ -1,6 +1,6 @@
 ---
 name: coalesce-v1-yaml-nodes
-description: Use when reading, explaining, editing, or authoring Coalesce V1 YAML nodes (nodes/<LOCATION>-<NAME>.yml) — the node format the UI/API also generates. Covers the file shape, the id-based column lineage graph, safe edits, and the checklist for authoring a new V1 node by hand.
+description: Use when reading, explaining, editing, or authoring Coalesce V1 YAML nodes (nodes/<LOCATION>-<NAME>.yml) — the node format the UI/API also generates. Covers the file shape, the id-based column lineage graph, safe edits, and the checklist for authoring a new V1 node by hand (Source nodes, config-driven types, or when no fileVersion 2 node type exists).
 ---
 <!-- coalesce-node-managed: true -->
 
@@ -16,12 +16,15 @@ workspaces are entirely or mostly V1.
 **Policy: nodes are authored freely** — via files + CLI or via the UI, V1 and
 V2 alike. This skill makes you competent in the V1 format: read a node, answer
 questions about it, trace lineage, make safe edits, and author a new V1 node
-by hand when the task calls for one (config-driven types like an SCD2
-Dimension are the common reason). Hand-authoring is supported but intricate —
-the id graph and per-type config defaults have sharp edges — so follow the
-"Authoring a new V1 node" checklist below and verify every step with `coa`.
-For Source nodes, always generate with `coa sources add` instead of writing
-YAML.
+by hand when the task calls for one — config-driven types like an SCD2
+Dimension, and any transformation node whose target type has no
+`fileVersion: 2` definition (see the format rule in coalesce-pipelines and the
+minimal recipe in coalesce-pipeline-structure, "Creating a V1 (.yml) node").
+Hand-authoring is supported but intricate — the id graph and per-type config
+defaults have sharp edges — so follow the "Authoring a new V1 node" checklist
+below and verify every step with `coa`. Do not restructure an existing
+column graph. For Source nodes, always generate with `coa sources add` instead
+of writing YAML.
 
 ## Schema is authoritative — read it
 
@@ -62,13 +65,34 @@ resolved from `workspace.yml`/environment mappings, not from here),
 `preSQL`/`postSQL`/`truncateBefore`/`insertStrategy`/`testsEnabled`),
 `materializationType` (`table`/`view`), `overrideSQL`, `version: 1`.
 
+`config` is not decoration: node type run templates GATE their DML on it
+(Work-204 emits its INSERT only when `config.insertStrategy == 'INSERT'`, and
+its truncate only when `config.truncateBefore`). A hand-authored node must
+carry the type's config defaults, copied from its `definition.yml`
+`nodeMetadataSpec` — typical staging values `insertStrategy: INSERT`,
+`truncateBefore: true`, `testsEnabled: false`. An empty `config: {}` still
+passes `coa validate` and `coa create --dry-run` while rendering ZERO run SQL,
+so always confirm with `coa run --include "{ NAME }" --dry-run --verbose`.
+
 ### `sqlType` is the node type — the V1 analogue of `@nodeType`
 
 `operation.sqlType` names the node type. It is either a built-in name
 (`Source`, `Stage`, `View`, `Dimension`, `Fact`, `persistentStage`) or a
 numeric string for a workspace/package type: `sqlType: "41"` resolves to
 `nodeTypes/PersistentStage-41/`, `"42"` to `nodeTypes/Stage-42/`. Resolve one
-by looking for the folder whose suffix after the last dash matches. V1 nodes
+by looking for the folder whose suffix after the last dash matches.
+
+**The names available VARY BY WORKSPACE — check before you write one.** The
+built-in names resolve only where those built-in V1 types exist in
+`nodeTypes/`, which `coa init` writes when the base node types package is
+unavailable; the base packages themselves ship no `Stage` type at all — their
+staging/work-layer type is `Work` (`base-node-types:::204`). So list
+`nodeTypes/` and `.coa/cache/packages/*/nodeTypes/` and read each
+`definition.yml` (`name`, `description`, `nodeMetadataSpec`) to pick the type.
+A name that isn't there fails as
+`error[missingNodeType]: node type "X" is not available`.
+
+V1 nodes
 require a `fileVersion: 1` (or absent) node type — the V2 `.sql` node format is
 the one that requires `fileVersion: 2`.
 
@@ -165,7 +189,7 @@ operation:
             GROUP BY DATE
         noLinkRefs: []
   name: CALL_HISTORY                          # mirrors the top-level name
-  sqlType: Stage                              # the node type
+  sqlType: Stage                              # the node type — name varies; often "Work"
   type: sql
   overrideSQL: false
 type: Node
@@ -185,7 +209,7 @@ with `type: sourceInput`, `sqlType: Source`, and a single
 | What are this node's upstreams? | `sourceMapping[].dependencies[]` (and the `ref()` calls in `joinCondition`) |
 | What are its downstreams? | `coa create --include "{ NAME }+" --dry-run`, or grep `nodeName: NAME` across `nodes/` |
 | What's the merge/SCD key? | columns with `isBusinessKey: true` / `keyColumnType` |
-| What node type / layer? | `operation.sqlType` → `nodeTypes/<Name>-<sqlType>/definition.yml` |
+| What node type / layer? | `operation.sqlType` → `nodeTypes/<Name>-<sqlType>/definition.yml` or `.coa/cache/packages/*/nodeTypes/<Name>-<id>/definition.yml` |
 | Table or view? | `operation.materializationType` |
 
 Prefer `coa` over reading raw YAML when you can: `coa create -d <dir>
@@ -228,12 +252,20 @@ catch exactly the damage a careless V1 edit does:
 - Do not change any EXISTING `id`, `columnCounter`, or `stepCounter`. Ever.
   They are the graph. (Minting fresh ids for a NEW node you are authoring is
   fine — see the authoring checklist.)
+- Do not convert a V2 `.sql` node into a V1 `.yml` one. For a NEW
+  transformation node, author a V2 `.sql` node when a `fileVersion: 2` node
+  type exists (see `coalesce-create-stage-node` and `coalesce-pipelines`); when
+  none exists, hand-author the V1 `.yml` per the checklist below and the
+  coalesce-pipeline-structure recipe.
 - Do not scaffold Source-node YAML by hand — use `coa sources add`, which
   generates correct V1 YAML from the warehouse tables.
-- When adding columns to or restructuring an EXISTING V1 node (adding a source
-  group, making a node multisource), be aware you are cross-wiring ids by
-  hand: follow the authoring checklist's id rules, and prefer the Coalesce UI
-  when one is at hand — it does this bookkeeping for you.
+- Adding a column to an existing V1 node is in scope (mint a fresh
+  `columnCounter`, point `sourceColumnReferences` at real upstream ids, then
+  validate and dry-run, see `coalesce-add-column`). When removing columns or
+  restructuring `sourceMapping` (adding a source group, making a node
+  multisource), be aware you are cross-wiring ids by hand: follow the
+  authoring checklist's id rules, and prefer the Coalesce UI when one is at
+  hand — it does this bookkeeping for you.
 - Do not "tidy" a V1 node — no key reordering, no dropping fields that look
   redundant (`aliases`, `noLinkRefs`, `columnReference` on a derived column),
   no rewriting single-quoted `ref()` calls to double quotes. These files are

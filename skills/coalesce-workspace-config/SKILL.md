@@ -19,8 +19,8 @@ Treat `coa describe <topic>` and `coa describe schema <type>` as the source of
 truth — NOT the example files (the bundled example-repository fails
 `coa validate`).
 
-File shapes, the location-name consistency rule, node type authoring, and the
-V2 CTAS template pattern:
+File shapes, the location-name consistency rule, where node types come from, and
+the V2 CTAS template pattern:
 [yaml-spec reference](../coalesce-pipelines/reference/yaml-spec.md).
 Credentials and `~/.coa/config`:
 [coa-cli reference](../coalesce-pipelines/reference/coa-cli.md).
@@ -36,13 +36,11 @@ go-ahead. Read-only commands (`coa describe`, `coa validate`, `coa doctor`
 without `--fix`, any `--dry-run`) you may run freely. Never put secrets in repo
 files — credentials live in `~/.coa/config`.
 
-**One sanctioned exception (see "Installing a V2 node type" below):** getting a
-node type into a workspace that has *no* type of that layer — SEARCH-FIRST:
-install an existing packaged node type when one fits (packages are official);
-create a brand-new custom `fileVersion: 2` type only when nothing does. Either
-way it can't break existing nodes, so proceed without asking and report which
-path you took and why. Modifying or upgrading a node type that existing nodes
-already depend on is NOT covered by this exception and still requires approval.
+**Do NOT author node types** (see "Getting V2 node types" below). Node types
+are search-first and the search ends in a package: base types come from the
+installed base node types package, not from files you write. Creating,
+modifying, upgrading, or extending anything under `nodeTypes/` requires the
+user's explicit request and approval.
 
 ## The fileVersion 1 vs 2 trap
 
@@ -50,67 +48,67 @@ V2 `.sql` nodes REQUIRE a node type with `fileVersion: 2` in its
 `definition.yml`. With fileVersion 1 (or absent), a `.sql` node parses to
 `columns: []` — no error, but broken DDL/DML at render.
 
-Template pattern note: current `coa` INFERS `col.dataType` for V2 nodes
-(verified: fully typed DDL renders even for aggregate SELECTs), so
-explicit-column DDL templates work. Older builds surfaced `UNKNOWN`; the CTAS
-pattern (iterate `sources` → `source.columns`, guard create with `WHERE 1=0`)
-remains the conservative fallback. Whichever pattern you use, PROVE it with
+The remedy is never to write a template: point `@nodeType` at a V2 type from
+the installed base node types package (hydrate with `coa install` if none are
+present — see below). For reviewing an existing type's templates: current
+`coa` INFERS `col.dataType` for V2 nodes (verified: fully typed DDL renders
+even for aggregate SELECTs), so explicit-column DDL templates work; older
+builds surfaced `UNKNOWN`, and the CTAS pattern (iterate `sources` →
+`source.columns`, guard create with `WHERE 1=0`) remains the conservative
+fallback. Whichever pattern a type uses, PROVE it with
 `coa create --dry-run --verbose` before authoring nodes against it. Full
 template example in the yaml-spec reference.
 
-## Installing a V2 node type
+## Getting V2 node types
 
-When a task needs a V2 `.sql` node but no `fileVersion: 2` node type of that
-layer exists, the workspace must gain one before the `.sql` node can render.
-`coa describe node-types` is the authoritative how-to — it documents the folder
-layout, `nodeMetadataSpec`, and the exact V1-vs-V2 template patterns. Read it
-and `coa describe schema nodeType`; do NOT copy template bodies from example
-files (they may fail `coa validate`).
+V2 node types are NOT authored. They ship in the base node types package for
+your platform, which `coa init` declares in `packages/base-node-types.yml` and
+`coa install` hydrates. Hydrated package types show up as package node types
+with IDs of the form `<alias>:::<id>` — that is the normal value for
+`@nodeType()`.
 
-**Decide the path first — search before you author:**
+**Find them — search first; node type discovery is file-system based:**
 
-1. **Search existing packaged node types FIRST.** Packages are the official,
-   maintained types: check what the org already installed (`packages/`,
-   `coa install`), the package registry, and ask the user which packages their
-   team uses. If a packaged type covers the use case, install and use it.
-2. **No existing type fits (greenfield)** — create a custom `fileVersion: 2`
-   type WITHOUT asking; it can't break existing nodes because none use it yet.
-   Report the new node type in your summary (name, `fileVersion: 2`, template
-   pattern used) and note WHY no existing type fit.
-3. **A V1 type is already in use by other nodes** — upgrading it changes the
-   generated DDL/DML for *every* node of that type. STOP and ASK first; on
-   approval, bump `fileVersion` and swap templates to the V2 pattern.
-4. **Extending an existing type** (new declared annotations, template changes)
-   follows the same rule as upgrading: if nodes already use it, ASK first.
+- `nodeTypes/<DisplayName>-<ID>/definition.yml` — the workspace's own types.
+- `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/definition.yml` — the
+  installed package types, materialized as a READ-ONLY file tree by
+  `coa install` (definition.yml plus `create.sql.j2` / `run.sql.j2`). Each
+  materialized `definition.yml` carries the resolvable id in `<alias>:::<id>`
+  form — that exact id is what goes in `@nodeType()`. The tree is derived;
+  `coa install` regenerates it, so never edit it. (`.coa/cache/packages.json`
+  is the machine cache the tree mirrors.)
+- `packages/` (the package declarations) confirms which packages the workspace
+  expects; if unsure which packages the org uses, ask the user.
 
-**Install steps (greenfield):**
-Reference `coa describe node-types` for examples of the following elements
-1. Create `nodeTypes/<DisplayName>-<UUID>/` — the folder MUST contain three
-   files: `definition.yml`, `create.sql.j2`, AND `run.sql.j2`. A node type with
-   only `definition.yml` (no templates) renders nothing — every node of that
-   type builds a zero-column / empty table. Prefer a real UUID for the ID to
-   avoid collisions.
-2. `definition.yml` — `fileVersion: 2`, `type: NodeType`, the UUID `id`, and a
-   `nodeMetadataSpec` (capitalized/short/plural/tagColor; config/systemColumns
-   as needed). Shape per `coa describe schema nodeType`.
-3. `create.sql.j2` and `run.sql.j2` — the V2 CTAS template pattern. Do NOT
-   hand-write your own Jinja from scratch and do NOT use `{{ node.sql }}` as the
-   body — a template that doesn't iterate `sources`/`source.columns` renders
-   degenerate DDL (empty projection or `SELECT *`), so every node of the type
-   builds a zero-column table even when the node's SELECT lists columns. Copy
-   the exact V2 templates from `coa describe node-types` verbatim; they are the
-   authoritative, working pattern. The canonical V2 Stage pair is below — use it
-   as-is (only swap the display name / colors) unless `coa describe` differs, in
-   which case `coa describe` wins.
+Read each `definition.yml` you find (`name`, `description`,
+`nodeMetadataSpec`) rather than assuming a type name: **names vary by
+workspace**, and the base packages ship no `Stage` type — their
+staging/work-layer type is `Work` (`base-node-types:::204`). The built-in V1
+names (`Stage`, `View`, `Dimension`, `Fact`, `persistentStage`) resolve only
+where `coa init` wrote those built-in types into `nodeTypes/`, which it does
+when the base package is unavailable. `nodeMetadataSpec` also carries the
+type's `config` defaults, which a hand-authored V1 node must copy — a run
+template gates its DML on them.
 
+**If no V2 type is available:**
 
+1. `coa install -d <dir>` — hydrates declared packages. Safe, run it without
+   asking, then re-check `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`.
+   It hydrates only packages already declared under `packages/` and otherwise
+   prints "No packages to install."; `coa init` writes that declaration, so if
+   `packages/` is absent, re-running `coa init` (ask first) is the fix — never
+   hand-create the declaration or any other shared config instead.
+2. Still none — the base node types package may be unavailable (it exists only
+   in the production registry; lower environments 404). Author the node as a V1
+   `.yml` node and continue; that is supported, not a workaround. Do NOT create
+   `nodeTypes/*` to fill the gap and do NOT stop.
 
-**Validate the initial state (proves the trap is gone):**
-
-- `coa validate -d <dir>` passes.
-- `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --json` —
-  columns render and the SQL is non-empty. Empty columns mean the type is still
-  effectively V1; fix before authoring nodes against it.
+**Custom node types** are only for a genuinely net-new type the user explicitly
+asks for. ASK FIRST, then follow `coa describe node-types` — the authoring
+manual for the format (folder layout, `definition.yml` fields,
+`nodeMetadataSpec`, V2 template pattern) — and `coa describe schema nodeType`.
+Modifying or upgrading a type existing nodes already depend on changes the
+generated DDL/DML for *every* node of that type — always ask.
 
 ## Workflow (define → validate → dry-run → verify)
 
@@ -122,10 +120,11 @@ Reference `coa describe node-types` for examples of the following elements
    data.yml/locations.yml/workspace.yml, auth, and warehouse connectivity.
    `coa doctor --fix` can bootstrap a missing `workspace.yml` / update
    `.gitignore` — still a shared-file change, confirm with the user first.
-5. For node-type/template edits, prove the contract holds:
+5. For node-type/template edits, prove the contract holds on BOTH templates:
    `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --verbose`
-   (and `--json`) — confirm columns render and SQL is non-empty
-   for affected nodes.
+   and the same command with `coa run` (add `--json`) — confirm columns render
+   and SQL is non-empty for affected nodes. `run.sql.j2` is where config
+   gating lives, so a create dry-run alone never proves data would load.
 6. `coa create`/`coa run` execute SQL DIRECTLY against the warehouse — LOCAL
    development, NOT deploy/publish. Cloud plan/deploy is separate (git push →
    Coalesce web UI/CI).

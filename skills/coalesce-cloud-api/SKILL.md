@@ -43,13 +43,27 @@ is outside the local CLI and always requires explicit user approval.
   the Coalesce cloud API and caches them locally so `create`/`run` can render
   package-provided node types. REQUIRED for any workspace that uses packages
   (after init, or after pulling such a repo). Fetch/cache only — safe to run
-  without asking.
+  without asking. It hydrates only packages ALREADY DECLARED under
+  `packages/`; with no declaration it is a no-op printing "No packages to
+  install." `coa init` writes that declaration, so if `packages/` is absent
+  the fix is re-running `coa init` (ask the user first) — never hand-create
+  the declaration or other shared config to work around it.
 
 ## Credentials
 
 Platform credentials, `token`, and `environmentID` live in `~/.coa/config`
 (INI, `[profile]` sections, `--profile` to select, `--config <path>` to
-override). Snowflake (Basic/KeyPair), Databricks (Token/OAuth M2M), and
+override).
+
+**Always pass `--profile <name>` explicitly**, matching the workspace's
+platform, on every command that accepts it — `coa sources`, `create`, `run`,
+`install`, `doctor`, `init`. `coa validate` has NO `--profile` flag; it reads
+no profile and needs no warehouse. Leaning on the default profile is the
+common failure: a `[default]` whose platform differs from the workspace fails
+every warehouse-touching command with `Profile "default" uses <x>, but
+data.yml does not declare a platformKind`.
+
+Snowflake (Basic/KeyPair), Databricks (Token/OAuth M2M), and
 BigQuery (Service Account) are supported; every field has a CLI flag.
 `workspace.yml` holds ONLY local storage mappings, never credentials. NEVER
 put secrets in repo files.

@@ -54,6 +54,11 @@ Format rules being checked:
 
 - V2 `.sql` node whose `@nodeType` definition lacks `fileVersion: 2` →
   columns are SILENTLY EMPTY (`columns: []`), producing broken DDL/DML.
+- Hand-authored V1 `.yml` node with an empty or partial `operation.config` →
+  run templates gate their DML on config values (a staging type typically
+  needs `insertStrategy: INSERT`, `truncateBefore: true`), so the node passes
+  validate and the create dry-run yet renders ZERO run SQL and loads nothing.
+  Check the `coa run --dry-run` output per node, not just create.
 - Deleted/renamed nodes with downstream dependents (stale `{{ ref() }}`
   edges).
 - One-arg `ref()`, hardcoded `db.schema.table`, or invented column
@@ -65,11 +70,10 @@ Format rules being checked:
 - Edits to SHARED config — `nodeTypes/*`, locations, workspace, environments,
   jobs, macros, `data.yml`, `fileVersion` bumps, template swaps. These were
   likely OUT of the request's scope and can silently break unrelated nodes;
-  surface them prominently. Exception: a NEW `fileVersion: 2` node type added to
-  a workspace that had none of that layer (greenfield setup) is expected when
-  the change introduces V2 `.sql` nodes — verify it's a net-new type (not a
-  modification of one existing nodes already use) and that it validates, rather
-  than flagging it as an unscoped edit.
+  surface them prominently. A NEW `nodeTypes/*` directory is no exception: V2
+  types normally arrive via the installed base node types package, so a
+  hand-authored one in a diff is a shared-config change to surface — ask whether
+  the user actually requested a custom type.
 
 ## Constraints
 
