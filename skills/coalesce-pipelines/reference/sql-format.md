@@ -120,7 +120,11 @@ columns means the annotations were not read (commented out, missing, or a V1
 ## References
 
 Double-quoted Jinja macros with BOTH args — there is NO name-only /
-single-arg form. Never hardcode `db.schema.table`.
+single-arg form. Never hardcode `db.schema.table`. The LOCATION arg must be
+the location the node file actually lives in (`nodes/<LOCATION>-<NAME>.*`);
+a ref to the wrong location still validates with exit 0, surfacing only as
+`warning[namedDependencyUnresolved]: "LOC"."NAME" is not a node` — treat that
+warning as an error and correct the location.
 
 - `{{ ref("LOCATION", "NODE_NAME") }}` — resolves to the table AND creates a
   lineage edge.
