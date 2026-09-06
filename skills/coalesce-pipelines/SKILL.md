@@ -105,6 +105,15 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    `--profile <name>` matching the workspace platform on every command that
    accepts one (`sources`, `create`, `run`, `install`, `doctor`);
    `coa validate` has no `--profile` flag.
+   Clean means **0 errors AND 0 warnings**. `coa validate` exits 0 and prints
+   "0 errors" even when it emits warnings, and a warning is a real defect.
+   The one you will meet most:
+   `warning[namedDependencyUnresolved]: "LOC"."NAME" is not a node` — a
+   `{{ ref("LOC", "NAME") }}` points at a location where that node does not
+   exist (there is no `nodes/LOC-NAME.sql|.yml`). Fix the LOCATION arg to
+   where the file actually lives (a `STG_*`/transform node lives in its own
+   location, e.g. `TARGET`, not in a `SRC` location); never delete the ref or
+   move on with the warning standing.
 9. Treat `coa describe` as the source of truth. The bundled example-repository
    FAILS `coa validate` — never copy its shapes.
 
