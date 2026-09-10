@@ -46,9 +46,11 @@ parameters: { <name>: <json-value> } }`. The locations map is the local
 db/schema mapping used by `coa create`/`coa run` and required for the validate
 graph scanners to resolve refs. `profile` is this workspace's profile binding —
 the NAME of a `~/.coa/config` section, never credentials. Set it with
-`coa profile use <name> -d <dir>`, clear it with `coa profile unset`; do not
-hand-write it. The file is local-only and should stay gitignored.
-`coa doctor --fix` can bootstrap a missing `workspace.yml` (ask first).
+`coa profile use <name> -d <dir>` or `coa init --profile <name>`, clear it with
+`coa profile unset`; do not hand-write it. Every key has its own writer, so
+`coa profile use` leaves the mappings and parameters alone. The file is
+local-only and should stay gitignored. `coa doctor --fix` can bootstrap a
+missing `workspace.yml` (ask first).
 
 ## environments/<NAME>.yml
 
