@@ -67,9 +67,9 @@ profile=` key > `default`. `coa profile list -d <dir>` and `coa doctor` both
 report the profile in force and which of the four selected it.
 
 Only commands that act on a workspace directory read the binding — `run`,
-`create`, `fetch`, `sources`, `install`, `serve`, `doctor`, `init`, `auth
-warehouse login`, `coa profile`. Cloud Operations commands resolve from flags
-alone, so pass `--profile` on those.
+`create`, `sources`, `install`, `serve`, `doctor`, `init`, `auth warehouse
+login`, `coa profile`. Cloud Operations commands resolve from flags alone, so
+pass `--profile` on those.
 
 Bindings are per workspace directory, which is what lets workspaces on different
 platforms coexist on one machine. `coa profile use` and `coa init` both refuse a
@@ -111,7 +111,9 @@ secrets in repo files.
   (read-only, secrets redacted).
 - ASK FIRST: anything that writes credentials or shared config — `coa init`,
   `coa profile create/set-cloud/delete/rename/use/unset`, `coa doctor --fix`,
-  editing `data.yml`/`locations.yml`/`workspace.yml`, or any operation that
-  mutates state the cloud sees. `delete` and `rename` are destructive and repair
-  only the binding in `-d <dir>`; other workspaces bound to that profile break.
+  editing `data.yml`/`locations.yml`/`workspace.yml`, every Cloud Operations
+  command (`plan`, `deploy`, `refresh`, `rerun`, `cancel`), or any operation
+  that mutates state the cloud sees. `delete` and `rename` are destructive and
+  repair only the binding in `-d <dir>`; other workspaces bound to that profile
+  break.
   Never auto-bootstrap, auto-fix, or push to a remote without explicit approval.

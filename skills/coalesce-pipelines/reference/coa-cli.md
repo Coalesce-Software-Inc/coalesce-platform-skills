@@ -92,10 +92,12 @@ plus that platform's flags works on either. `--skip-install` / `--skip-doctor` /
 
 Without `--profile`, init writes into whichever profile the chain below already
 resolves to (a bound workspace keeps its binding). With `--profile <name>` it
-writes into THAT section and binds the workspace to it — after the credential
-phases pass, so a failed init leaves no new binding and no half-written profile.
-`coa init --profile <name>` is also how you rewrite an existing profile's
-credentials, since `coa profile create` refuses a name that already exists.
+writes into THAT section and binds the workspace to it — the binding is written
+after the credential phases, so a failed init leaves no new binding. It CAN
+leave a half-written profile: phase 1 stores the token before phase 2 tests the
+warehouse. `coa init --profile <name>` is also how you rewrite an existing
+profile's credentials, since `coa profile create` refuses a name that already
+exists.
 
 init writes credentials and shared config — ask the user before running it.
 
@@ -144,8 +146,10 @@ and `--json`.
   falls through the chain.
 
 Pass `--non-interactive` to `create` and `set-cloud` so a missing value fails
-(`Required value missing in --non-interactive mode: <field>`) instead of
-prompting. `init` takes it too; no other command does.
+instead of prompting — they fail differently. `create` (like `init`) aborts with
+`Required value missing in --non-interactive mode: <field>`; `set-cloud` reports
+`A token is required. Pass --token, or drop --non-interactive to be prompted for
+it.` `init` takes the flag too; no other command does.
 
 Profile **names** are validated by round-tripping `[name]` through the ini
 parser, before any prompt and before any connection is dialed. Letters, digits,
@@ -206,12 +210,12 @@ Profile resolution, highest precedence first:
 4. `default`.
 
 **Only the commands that act on a workspace directory see step 2**: `run`,
-`create`, `fetch`, `sources`, `install`, `serve`, `doctor`, `init`, `auth
-warehouse login` (it takes `-d/--dir` for exactly this), and `coa profile`
-itself. The Cloud Operations commands (`deploy`, `plan`, `refresh`, `rerun`,
-`cancel`, `runs`, …) deliberately do NOT read the binding — they resolve from
-flags alone, so pass `--profile` on those. `coa validate` reads no profile at
-all and needs no warehouse.
+`create`, `sources`, `install`, `serve`, `doctor`, `init`, `auth warehouse
+login` (it takes `-d/--dir` for exactly this), and `coa profile` itself. The
+Cloud Operations commands (`deploy`, `plan`, `refresh`, `rerun`, `cancel`,
+`runs`, …) deliberately do NOT read the binding — they resolve from flags
+alone, so pass `--profile` on those. `coa validate` reads no profile at all and
+needs no warehouse.
 
 **Check the binding before reaching for `--profile`.** Run `coa profile list -d
 <dir>` first: it names the profiles that exist and which one that directory
@@ -237,14 +241,18 @@ profile whose platform disagrees with the workspace, as does `coa init`:
 - `data.yml` naming a platform — that platform and only that one. `coa init`
   refuses rather than rewriting a platform already recorded there.
 
-A profile's own platform is its declared `platformKind`, else the one implied by
+A profile's platform is its declared `platformKind`, else the one implied by
 whichever auth-type field it carries — `snowflakeAuthType`,
 `databricksAuthType`, `bigQueryAuthType`, and only those, so a section holding
-just `snowflakeAccount` reads as having no platform at all.
+just `snowflakeAccount` reads as having no platform at all. The check reads the
+EFFECTIVE profile (the section layered over `[default]`), so a section with no
+platform of its own inherits `[default]`'s — which is why `coa profile list` can
+print `-` in the PLATFORM column for a profile that `coa profile use` then
+reports a platform for.
 The mismatch reads `Profile "dbx" is for databricks, but this is a snowflake
 workspace.` — at bind time from `use`/`init`, at load time from `run`/`create`.
-Binding a profile that carries no warehouse credentials at all succeeds with a
-warning; local execution fails until they are added.
+Binding a profile with no warehouse credentials of its own or inherited succeeds
+with a warning; local execution fails until they are added.
 
 Supported: Snowflake (`Basic`, `KeyPair`, `OAuth`), Databricks (`Token`,
 `OAuthM2M`), BigQuery (`ServiceAccount`, `ApplicationDefault`). Every field has
@@ -279,7 +287,10 @@ put secrets in repo files.
   0 either way. Read the checks; do not treat that line as a failed connection.
 - **`coa plan` prompts** to continue when the repo has uncommitted changes, and
   it has no `--non-interactive`. Piped or captured, it hangs with no output.
-  Give it a TTY, or commit first.
+  Give it a TTY, commit first, or pass `--gitsha <sha>`: that supplies the
+  commit metadata directly, so the git check — and its prompt — is skipped
+  entirely. The sha only labels the plan; the files planned still come from the
+  working directory either way.
 
 ## Approval gates (`coa describe workflow`)
 
