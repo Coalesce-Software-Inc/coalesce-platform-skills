@@ -101,9 +101,13 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    `error[missingNodeType]: node type "X" is not available`.
 7. Keep changes minimal — modify only what the task requires.
 8. After editing, run `coa validate`, then `coa create --dry-run` AND
-   `coa run --dry-run --verbose`, before executing anything. Also pass
-   `--profile <name>` matching the workspace platform on every command that
-   accepts one (`sources`, `create`, `run`, `install`, `doctor`);
+   `coa run --dry-run --verbose`, before executing anything. Settle the profile
+   FIRST with `coa profile list -d <dir>`: it names the profiles available and
+   which one that workspace resolves to. If the workspace is bound (`profile:`
+   in `workspace.yml`), run local commands without `--profile` — the flag
+   outranks the binding and would override the user's choice. If nothing is
+   bound, pass `--profile <name>` matching the workspace platform on every
+   command that accepts one (`sources`, `create`, `run`, `install`, `doctor`);
    `coa validate` has no `--profile` flag.
 9. Treat `coa describe` as the source of truth. The bundled example-repository
    FAILS `coa validate` — never copy its shapes.
