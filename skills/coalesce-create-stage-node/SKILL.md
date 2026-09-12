@@ -154,8 +154,9 @@ Rules:
   placed AFTER the alias and BEFORE the comma. `@isBusinessKey` /
   `@isChangeTracking` belong on Persistent Stage/Dimension, not a plain Stage.
   Additional annotations exist ONLY if the node type declares them in its
-  `annotations:` block — an undeclared annotation silently zeroes out ALL of
-  the node's columns (see sql-format reference). Do NOT invent annotations.
+  `annotations:` block — an undeclared or misspelled annotation is accepted
+  and silently does nothing (see sql-format reference). Do NOT invent
+  annotations.
 
 ## 4. Verify with coa (mandatory)
 

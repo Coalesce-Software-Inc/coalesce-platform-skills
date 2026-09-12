@@ -93,7 +93,8 @@ coalesce-workspace-config.
 - Refs, column annotations, and a full example: see the sql-format reference.
   Native annotations are `@isBusinessKey`, `@isChangeTracking`, `@id`,
   `@description`; node types may DECLARE more in their `annotations:` block —
-  an undeclared annotation silently empties the node's columns.
+  an undeclared or misspelled annotation is accepted and silently does
+  nothing.
 
 ## Creating a V1 (.yml) node
 

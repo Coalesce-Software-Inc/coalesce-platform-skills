@@ -155,25 +155,36 @@ Placed AFTER the alias and BEFORE the comma, e.g.
 
 **Declared annotations**: a node type's `nodeMetadataSpec` may carry an
 `annotations:` block declaring additional node- and column-level annotations
-(e.g. a data quality test library). Declaring a column annotation makes the
-parser accept it inline and flatten it onto the column object in template
-context (`{parameters: [...]}`, or `true` for parameterless). Check the node
-type's `definition.yml` for what is legal on that type.
+(e.g. a data quality test library). Values hydrate into template context as
+`true` for a bare annotation, `{parameters: [...]}` for a parameterized one,
+and an ordered array of those for an annotation declared `allowsMultiple`.
+Node-level values land on `config.<name>`; column-level values are flattened
+onto the column object as `col.<name>`. Check the node type's `definition.yml`
+for what it declares — that is the only list of what its templates act on.
 
-Hazards, all verified:
+Hazards (verified on coa 7.42.5):
 
-- **An UNDECLARED column annotation silently zeroes out ALL columns of the
-  node** — validate may stay green while create renders empty DDL. If a node's
-  columns vanish, check for a typo'd or undeclared annotation first.
-- Repeated annotations collapse (last one wins), even with
-  `allowsMultiple: true`. Pass lists variadically in ONE call:
-  `@accepted_values("A", "B", "C")`.
-- An annotation named `unique` collides with the SQL keyword and fails
-  validation; use a different name (or a parameterized form like
-  `@tests("unique")` where the type declares it).
-- Node-level declared annotations (other than `@materializationType` and
-  `@description`) do NOT currently reach template context — declaring them
-  documents intent but templates cannot act on them locally.
+- **An undeclared or misspelled annotation does nothing, silently.** The
+  parser accepts any name and hydrates the value under the name as written;
+  no template reads it, so the node validates, creates, and runs as if the
+  annotation were absent. `coa validate` emits no warning today. When an
+  option seems ignored, compare the spelling and casing against the node
+  type's `annotations:` block first (declared names are case-sensitive).
+- **Multi-value tests: repeat the annotation, never pass several values in
+  one call.** `@accepted_values("'A'") @accepted_values("'B'")` renders
+  `NOT IN ('A', 'B')`; the variadic form `@accepted_values("'A'", "'B'")`
+  renders only the first value with no error (TRA-2486). Same for
+  `@rejected_values`, `@preSQL`, `@postSQL`, `@tests`, `@inHash`.
+- An annotation named `unique` collides with the SQL keyword and fails to
+  parse; that is why the packaged test is `@uniqueness`. Avoid SQL keywords
+  as annotation names.
+- A declared `default` is documentation only. Nothing applies it at runtime;
+  the node type's template supplies the fallback, so omit the annotation to
+  get the default rather than writing the default value out.
+- `coa validate` currently rejects unquoted boolean arguments such as
+  `@tests("...", true, "After")` that the runtime accepts (TRA-2483). Treat
+  that one error as a known false positive, not as a reason to quote the
+  boolean — a quoted `"false"` is a string and Jinja treats it as true.
 
 Do NOT invent annotations that are neither native nor declared by the node
 type: `@isSurrogateKey`, `@pii`, `@synqMonitor` are NOT in the spec.
