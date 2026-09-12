@@ -4,13 +4,15 @@
 # Coalesce Transform Repository
 
 This is a Coalesce Transform workspace: a Git-backed representation of a data
-transformation DAG. Nodes live in `nodes/` as `<LOCATION>-<NAME>.sql` (V2) or
-`.yml` (V1) files — Source nodes are always V1, and every other node is V2
-when a `fileVersion: 2` node type exists for its type, otherwise V1; workspace
-metadata (locations, environments, jobs, subgraphs, node types, macros) is
-YAML. The `coa` CLI validates the repo and runs SQL against the warehouse for
-local development — `coa describe <topic>` is the source of truth for every
-format and schema.
+transformation DAG. Nodes live in `nodes/` as `<LOCATION>-<NAME>.sql` (SQL
+nodes) or `.yml` (YAML nodes) files — the node type decides which: a SQL node
+type (`fileVersion: 2` in its definition; the app still labels it "V2")
+takes `.sql`, a YAML node type (formerly "V1") takes `.yml`, and Source nodes
+are always YAML. Workspace metadata (locations, environments, jobs,
+subgraphs, node types, macros) is YAML. The `coa` CLI validates the repo, runs
+SQL against the warehouse for local development, and plans and deploys to
+Coalesce Environments — `coa describe <topic>` and `coa <command> --help` are
+the source of truth for every format, schema, and command.
 
 ## Use the Coalesce Agent Skills
 
@@ -19,7 +21,7 @@ installed at `~/.claude/skills/coalesce-*`). Start with the
 `coalesce-pipelines` skill — it covers the repo layout, the core
 validate/dry-run/create/run loop, the format rules, and routes to the
 specialist skills (SQL edits, structure changes, workspace config, git
-publication, review).
+publication, deploy, review).
 
 If the `coalesce-pipelines` skill is not available in this environment,
 install the Coalesce Agent Skills package (see the `coalesce-agent-skills`
@@ -29,8 +31,9 @@ it automatically).
 ## Two rules that always apply
 
 1. `coa create` / `coa run` execute SQL directly against the warehouse —
-   local development, NOT deploy. Work reaches the cloud only via git push,
-   then plan/deploy in the Coalesce web UI or CI.
+   local development, NOT deploy. Deploying is its own approved step: commit
+   and push, then `coa plan` / `coa deploy` against an Environment (or the
+   Coalesce web UI). Never deploy, refresh, or push without approval.
 2. Ask before editing shared config (`data.yml`, `locations.yml`,
    `workspace.yml`, `environments/`, `jobs/`, `macros/`, `packages/`,
    `nodeTypes/`) — an edit there can silently break unrelated nodes.
