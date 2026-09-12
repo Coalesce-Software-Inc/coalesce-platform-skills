@@ -9,8 +9,9 @@ description: Use when installing, connecting, or troubleshooting the hosted Coal
 Scope: registering the hosted Coalesce Transform MCP server (HTTP transport)
 in an MCP client so agents can query Coalesce projects, environments, and
 runs. This is client configuration only — it does not touch the workspace
-repo or the warehouse. For `coa` CLI credentials and `~/.coa/config`, use
-coalesce-cloud-api instead.
+repo or the warehouse. For `coa` CLI credentials, `~/.coa/config`, and the
+CLI's own cloud commands (`coa environments`, `plan`, `deploy`, `refresh`),
+use coalesce-cloud-api instead.
 
 Source of truth:
 [MCP quickstart](https://docs.coalesce.io/docs/coalesce-ai/mcp/mcp-quickstart)

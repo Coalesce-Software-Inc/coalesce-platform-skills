@@ -1,6 +1,6 @@
 ---
 name: coalesce-v1-yaml-nodes
-description: Use when reading, explaining, editing, or authoring Coalesce V1 YAML nodes (nodes/<LOCATION>-<NAME>.yml) — the node format the UI/API also generates. Covers the file shape, the id-based column lineage graph, safe edits, and the checklist for authoring a new V1 node by hand (Source nodes, config-driven types, or when no fileVersion 2 node type exists).
+description: Use when reading, explaining, editing, or authoring Coalesce YAML nodes (nodes/<LOCATION>-<NAME>.yml, formerly V1 nodes) — the node format the UI/API also generates. Covers the file shape, the id-based column lineage graph, safe edits, and the checklist for authoring a new YAML node by hand (Source nodes, config-driven types, or when no SQL node type exists).
 ---
 <!-- coalesce-node-managed: true -->
 
@@ -8,23 +8,26 @@ description: Use when reading, explaining, editing, or authoring Coalesce V1 YAM
 > loaded the `coalesce-pipelines` skill in this session, load it now, read its
 > "Orient first" step, core `coa` loop, and Rules, then return here.
 
-V1 nodes are the YAML node format at `nodes/<LOCATION>-<NAME>.yml`. The
-Coalesce **UI and API produce** this format natively — a serialized form of
-the node graph, including an id-based column lineage graph. Most existing
-workspaces are entirely or mostly V1.
+YAML nodes (formerly "V1" nodes) are the node format at
+`nodes/<LOCATION>-<NAME>.yml`, used by every node whose node type is a YAML
+node type (`fileVersion: 1` or absent in its `definition.yml`). The Coalesce
+**UI and API produce** this format natively — a serialized form of the node
+graph, including an id-based column lineage graph. Most existing workspaces
+are entirely or mostly YAML nodes. (SQL nodes, formerly "V2", are the `.sql`
+format on SQL node types; see the sql-format reference.)
 
-**Policy: nodes are authored freely** — via files + CLI or via the UI, V1 and
-V2 alike. This skill makes you competent in the V1 format: read a node, answer
-questions about it, trace lineage, make safe edits, and author a new V1 node
-by hand when the task calls for one — config-driven types like an SCD2
-Dimension, and any transformation node whose target type has no
-`fileVersion: 2` definition (see the format rule in coalesce-pipelines and the
-minimal recipe in coalesce-pipeline-structure, "Creating a V1 (.yml) node").
+**Policy: nodes are authored freely** — via files + CLI or via the UI, YAML
+and SQL alike. This skill makes you competent in the YAML format: read a
+node, answer questions about it, trace lineage, make safe edits, and author a
+new YAML node by hand when the task calls for one — config-driven types like
+an SCD2 Dimension, and any transformation node whose target type has no SQL
+definition (see the format rule in coalesce-pipelines and the minimal recipe
+in coalesce-pipeline-structure, "Creating a YAML (.yml) node").
 Hand-authoring is supported but intricate — the id graph and per-type config
-defaults have sharp edges — so follow the "Authoring a new V1 node" checklist
-below and verify every step with `coa`. Do not restructure an existing
-column graph. For Source nodes, always generate with `coa sources add` instead
-of writing YAML.
+defaults have sharp edges — so follow the "Authoring a new YAML node"
+checklist below and verify every step with `coa`. Do not restructure an
+existing column graph. For Source nodes, always generate with `coa sources
+add` instead of writing YAML.
 
 ## Schema is authoritative — read it
 
@@ -43,7 +46,7 @@ Five required top-level keys, `additionalProperties: false`:
 
 | Key | Value |
 |-----|-------|
-| `fileVersion` | `1` (integer) — this is what makes it a V1 node |
+| `fileVersion` | `1` (integer) — the YAML node file version |
 | `id` | node UUID — **immutable**, and the anchor of the column graph |
 | `name` | node name |
 | `type` | constant `Node` |
@@ -74,7 +77,7 @@ carry the type's config defaults, copied from its `definition.yml`
 passes `coa validate` and `coa create --dry-run` while rendering ZERO run SQL,
 so always confirm with `coa run --include "{ NAME }" --dry-run --verbose`.
 
-### `sqlType` is the node type — the V1 analogue of `@nodeType`
+### `sqlType` is the node type — the YAML analogue of `@nodeType`
 
 `operation.sqlType` names the node type. It is either a built-in name
 (`Source`, `Stage`, `View`, `Dimension`, `Fact`, `persistentStage`) or a
@@ -83,7 +86,7 @@ numeric string for a workspace/package type: `sqlType: "41"` resolves to
 by looking for the folder whose suffix after the last dash matches.
 
 **The names available VARY BY WORKSPACE — check before you write one.** The
-built-in names resolve only where those built-in V1 types exist in
+built-in names resolve only where those built-in YAML types exist in
 `nodeTypes/`, which `coa init` writes when the base node types package is
 unavailable; the base packages themselves ship no `Stage` type at all — their
 staging/work-layer type is `Work` (`base-node-types:::204`). So list
@@ -92,14 +95,13 @@ staging/work-layer type is `Work` (`base-node-types:::204`). So list
 A name that isn't there fails as
 `error[missingNodeType]: node type "X" is not available`.
 
-V1 nodes
-require a `fileVersion: 1` (or absent) node type — the V2 `.sql` node format is
-the one that requires `fileVersion: 2`.
+YAML nodes require a YAML node type (`fileVersion: 1` or absent) — the SQL
+`.sql` node format is the one that requires `fileVersion: 2`.
 
 ### Identity comes from the YAML, NOT the filename
 
-This is the opposite of V2 `.sql` nodes, where the filename sets location and
-name. For a V1 `.yml`, `coa` reads `name` and `operation.locationName` from
+This is the opposite of SQL `.sql` nodes, where the filename sets location and
+name. For a YAML `.yml`, `coa` reads `name` and `operation.locationName` from
 inside the file; renaming the file alone changes nothing. Keep all four in
 sync anyway — filename prefix, filename suffix, `name`, `operation.locationName`
 (and `operation.name`, which mirrors the top-level `name`) — because humans and
@@ -123,7 +125,7 @@ names**:
   uses an empty `columnReferences: []`, or the sentinel
   `stepCounter: "0"` / `columnCounter: "0"`, with the expression in `transform`.
 
-Fabricating these ids by hand is how V1 nodes get silently broken: the node
+Fabricating these ids by hand is how YAML nodes get silently broken: the node
 still parses, but lineage points nowhere.
 
 
@@ -199,7 +201,7 @@ A Source node is the same skeleton minus `sourceMapping`/`sourceColumnReferences
 with `type: sourceInput`, `sqlType: Source`, and a single
 `metadata.join.joinCondition` of the form `FROM {{ ref('SRC', 'TABLE') }}`.
 
-## Reading a V1 node — how to answer common questions
+## Reading a YAML node — how to answer common questions
 
 | Question | Where to look |
 |----------|---------------|
@@ -214,12 +216,12 @@ with `type: sourceInput`, `sqlType: Source`, and a single
 
 Prefer `coa` over reading raw YAML when you can: `coa create -d <dir>
 --list-nodes` to enumerate, `coa create --include "{ NAME }" --dry-run
---verbose` to see the SQL a V1 node actually renders.
+--verbose` to see the SQL a YAML node actually renders.
 
-## `coa validate` scanners that specifically police V1 nodes
+## `coa validate` scanners that specifically police YAML nodes
 
 Run `coa validate` after ANY edit to a `.yml` node. These scanners exist to
-catch exactly the damage a careless V1 edit does:
+catch exactly the damage a careless YAML edit does:
 
 - **Column Sources / Column Source Mappings / Column Dependencies / Column
   References** — the id graph resolves; `sourceMapping` dependencies point at
@@ -237,7 +239,7 @@ catch exactly the damage a careless V1 edit does:
 
 **Safe — do these when asked:**
 
-- Read, explain, summarize, diff, and trace lineage through V1 nodes.
+- Read, explain, summarize, diff, and trace lineage through YAML nodes.
 - Answer "what does this node do / where does this column come from".
 - Edit metadata-only text in place: a node or column `description`.
 - Edit an existing column's `transform`, or a `sourceMapping[].join.joinCondition`
@@ -252,31 +254,31 @@ catch exactly the damage a careless V1 edit does:
 - Do not change any EXISTING `id`, `columnCounter`, or `stepCounter`. Ever.
   They are the graph. (Minting fresh ids for a NEW node you are authoring is
   fine — see the authoring checklist.)
-- Do not convert a V2 `.sql` node into a V1 `.yml` one. For a NEW
-  transformation node, author a V2 `.sql` node when a `fileVersion: 2` node
-  type exists (see `coalesce-create-stage-node` and `coalesce-pipelines`); when
-  none exists, hand-author the V1 `.yml` per the checklist below and the
+- Do not convert a SQL `.sql` node into a YAML `.yml` one. For a NEW
+  transformation node, author a SQL `.sql` node when a SQL node type exists
+  (see `coalesce-create-stage-node` and `coalesce-pipelines`); when none
+  exists, hand-author the YAML `.yml` per the checklist below and the
   coalesce-pipeline-structure recipe.
 - Do not scaffold Source-node YAML by hand — use `coa sources add`, which
-  generates correct V1 YAML from the warehouse tables.
-- Adding a column to an existing V1 node is in scope (mint a fresh
+  generates correct YAML from the warehouse tables.
+- Adding a column to an existing YAML node is in scope (mint a fresh
   `columnCounter`, point `sourceColumnReferences` at real upstream ids, then
   validate and dry-run, see `coalesce-add-column`). When removing columns or
   restructuring `sourceMapping` (adding a source group, making a node
   multisource), be aware you are cross-wiring ids by hand: follow the
   authoring checklist's id rules, and prefer the Coalesce UI when one is at
   hand — it does this bookkeeping for you.
-- Do not "tidy" a V1 node — no key reordering, no dropping fields that look
+- Do not "tidy" a YAML node — no key reordering, no dropping fields that look
   redundant (`aliases`, `noLinkRefs`, `columnReference` on a derived column),
   no rewriting single-quoted `ref()` calls to double quotes. These files are
   machine-serialized; churn creates unreviewable diffs and round-trip conflicts
   with the UI.
-- Do not rename a V1 node by editing the file alone — `name`,
+- Do not rename a YAML node by editing the file alone — `name`,
   `operation.name`, `operation.locationName`, the filename, every downstream
   `sourceMapping[].dependencies[]`, every `ref()` string, and job/subgraph
   selectors all have to move together. Use `coalesce-rename-node-cascade`.
 
-## Authoring a new V1 node by hand — checklist
+## Authoring a new YAML node by hand — checklist
 
 Verified end to end (a hand-authored SCD2 Dimension runs green), but every
 step matters:

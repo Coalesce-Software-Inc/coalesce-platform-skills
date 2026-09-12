@@ -1,72 +1,60 @@
 <!-- coalesce-node-managed: true -->
-# Node SQL Format — V2 (.sql) vs V1 (.yml)
+# Node File Format — SQL nodes (.sql) and YAML nodes (.yml)
 
 `coa describe sql-format` and `coa describe concepts` are the source of truth.
 
-## Two formats: choose by the node type's fileVersion
+## Two kinds of node — the node type's fileVersion decides
 
-Both formats are first-class and both are freely authorable (files + CLI or
-the Coalesce UI). Neither is "legacy". The hard rule: Source nodes are always
-V1 `.yml`; for every other node, author a V2 `.sql` node when a
-`fileVersion: 2` node type exists for the target node type, otherwise author a
-V1 `.yml` node. The `fileVersion` in the type's `definition.yml` decides this,
-never the platform. A workspace whose node types are all V1 authors all of its
-transformation nodes as V1 `.yml`, and that is supported, not a workaround.
-Within that constraint, here is what each format is and what it is good at:
+Coalesce has two kinds of node type, and every node takes the kind of its
+type. Both are first-class and both are freely authorable (files + CLI or the
+Coalesce UI). Neither is "legacy". The hard rule: Source nodes are always
+YAML `.yml`; for every other node, author a SQL `.sql` node when a SQL node
+type exists for the target node type, otherwise author a YAML `.yml` node.
+The `fileVersion` in the type's `definition.yml` decides this, never the
+platform. A workspace whose node types are all YAML authors all of its
+transformation nodes as YAML, and that is supported, not a workaround.
 
-- **V2 — `.sql`, `fileVersion: 2` — the node's value is its SQL.** Transforms,
+- **SQL node — `.sql`, on a SQL node type (formerly "V2"; `fileVersion: 2`
+  in the type's `definition.yml`).** The node's value is its SQL: transforms,
   metrics, joins, business logic. Columns AND data types are inferred from the
   SELECT (aggregates included), so the rendered DDL is fully typed. The natural
   format for file-based and agent authoring. File at
   `nodes/<LOCATION>-<NAME>.sql`.
-- **V1 — `.yml`, `fileVersion: 1` — the node's value is its configuration.**
-  Source nodes (generate with `coa sources add`, never by hand), config-driven
-  patterns like SCD2 Dimensions (business-key + change-tracking flags drive a
-  generated merge no one should write by hand), and every transformation node
-  whose target type has no `fileVersion: 2` definition. Explicit columns with
-  source mappings. File at `nodes/<LOCATION>-<NAME>.yml`; see
-  `coa describe schema node` and the coalesce-v1-yaml-nodes skill before
-  authoring or editing one.
+- **YAML node — `.yml`, on a YAML node type (formerly "V1"; `fileVersion: 1`
+  or absent).** The node's value is its configuration: Source nodes (generate
+  with `coa sources add`, never by hand), config-driven patterns like SCD2
+  Dimensions where business-key + change-tracking flags drive a generated
+  merge no one should write by hand, and every transformation node whose
+  target type has no SQL definition. Explicit columns with source mappings.
+  File at `nodes/<LOCATION>-<NAME>.yml`; see `coa describe schema node` and
+  the coalesce-v1-yaml-nodes skill before authoring or editing one.
 
-Rule of thumb, when the target node type has BOTH a V1 and a V2 definition
-available: the node's value is its SQL → **V2 `.sql`**; its value is its
-configuration, or it is a Source node → **V1 `.yml`**. (Both curated
-annotations `@isBusinessKey` and `@isChangeTracking` work in V2 as well — the
-choice is about authoring ergonomics, not a capability gap.)
+Rule of thumb when the target layer has BOTH a YAML and a SQL type available:
+the node's value is its SQL → SQL node; its value is its configuration, or it
+is a Source node → YAML node. (`@isBusinessKey` and `@isChangeTracking` work
+on SQL nodes too — the choice is about authoring ergonomics, not a capability
+gap.)
+
+The app still labels the two kinds **Node V1** / **Node V2** in **Build
+Settings > Node Types** and shows **V1** / **V2** in the **Version** column;
+`coa describe` and `coa validate` messages still say V1/V2 as well. Read
+V1 as YAML and V2 as SQL.
 
 ## The silently-empty-columns trap
 
-A V2 `.sql` node REQUIRES a node type whose `nodeTypes/<ID>/definition.yml` has
-`fileVersion: 2`. If `@nodeType` points at a V1 (or absent-fileVersion) type,
-the node still loads but its columns are **SILENTLY EMPTY** (`columns: []`) —
-`coa create`/`coa run` then emit broken DDL/DML with no error. The built-in
-type names (Source, Stage, View, Dimension, Fact, persistentStage) are V1;
-using them in a `.sql` file triggers this trap — and they resolve at all only
-where those built-in types exist in `nodeTypes/`, which `coa init` writes when
-the base package is unavailable. Never assume a name: the base packages ship
-no `Stage` type, their staging/work-layer type being `Work`
-(`base-node-types:::204`). V2 types come from
-the installed base node types package for the platform. Discovery is
-file-system based: read `nodeTypes/<ID>/definition.yml` for workspace-local
-types and `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/definition.yml`
-for the package types `coa install` materialized — each of those carries the
-resolvable id in `<alias>:::<id>` form, which is what `@nodeType()` takes. If
-none are present, run `coa install -d <dir>` to hydrate packages and re-check
-the file system — `coa install` hydrates only packages already declared under
-`packages/` and otherwise prints "No packages to install.", and `coa init`
-writes that declaration, so an absent `packages/` means re-running `coa init`
-(ask the user first), never hand-creating shared config. If that still yields
-nothing, the package may be unavailable —
-author the node as V1 `.yml` and continue. Do NOT author a
-node type. Upgrading a V1 type that existing nodes already use changes their
-DDL/DML and STILL requires approval. Never silently write a `.sql` node against
-a V1 type. See coalesce-workspace-config ("Getting V2 node types").
-
-The other way out of the trap: when the node type you need has no
-`fileVersion: 2` definition available at all, do not force `.sql`. Author the
-node as a V1 `.yml` instead. That is the normal path in any workspace whose
-node types are all V1. Field recipe: the
-coalesce-pipeline-structure skill ("Creating a V1 (.yml) node").
+A `.sql` node REQUIRES a SQL node type — one whose `definition.yml` has
+`fileVersion: 2`. If `@nodeType` points at a YAML type (`fileVersion: 1` or
+absent), the node still loads but its columns are **SILENTLY EMPTY**
+(`columns: []`) — `coa create`/`coa run` then emit broken DDL/DML with no
+error. The built-in common types (Source, Stage, View, Dimension, Fact,
+Persistent Stage) are YAML types; using them in a `.sql` file triggers this
+trap. If no SQL node type exists, install one before authoring the node (`coa
+install`, then re-check `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`);
+if none is available, author the node as YAML instead. Upgrading a YAML type
+that existing nodes already use changes their DDL/DML, so that requires
+approval. Never silently write a `.sql` node against a YAML type. Recipe +
+validate step: coalesce-workspace-config ("Getting SQL node types") and
+`coa describe node-types`.
 
 ## File naming
 
@@ -83,14 +71,14 @@ coalesce-pipeline-structure skill ("Creating a V1 (.yml) node").
 
 - `@id("<UUID>")` — stable, immutable identifier. PREFER a fresh UUID v4 for
   new nodes. NEVER reuse or modify an existing `@id` (node or column).
-- `@nodeType("<TypeID>")` — normally a package node type ID, `<alias>:::<id>`
-  (e.g. `"dynamic-tables:::347"`), from the installed base node types package.
-  A workspace-local type uses the ID after the last dash in its
-  `nodeTypes/<ID>/` folder name.
+- `@nodeType("<TypeID>")` — must match a node type in `nodeTypes/<ID>/` (the
+  ID after the last dash in the folder name) or a package node type ID
+  (e.g. `"base-node-types:::204"`).
 
-Keep `@id` and `@nodeType` as the first lines. Match the existing `.sql`
-nodes: only those two annotations precede the SQL (no bare `fileVersion`
-line).
+Keep `@id` and `@nodeType` as the first lines. Other node-level annotations
+(`@description`, `@materializationType`, and whatever the node type declares)
+also go above the leading `WITH` or `SELECT`. Match the existing `.sql`
+nodes: annotations precede the SQL; there is no bare `fileVersion` line.
 
 ### Write the annotations BARE — never as SQL comments
 
@@ -106,21 +94,21 @@ common way a "finished" node quietly does nothing.
 ```sql
 -- WRONG — commented out; coa ignores these, node is silently dropped
 -- @id("b2c3d4e5-f6a7-8901-bcde-f12345678901")
--- @nodeType("STG_V2")
+-- @nodeType("base-node-types:::204")
 SELECT ...
 ```
 
 ```sql
 -- RIGHT — bare annotations on the first two lines
 @id("b2c3d4e5-f6a7-8901-bcde-f12345678901")
-@nodeType("STG_V2")
+@nodeType("base-node-types:::204")
 SELECT ...
 ```
 
 After writing a node, confirm the node actually loaded — do not trust a green
 `coa validate` alone. Run `coa create --dry-run --verbose --include "{ NODE }"`
 and check the node appears with its columns rendered; "0 nodes matched" or empty
-columns means the annotations were not read (commented out, missing, or a V1
+columns means the annotations were not read (commented out, missing, or a YAML
 `@nodeType`).
 
 ## References
@@ -140,20 +128,30 @@ Refs are quote-agnostic in practice — existing repos often use single quotes
 case-insensitively. Leave existing valid single-quoted refs alone; do not
 rewrite them just to change quote style.
 
-## Column annotations — a native set plus what the node type declares
+`ref()` is the only Jinja a SQL node's body supports. Keep the ref in a
+top-level FROM/JOIN or a top-level CTE; a ref buried in a nested subquery may
+run fine and still not register as a DAG edge.
 
-Placed AFTER the alias and BEFORE the comma, e.g.
-`CREATED_AT @isChangeTracking,`.
+## Annotations — a reserved set plus what the node type declares
 
-**Native annotations** (always available):
+Node-level annotations sit above the SELECT; column-level annotations are
+placed AFTER the alias and BEFORE the comma, e.g. `CREATED_AT @isChangeTracking,`.
+Syntax: bare `@name` (a flag), or `@name("value", 2, true)` with positional
+literal arguments — strings quoted, numbers and booleans unquoted.
 
-- `@isBusinessKey` — required on Persistent Stage + Dimension (optional on
-  Stage); the MERGE/SCD key; **affects DDL**.
-- `@isChangeTracking` — Persistent Stage change detection; **affects DML**.
-- `@id("col-id")` — column lineage; metadata only.
-- `@description("text")` — docs; metadata only.
+**Reserved annotations** (every SQL node type; validated by Coalesce):
 
-**Declared annotations**: a node type's `nodeMetadataSpec` may carry an
+- Node-level: `@id`, `@nodeType` (managed — never edit), `@description("text")`,
+  `@materializationType("table"|"view")` (lowercase; defaults to table).
+- Column-level: `@description("text")`, `@notNull` (a DDL NOT NULL constraint,
+  not a test), `@defaultValue("0")` / `@defaultValue("'NA'")` (quoted for the
+  column's type).
+- Also accepted on the SQL parser's native set: `@isBusinessKey` (MERGE/SCD
+  key; **affects DDL**; required on Persistent Stage + Dimension types),
+  `@isChangeTracking` (change detection; **affects DML**), and column
+  `@id("col-id")` (lineage; metadata only).
+
+**Declared annotations**: a SQL node type's `nodeMetadataSpec` may carry an
 `annotations:` block declaring additional node- and column-level annotations
 (e.g. a data quality test library). Values hydrate into template context as
 `true` for a bare annotation, `{parameters: [...]}` for a parameterized one,
@@ -161,6 +159,10 @@ and an ordered array of those for an annotation declared `allowsMultiple`.
 Node-level values land on `config.<name>`; column-level values are flattened
 onto the column object as `col.<name>`. Check the node type's `definition.yml`
 for what it declares — that is the only list of what its templates act on.
+Coalesce's Base Node Types - SQL package, for example, declares `@writeMode`,
+`@disableTests`, `@tests`, `@preSQL`, `@postSQL` at node level and column
+tests such as `@not_null`, `@uniqueness`, `@accepted_values`, `@min_max`,
+`@freshness`, plus `@inHash` for hash keys.
 
 Hazards (verified on coa 7.42.5):
 
@@ -181,15 +183,24 @@ Hazards (verified on coa 7.42.5):
 - A declared `default` is documentation only. Nothing applies it at runtime;
   the node type's template supplies the fallback, so omit the annotation to
   get the default rather than writing the default value out.
+- A quoted boolean is a string: `@disableTests("false")` is `"false"`, which
+  Jinja treats as true. Write `@disableTests(false)` or omit the annotation.
 - `coa validate` currently rejects unquoted boolean arguments such as
   `@tests("...", true, "After")` that the runtime accepts (TRA-2483). Treat
   that one error as a known false positive, not as a reason to quote the
-  boolean — a quoted `"false"` is a string and Jinja treats it as true.
+  boolean.
+- **Macro calls inside the node's SELECT do not render locally.** The Base
+  Node Types - SQL README shows `{{ get_hash("HK") }} AS ROW_HASH`; local
+  `coa create`/`coa run` type that column `UNKNOWN` and emit the
+  self-reference `"ROW_HASH" AS "ROW_HASH"` (TRA-2487). The Coalesce app
+  renders it. Until fixed, compute hashes in plain SQL when the node must run
+  locally, and tell the user why.
 
-Do NOT invent annotations that are neither native nor declared by the node
+Do NOT invent annotations that are neither reserved nor declared by the node
 type: `@isSurrogateKey`, `@pii`, `@synqMonitor` are NOT in the spec.
-(`isSurrogateKey` exists as a boolean column field in the V1 node JSON schema —
-legitimate in a `.yml` node — but it is NOT a `.sql` column annotation.)
+(`isSurrogateKey` exists as a boolean column field in the YAML node JSON
+schema — legitimate in a `.yml` node — but it is NOT a `.sql` column
+annotation.)
 
 ## SQL conventions
 
@@ -200,27 +211,32 @@ legitimate in a `.yml` node — but it is NOT a `.sql` column annotation.)
   node-type Jinja templates that emit generated DDL, and in some existing
   nodes — match the file you are editing.
 - Preserve existing column ordering; keep changes minimal.
-- ENUMERATE columns explicitly in a V2 node's SELECT — never `SELECT *`. A
-  V2 node type infers its column set by parsing the SELECT; `SELECT *` leaves
+- ENUMERATE columns explicitly in a SQL node's SELECT — never `SELECT *`. A
+  SQL node type infers its column set by parsing the SELECT; `SELECT *` leaves
   nothing to parse, so `coa create` renders a zero-column table (degenerate
   DDL) even though `coa validate` stays green. If the task says "stage every
   column 1:1", read the source's columns (`coa describe` or the source `.yml`)
   and list each one. Confirm with `coa create --dry-run --verbose` that the
   rendered DDL actually projects the columns.
+- Alias every expression. The alias is the column's identity on a SQL node
+  (renaming it deploys a new column). If a type comes through as `UNKNOWN`,
+  add an explicit cast.
 
-## Example V2 node
+## Example SQL node
 
 ```sql
 @id("b2c3d4e5-f6a7-8901-bcde-f12345678901")
-@nodeType("Dimension")
+@nodeType("base-node-types:::204")
+@description("Customer dimension staging")
+@writeMode("append")
 SELECT
-    CUSTOMER_ID @isBusinessKey,
+    CUSTOMER_ID @isBusinessKey @not_null,
     EMAIL @description("primary contact"),
     UPDATED_AT @isChangeTracking
 FROM {{ ref("STG", "STG_CUSTOMERS") }}
 ```
 
-(`"Dimension"` stands in for a real V2 node type ID read off disk from
-`nodeTypes/` or `.coa/cache/packages/*/nodeTypes/` — a plain `Dimension` type is
-typically V1, and may not exist in the workspace at all.) Note the first two lines are BARE — no leading
-`--`. That is deliberate and required (see "Write the annotations BARE" above).
+(`"base-node-types:::204"` stands in for a real SQL node type ID read off
+disk; `@writeMode` and `@not_null` work only because that type declares them.)
+Note the annotation lines are BARE — no leading `--`. That is deliberate and
+required (see "Write the annotations BARE" above).

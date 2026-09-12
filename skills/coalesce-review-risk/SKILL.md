@@ -52,34 +52,44 @@ Format rules being checked:
 
 ## Risk factors to flag
 
-- V2 `.sql` node whose `@nodeType` definition lacks `fileVersion: 2` →
-  columns are SILENTLY EMPTY (`columns: []`), producing broken DDL/DML.
-- Hand-authored V1 `.yml` node with an empty or partial `operation.config` →
+- SQL `.sql` node (formerly V2) whose `@nodeType` definition lacks
+  `fileVersion: 2` (i.e. points at a YAML node type, formerly V1) → columns
+  are SILENTLY EMPTY (`columns: []`), producing broken DDL/DML.
+- Hand-authored YAML `.yml` node with an empty or partial `operation.config` →
   run templates gate their DML on config values (a staging type typically
   needs `insertStrategy: INSERT`, `truncateBefore: true`), so the node passes
   validate and the create dry-run yet renders ZERO run SQL and loads nothing.
   Check the `coa run --dry-run` output per node, not just create.
 - Deleted/renamed nodes with downstream dependents (stale `{{ ref() }}`
   edges).
-- One-arg `ref()`, hardcoded `db.schema.table`, or invented column
-  annotations. The ONLY valid V2 `.sql` column annotations are
-  `@isBusinessKey`, `@isChangeTracking`, `@id`, `@description`. Anything else
-  (`@isSurrogateKey`, `@pii`, `@synqMonitor`, `@prgTest`, …) is NOT in the
-  spec. Note: `isSurrogateKey` DOES exist as a V1 `.yml` column *property* —
-  legitimate in a YAML node, but NOT a valid annotation on a `.sql` node.
+- One-arg `ref()`, hardcoded `db.schema.table`, or annotations the node
+  type does not accept. Valid on a `.sql` node: the reserved set (`@id`,
+  `@nodeType`, `@description`, `@materializationType`; column
+  `@description`, `@notNull`, `@defaultValue`), `@isBusinessKey`,
+  `@isChangeTracking`, column `@id`, and the annotations DECLARED in the
+  node type's `definition.yml` `annotations:` block. Anything else
+  (`@isSurrogateKey`, `@pii`, `@synqMonitor`, `@prgTest`, a misspelled
+  declared name, …) is accepted by the parser and silently does nothing —
+  flag it. Also flag a repeatable annotation written with several values in
+  one call (`@accepted_values("'A'", "'B'")`): only the first value renders
+  (TRA-2486). Note: `isSurrogateKey` DOES exist as a YAML `.yml` column
+  *property* — legitimate in a YAML node, but NOT an annotation on a `.sql`
+  node.
 - Edits to SHARED config — `nodeTypes/*`, locations, workspace, environments,
   jobs, macros, `data.yml`, `fileVersion` bumps, template swaps. These were
   likely OUT of the request's scope and can silently break unrelated nodes;
-  surface them prominently. A NEW `nodeTypes/*` directory is no exception: V2
-  types normally arrive via the installed base node types package, so a
+  surface them prominently. A NEW `nodeTypes/*` directory is no exception:
+  SQL node types normally arrive via the installed base node types package, so a
   hand-authored one in a diff is a shared-config change to surface — ask whether
   the user actually requested a custom type.
 
 ## Constraints
 
 - READ-ONLY. Never run `coa create`/`coa run` without `--dry-run` (they
-  execute SQL directly against the warehouse — local dev, NOT deploy; cloud
-  plan/deploy is a separate git-push process). Never edit files.
+  execute SQL directly against the warehouse — local dev, NOT deploy), and
+  never run `coa deploy`/`coa refresh` (cloud-mutating). `coa plan` output,
+  if the user provides it, is good evidence of what a deploy would change.
+  Never edit files.
 - Report findings factually with the `coa` output as evidence; do not
   editorialize or minimize. Always state when impact analysis is incomplete
   (e.g. validate could not run, or selectors were unscoped).

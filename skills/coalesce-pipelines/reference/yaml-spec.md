@@ -50,6 +50,14 @@ resolve refs. Credentials do NOT go here (they live in `~/.coa/config`).
 
 `{ name, id, type: "Environment", fileVersion,
 mappingDefinitions: { <LOC>: { database, schema } } }` — all fields required.
+This file is the Environment's DEPLOY-TIME storage mapping: `coa plan` reads
+`mappingDefinitions` from it (one `{database, schema}` per location in
+`locations.yml`), and a missing or incomplete file fails plan with one
+`Storage Location ... Schema: N/A, Database: N/A` error per node. It is not
+a create path: the Environment itself is created in the Coalesce App or with
+`coa environments create`, and `id` must be that Environment's ID from
+`coa environments list`. Commit it with the work it deploys. Deploy journey:
+coalesce-cloud-api.
 
 ## Job (jobs/<NAME>.yml) — `coa describe schema job`
 
@@ -112,9 +120,17 @@ workspace-local types; there, the `<ID>` after the last dash is the
 `@nodeType()` value. Each node type folder holds:
 
 - **definition.yml** — `{ isDisabled, name, id, type: "NodeType", fileVersion,
-  metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML
-  STRING: required `capitalized`, `short`, `plural`, `tagColor`; optional
-  `config`, `systemColumns`. Read `name`/`description`/`nodeMetadataSpec` to
+  metadata: { nodeMetadataSpec, error: null } }`. `fileVersion: 2` makes it a
+  SQL node type (formerly "V2"; nodes are `.sql`); `1` or absent makes it a
+  YAML node type (formerly "V1"; nodes are `.yml`). `nodeMetadataSpec` is a
+  YAML STRING: required `capitalized`, `short`, `plural`, `tagColor`; optional
+  `config`, `systemColumns` (YAML types), and `annotations: { node: [...],
+  column: [...] }` (SQL types — the declared annotations, each `{ name,
+  description?, allowsMultiple?, isRequired?, parameters?: [{ name, type:
+  string|number|boolean, isRequired?, default?, options?, example? }] }`;
+  unknown fields there fail the spec at plan/run time, and `type`/`default`/
+  `options` belong on a parameter, never on the annotation). Read
+  `name`/`description`/`nodeMetadataSpec` to
   identify a type — names vary by workspace, and the base packages ship no
   `Stage` type (their staging/work-layer type is `Work`,
   `base-node-types:::204`). `nodeMetadataSpec.config` holds the config
@@ -124,45 +140,73 @@ workspace-local types; there, the `<ID>` after the last dash is the
   empty `config: {}` renders zero run SQL.
 - **create.sql.j2** (DDL) and **run.sql.j2** (DML) — Jinja templates.
 
-**fileVersion 1 vs 2:** V2 `.sql` nodes require `fileVersion: 2` in the node
-type definition (see `sql-format.md` for the silently-empty-columns trap).
-For V2, `col.dataType` is `UNKNOWN`, so templates MUST use the **CTAS
-pattern** — never emit `{{ col.dataType }}`. Iterate `sources` then
-`source.columns`, and guard create with `WHERE 1=0`:
+**SQL node types (fileVersion 2) — template context:** a `.sql` node
+requires `fileVersion: 2` in the type definition (see `sql-format.md` for the
+silently-empty-columns trap). Current `coa` INFERS `col.dataType` from the
+SELECT (aggregates and joins included), so explicit-column DDL
+(`"{{ col.name }}" {{ col.dataType }}`) works — that is what the Base Node
+Types - SQL package's `Work` type emits. Older builds surfaced `UNKNOWN`, and
+the CTAS pattern below remains the conservative fallback. What a SQL node
+puts in context:
+
+- `columns[]` — name, inferred `dataType`, reserved fields `nullable`
+  (`@notNull`), `defaultValue`, `description`, plus every declared column
+  annotation flattened on as `col.<name>` (`true`, `{parameters: [...]}`, or
+  an array for `allowsMultiple`).
+- `config.<name>` — the node-level declared annotations, same shapes. Reserved
+  `@materializationType` / `@description` arrive as `node.materializationType`
+  / `node.description`, never under `config`. Declared defaults are NOT
+  applied; the template supplies the fallback
+  (`config.writeMode.parameters[0] if config.writeMode is defined else
+  'truncateInsert'`).
+- `sources[0].columns[]` with `get_source_transform(col)` — the parsed
+  per-column expression; `sources[0].join` — the full FROM/JOIN/WHERE/GROUP
+  BY with refs resolved (already includes `FROM`; never append clauses after
+  it); `sources[0].cteString` — the node's WITH clause (emit it before the
+  SELECT or CTE nodes fail to compile); `sources[0].selectModifier` —
+  `DISTINCT` etc., read as `| default('', true)`.
+- `ref()`, `ref_no_link()`, `this`, `stage()`, and workspace macros.
+
+Conservative CTAS create template (works whether or not types are inferred):
 
 ```jinja
 CREATE OR REPLACE TABLE {{ ref_no_link(node.location.name, node.name) }} AS
-{% for source in sources %}
-SELECT
-{% for col in source.columns %}
-    {{ get_source_transform(col) }} AS "{{ col.name }}"{%- if not loop.last -%}, {% endif %}
-{% endfor %}
-{{ source.join }}
-WHERE 1=0
-{% endfor %}
+{{ sources[0].cteString }}
+SELECT * FROM (
+    SELECT {{ sources[0].selectModifier | default('', true) }}
+    {% for col in sources[0].columns %}
+        {{ get_source_transform(col) }} AS "{{ col.name }}"{%- if not loop.last -%}, {% endif %}
+    {% endfor %}
+    {{ sources[0].join }}
+)
+WHERE 1 = 0
 ```
 
 The matching `run.sql.j2` (DML) uses the same column iteration, without the
-`WHERE 1=0` guard:
+`WHERE 1 = 0` guard, and reads `config.<name>` for the declared node options:
 
 ```jinja
-{{ stage('Truncate') }}
-TRUNCATE IF EXISTS {{ ref_no_link(node.location.name, node.name) }}
-{% for source in sources %}
-{{ stage('Insert') }}
-INSERT INTO {{ ref_no_link(node.location.name, node.name) }}
-SELECT
-{% for col in source.columns %}
+{%- for sql in config.preSQL | default([]) %}
+{{ stage('Pre-SQL ' ~ loop.index) }}
+{{ sql.parameters[0] }}
+{%- endfor %}
+{%- set writeMode = config.writeMode.parameters[0] if config.writeMode is defined else 'truncateInsert' %}
+{{ stage('Load') }}
+INSERT {{ '' if writeMode == 'append' else 'OVERWRITE' }} INTO {{ ref_no_link(node.location.name, node.name) }}
+{{ sources[0].cteString }}
+SELECT {{ sources[0].selectModifier | default('', true) }}
+{% for col in sources[0].columns %}
     {{ get_source_transform(col) }} AS "{{ col.name }}"{%- if not loop.last -%}, {% endif %}
 {% endfor %}
-{{ source.join }}
-{% endfor %}
+{{ sources[0].join }}
 ```
 
-Do NOT write a V2 body as `{{ node.sql }}` or `SELECT *` — either renders a
-zero-column table (degenerate DDL) regardless of what the node's SELECT lists.
-The projection MUST come from iterating `source.columns`. V1 node types instead
-use explicit-column DDL (`{{ col.name }} {{ col.dataType }}`).
+Do NOT write a SQL node type body as `{{ node.sql }}` or `SELECT *` — either
+renders a zero-column table (degenerate DDL) regardless of what the node's
+SELECT lists. The projection MUST come from iterating `sources[0].columns`
+(or `columns`). YAML node types use explicit-column DDL from the mapped
+columns (`{{ col.name }} {{ col.dataType }}`) and `config` from their config
+items.
 
 After a node-type/template edit, prove the contract holds on both templates:
 `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --verbose`
