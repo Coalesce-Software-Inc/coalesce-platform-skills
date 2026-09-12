@@ -20,6 +20,22 @@ node type; otherwise author a V1 `.yml` node. The `fileVersion` in
 `nodeTypes/<ID>/definition.yml` decides this, never the platform. Both formats
 are supported, and V1 is not a workaround.
 
+## Glossary and authoring policy
+
+"Author" applies to two different artifacts with two different policies —
+always be explicit about which one you mean:
+
+| Term | Artifact | Files | Authoring policy |
+|------|----------|-------|------------------|
+| **Node (V2)** | A transformation instance | `nodes/<LOC>-<NAME>.sql` | **Author freely** — files + CLI or the Coalesce UI, whichever fits. |
+| **Node (V1)** | A transformation instance | `nodes/<LOC>-<NAME>.yml` | **Author freely** — same policy. The UI generates this format natively; authoring it by hand is supported but intricate (see coalesce-v1-yaml-nodes). |
+| **Node type** | The reusable template contract | `nodeTypes/<Name>-<ID>/` (definition.yml + create.sql.j2 + run.sql.j2) | **Search first, never author on your own.** Prefer existing packaged node types — they are official (`coa install`, then check `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`). If no `fileVersion: 2` type fits, author the node as V1 `.yml` instead. A custom node type is created or extended ONLY on the user's explicit request — ASK FIRST (see coalesce-workspace-config). |
+
+Disambiguation traps: `fileVersion: 1/2` appears on both node files and node
+type definitions (a V2 `.sql` node requires a `fileVersion: 2` node type);
+`@nodeType` (V2 annotation) and `operation.sqlType` (V1 field) name the same
+concept.
+
 ## Orient first
 
 1. If `.claude/workspace-context.json` exists in the repo, READ IT FIRST — it
@@ -71,20 +87,21 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
 4. Choose node format by the node type's `fileVersion` (format rule above), not
    by layer: Source nodes are always V1 `.yml`; every other node is V2 `.sql`
    when a `fileVersion: 2` node type exists for its target type, otherwise V1
-   `.yml`. A V2 `.sql` node works only against a `fileVersion: 2` node
-   type; otherwise columns are silently empty (see reference/sql-format.md).
+   `.yml`. Both formats are freely authorable; neither is "legacy". A V2
+   `.sql` node works only against a `fileVersion: 2` node type; otherwise
+   columns are silently empty (see reference/sql-format.md).
    V2 types come from the installed base node types package — `coa install`
    materializes them under `.coa/cache/packages/<alias>/nodeTypes/`, and each
    materialized definition.yml carries the resolvable `<alias>:::<id>` id to
-   use in `@nodeType()`. If none are present, run `coa install -d <dir>`;
-   never author one (see coalesce-workspace-config). `coa install` hydrates
-   only packages already declared under `packages/` and prints "No packages to
-   install." otherwise — `coa init` writes that declaration, so if `packages/`
-   is absent the fix is to re-run `coa init` (ask the user first), never to
-   hand-create shared config.
-   When no `fileVersion: 2` type exists for the target node type (the package
-   may be unavailable), author V1 `.yml` instead; that is supported, not a
-   workaround.
+   use in `@nodeType()`. Node types are SEARCH-FIRST: if none are present, run
+   `coa install -d <dir>` and re-check the file system; never author one (see
+   coalesce-workspace-config). `coa install` hydrates only packages already
+   declared under `packages/` and prints "No packages to install." otherwise —
+   `coa init` writes that declaration, so if `packages/` is absent the fix is
+   to re-run `coa init` (ask the user first), never to hand-create shared
+   config. When no `fileVersion: 2` type exists for the target node type (the
+   package may be unavailable), author V1 `.yml` instead; that is supported,
+   not a workaround.
 5. Reference upstream nodes with `{{ ref("LOC", "NAME") }}` (both args).
    Never hardcode `db.schema.table`.
 6. Use the correct node type per layer (staging → persistent staging →
@@ -119,12 +136,15 @@ pattern); changing locations, workspace/environments, jobs, macros, or
 `data.yml`; `coa init` / `coa doctor --fix`. These are shared across many nodes
 and can silently break unrelated ones — stop and surface the choice.
 
-Never author a node type to satisfy a `.sql` node. Base types come from the
-installed base node types package; if none are present, run `coa install -d
-<dir>` (safe without asking — but it is a no-op unless `packages/` already
-declares a package) and, failing that, author the node as V1 `.yml` and
-continue. A custom net-new type is authored only when the user explicitly
-asks — and even then, ASK FIRST. See coalesce-workspace-config.
+Node types are search-first, and the search ends in a package, never in a
+file you write. Never author a node type to satisfy a `.sql` node. Base types
+come from the installed base node types package; if none are present, run
+`coa install -d <dir>` (safe without asking — but it is a no-op unless
+`packages/` already declares a package), re-check `nodeTypes/` and
+`.coa/cache/packages/*/nodeTypes/`, and, failing that, author the node as V1
+`.yml` and continue. A custom net-new type is authored only when the user
+explicitly asks — and even then, ASK FIRST. Report which path you took and
+why. See coalesce-workspace-config.
 
 ## When to use the other coalesce-* skills
 

@@ -5,28 +5,34 @@
 
 ## Two formats: choose by the node type's fileVersion
 
-Both formats are first-class. The hard rule: Source nodes are always V1
-`.yml`; for every other node, author a V2 `.sql` node when a `fileVersion: 2`
-node type exists for the target node type, otherwise author a V1 `.yml` node.
-The `fileVersion` in `nodeTypes/<ID>/definition.yml` decides this, never the
-platform. A workspace whose node types are all V1 authors all of its
+Both formats are first-class and both are freely authorable (files + CLI or
+the Coalesce UI). Neither is "legacy". The hard rule: Source nodes are always
+V1 `.yml`; for every other node, author a V2 `.sql` node when a
+`fileVersion: 2` node type exists for the target node type, otherwise author a
+V1 `.yml` node. The `fileVersion` in the type's `definition.yml` decides this,
+never the platform. A workspace whose node types are all V1 authors all of its
 transformation nodes as V1 `.yml`, and that is supported, not a workaround.
-Within that constraint, here is what each format is:
+Within that constraint, here is what each format is and what it is good at:
 
-- **V2 — `.sql`, `fileVersion: 2` — used for STAGING and INTERMEDIATE
-  transforms.** Ephemeral, regenerable nodes; columns are inferred from the SELECT.
-  File at `nodes/<LOCATION>-<NAME>.sql`.
-- **V1 — `.yml`, `fileVersion: 1` — required for SOURCE nodes, and used for
-  PERSISTENT / CURATED nodes** (Dimension, Fact, Persistent Stage). Columns are explicit, with data
-  types and source mappings — a durable, published contract for the layer other models
-  and dashboards depend on. Also required for any V1-only node type. File at
-  `nodes/<LOCATION>-<NAME>.yml`; see `coa describe schema node`.
+- **V2 — `.sql`, `fileVersion: 2` — the node's value is its SQL.** Transforms,
+  metrics, joins, business logic. Columns AND data types are inferred from the
+  SELECT (aggregates included), so the rendered DDL is fully typed. The natural
+  format for file-based and agent authoring. File at
+  `nodes/<LOCATION>-<NAME>.sql`.
+- **V1 — `.yml`, `fileVersion: 1` — the node's value is its configuration.**
+  Source nodes (generate with `coa sources add`, never by hand), config-driven
+  patterns like SCD2 Dimensions (business-key + change-tracking flags drive a
+  generated merge no one should write by hand), and every transformation node
+  whose target type has no `fileVersion: 2` definition. Explicit columns with
+  source mappings. File at `nodes/<LOCATION>-<NAME>.yml`; see
+  `coa describe schema node` and the coalesce-v1-yaml-nodes skill before
+  authoring or editing one.
 
-Rule of thumb, when the target node type has BOTH a V1 and a V2 definition available:
-ephemeral, high-volume transform → **V2 `.sql`**; a persistent curated
-contract or a Source node → **V1 `.yml`**. (Both curated annotations `@isBusinessKey` and
-`@isChangeTracking` work in V2 as well — preferring V1 for curated layers is about explicit,
-reviewable column contracts, not a capability gap.)
+Rule of thumb, when the target node type has BOTH a V1 and a V2 definition
+available: the node's value is its SQL → **V2 `.sql`**; its value is its
+configuration, or it is a Source node → **V1 `.yml`**. (Both curated
+annotations `@isBusinessKey` and `@isChangeTracking` work in V2 as well — the
+choice is about authoring ergonomics, not a capability gap.)
 
 ## The silently-empty-columns trap
 
@@ -134,10 +140,12 @@ Refs are quote-agnostic in practice — existing repos often use single quotes
 case-insensitively. Leave existing valid single-quoted refs alone; do not
 rewrite them just to change quote style.
 
-## Column annotations — the COMPLETE set
+## Column annotations — a native set plus what the node type declares
 
 Placed AFTER the alias and BEFORE the comma, e.g.
-`CREATED_AT @isChangeTracking,`:
+`CREATED_AT @isChangeTracking,`.
+
+**Native annotations** (always available):
 
 - `@isBusinessKey` — required on Persistent Stage + Dimension (optional on
   Stage); the MERGE/SCD key; **affects DDL**.
@@ -145,10 +153,43 @@ Placed AFTER the alias and BEFORE the comma, e.g.
 - `@id("col-id")` — column lineage; metadata only.
 - `@description("text")` — docs; metadata only.
 
-Do NOT invent annotations: `@isSurrogateKey`, `@pii`, `@synqMonitor`,
-`@prgTest` are NOT in the coa SQL annotation spec. (`isSurrogateKey` exists as
-a boolean column field in the V1 node JSON schema — legitimate in a `.yml`
-node — but it is NOT a `.sql` column annotation.)
+**Declared annotations**: a node type's `nodeMetadataSpec` may carry an
+`annotations:` block declaring additional node- and column-level annotations
+(e.g. a data quality test library). Values hydrate into template context as
+`true` for a bare annotation, `{parameters: [...]}` for a parameterized one,
+and an ordered array of those for an annotation declared `allowsMultiple`.
+Node-level values land on `config.<name>`; column-level values are flattened
+onto the column object as `col.<name>`. Check the node type's `definition.yml`
+for what it declares — that is the only list of what its templates act on.
+
+Hazards (verified on coa 7.42.5):
+
+- **An undeclared or misspelled annotation does nothing, silently.** The
+  parser accepts any name and hydrates the value under the name as written;
+  no template reads it, so the node validates, creates, and runs as if the
+  annotation were absent. `coa validate` emits no warning today. When an
+  option seems ignored, compare the spelling and casing against the node
+  type's `annotations:` block first (declared names are case-sensitive).
+- **Multi-value tests: repeat the annotation, never pass several values in
+  one call.** `@accepted_values("'A'") @accepted_values("'B'")` renders
+  `NOT IN ('A', 'B')`; the variadic form `@accepted_values("'A'", "'B'")`
+  renders only the first value with no error (TRA-2486). Same for
+  `@rejected_values`, `@preSQL`, `@postSQL`, `@tests`, `@inHash`.
+- An annotation named `unique` collides with the SQL keyword and fails to
+  parse; that is why the packaged test is `@uniqueness`. Avoid SQL keywords
+  as annotation names.
+- A declared `default` is documentation only. Nothing applies it at runtime;
+  the node type's template supplies the fallback, so omit the annotation to
+  get the default rather than writing the default value out.
+- `coa validate` currently rejects unquoted boolean arguments such as
+  `@tests("...", true, "After")` that the runtime accepts (TRA-2483). Treat
+  that one error as a known false positive, not as a reason to quote the
+  boolean — a quoted `"false"` is a string and Jinja treats it as true.
+
+Do NOT invent annotations that are neither native nor declared by the node
+type: `@isSurrogateKey`, `@pii`, `@synqMonitor` are NOT in the spec.
+(`isSurrogateKey` exists as a boolean column field in the V1 node JSON schema —
+legitimate in a `.yml` node — but it is NOT a `.sql` column annotation.)
 
 ## SQL conventions
 

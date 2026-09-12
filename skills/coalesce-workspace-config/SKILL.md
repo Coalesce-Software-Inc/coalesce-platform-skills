@@ -36,22 +36,28 @@ go-ahead. Read-only commands (`coa describe`, `coa validate`, `coa doctor`
 without `--fix`, any `--dry-run`) you may run freely. Never put secrets in repo
 files — credentials live in `~/.coa/config`.
 
-**Do NOT author node types** (see "Getting V2 node types" below). Base types
-come from the installed base node types package, not from files you write.
-Creating, modifying, or upgrading anything under `nodeTypes/` requires the
+**Do NOT author node types** (see "Getting V2 node types" below). Node types
+are search-first and the search ends in a package: base types come from the
+installed base node types package, not from files you write. Creating,
+modifying, upgrading, or extending anything under `nodeTypes/` requires the
 user's explicit request and approval.
 
 ## The fileVersion 1 vs 2 trap
 
-V2 `.sql` nodes (the default for staging/intermediate transforms) REQUIRE a node type with
-`fileVersion: 2` in its `definition.yml`. With fileVersion 1 (or absent), a
-`.sql` node parses to `columns: []` — no error, but broken DDL/DML at render.
-For V2, `col.dataType` is `UNKNOWN`, so templates MUST use the CTAS pattern
-(iterate `sources` → `source.columns`, guard create with `WHERE 1=0`) and
-never emit `{{ col.dataType }}`. V1 node types use explicit-column DDL. The
-remedy is never to write a template: point `@nodeType` at a V2 type from the
-installed base node types package (hydrate with `coa install` if none are
-present — see below).
+V2 `.sql` nodes REQUIRE a node type with `fileVersion: 2` in its
+`definition.yml`. With fileVersion 1 (or absent), a `.sql` node parses to
+`columns: []` — no error, but broken DDL/DML at render.
+
+The remedy is never to write a template: point `@nodeType` at a V2 type from
+the installed base node types package (hydrate with `coa install` if none are
+present — see below). For reviewing an existing type's templates: current
+`coa` INFERS `col.dataType` for V2 nodes (verified: fully typed DDL renders
+even for aggregate SELECTs), so explicit-column DDL templates work; older
+builds surfaced `UNKNOWN`, and the CTAS pattern (iterate `sources` →
+`source.columns`, guard create with `WHERE 1=0`) remains the conservative
+fallback. Whichever pattern a type uses, PROVE it with
+`coa create --dry-run --verbose` before authoring nodes against it. Full
+template example in the yaml-spec reference.
 
 ## Getting V2 node types
 
@@ -61,7 +67,7 @@ your platform, which `coa init` declares in `packages/base-node-types.yml` and
 with IDs of the form `<alias>:::<id>` — that is the normal value for
 `@nodeType()`.
 
-**Find them — node type discovery is file-system based:**
+**Find them — search first; node type discovery is file-system based:**
 
 - `nodeTypes/<DisplayName>-<ID>/definition.yml` — the workspace's own types.
 - `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/definition.yml` — the
@@ -72,7 +78,7 @@ with IDs of the form `<alias>:::<id>` — that is the normal value for
   `coa install` regenerates it, so never edit it. (`.coa/cache/packages.json`
   is the machine cache the tree mirrors.)
 - `packages/` (the package declarations) confirms which packages the workspace
-  expects.
+  expects; if unsure which packages the org uses, ask the user.
 
 Read each `definition.yml` you find (`name`, `description`,
 `nodeMetadataSpec`) rather than assuming a type name: **names vary by
