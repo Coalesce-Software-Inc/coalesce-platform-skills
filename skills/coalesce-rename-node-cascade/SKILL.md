@@ -7,9 +7,9 @@ description: Rename a Coalesce node and cascade the new name through every downs
 > **Prerequisite — load `coalesce-pipelines` first.** If you have not already
 > loaded the `coalesce-pipelines` skill in this session, load it now, read its
 > "Orient first" step, core `coa` loop, and Rules, then return here. This skill
-> assumes those invariants (bare `@id`/`@nodeType` first lines, `fileVersion: 2`
-> node types, one-node-at-a-time validate → dry-run → create loop) are already
-> in context.
+> assumes those invariants (bare `@id`/`@nodeType` first lines, SQL node types
+> carry `fileVersion: 2`, one-node-at-a-time validate → dry-run → create loop)
+> are already in context.
 
 Renaming a node means renaming its file AND updating every reference to it.
 A node is referenced in three places: downstream `ref()` macros, job
@@ -43,11 +43,13 @@ them. (See `coa describe workflow`.)
    Abort if either exists.
 
 4. Move the file: `nodes/<LOCATION>-<OLD_NAME>.sql` ->
-   `nodes/<LOCATION>-<NEW_NAME>.sql` (or `.yml` for a V1 node). The filename —
-   not any annotation — sets location+name. Leave `@id` and `@nodeType`
-   UNCHANGED; never reuse or modify an existing `@id`. A bare `@location`
-   annotation is ignored, so there is nothing to edit inside the file for the
-   rename itself.
+   `nodes/<LOCATION>-<NEW_NAME>.sql` (or `.yml` for a YAML node — but a YAML
+   node's identity is INSIDE the file, so also update `name`,
+   `operation.name`, and `operation.locationName`; see
+   coalesce-v1-yaml-nodes). For a SQL node the filename — not any annotation
+   — sets location+name. Leave `@id` and `@nodeType` UNCHANGED; never reuse
+   or modify an existing `@id`. A bare `@location` annotation is ignored, so
+   there is nothing to edit inside a `.sql` file for the rename itself.
 
 5. Update downstream `ref()` calls. Search every dependent node file for the
    node referenced by location+name and rewrite the NAME argument, preserving
