@@ -3,24 +3,37 @@
 
 The `coa` CLI is the core toolset and the source of truth for working in a
 Coalesce Transform repo. When unsure about a format, schema, or command, run the
-relevant `coa describe` topic before guessing. Do NOT copy shapes from the
-bundled example-repository — it currently FAILS `coa validate` (legacy
-job/subgraph/location/env/nodeType shapes, missing `data.yml`).
+relevant `coa describe` topic or `coa <command> --help` before guessing. Do NOT
+copy shapes from the bundled example-repository — it currently FAILS
+`coa validate` (legacy job/subgraph/location/env/nodeType shapes, missing
+`data.yml`).
+
+`coa --help` lists two command groups. **Local Development Commands** (`run`,
+`create`, `install`, `validate`, `describe`, `doctor`, `init`, `serve`,
+`sources`) work on local files and connect to the warehouse directly. **Cloud
+Operations** (`plan`, `deploy`, `refresh`, `rerun`, `environments`, `projects`,
+`jobs`, `runs`, `nodes`, `workspace-nodes`, `gitAccounts`, `cancel`) go through
+the Coalesce API with the profile's `token`. `coa describe` documents only the
+local group today (`coa describe command plan` returns "Unknown command"); use
+`coa <command> --help` for the cloud group.
 
 ## describe — built-in docs (always read-only)
 
 - `coa describe` (overview), `coa describe concepts`, `coa describe sql-format`,
   `coa describe selectors`, `coa describe node-types`, `coa describe workflow`,
-  `coa describe structure`
+  `coa describe structure`, `coa describe config`
 - These are STATIC manuals, not listings. `coa describe node-types` documents
   the node type format (folder layout, `definition.yml` fields, template
   patterns); it does not list the types this workspace has. For that, read
   `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/` on disk.
 - `coa describe schema <type>` — `node`, `nodeType`, `job`, `subgraph`,
   `locations`, `environment`, `macro`, `workspace`, `data`
-- `coa describe command <name>` — `create`, `run`, `validate`, etc.
-- The describe text still says "V1" for YAML nodes and "V2" for SQL nodes
-  (Coalesce's former names); read V1 as YAML and V2 as SQL.
+- `coa describe command <name>` — `create`, `run`, `validate`, etc. (local
+  commands only).
+- The describe text still says "V1" for YAML nodes and "V2" for SQL nodes,
+  and still describes plan/deploy as web-UI-only; the command surface above is
+  what the installed binary actually ships. Prefer `coa --help` when they
+  disagree.
 
 ## Core loop (one node at a time)
 
@@ -59,10 +72,35 @@ nodes from them (always generate Source nodes this way, never by hand).
 ## Local development vs cloud deploy
 
 `coa create` and `coa run` execute SQL DIRECTLY against the warehouse using
-`~/.coa/config` credentials. This is LOCAL DEVELOPMENT, not deployment — never
-call it "deploy" or "publish". There is no `coa deploy`. Genuine cloud
-plan/deploy is a separate process: git push, then plan/deploy in the Coalesce
-web UI or CI (it diffs the pushed Git state against the deployed environment).
+`~/.coa/config` credentials, in your development schema. This is LOCAL
+DEVELOPMENT, not deployment — never call it "deploy" or "publish".
+
+Deployment is a separate loop that the same binary also runs: commit and push,
+then `coa plan` diffs the workspace against an Environment's deployed state and
+`coa deploy` applies the plan; `coa refresh` runs the deployed nodes. The
+Coalesce web UI and CI can run the same plan/deploy; the CLI is not the only
+path, but it is a complete one. The full recipe, prerequisites, and approval
+gates are in the **coalesce-cloud-api** skill ("Deploy journey").
+
+## Cloud Operations (summary — details in coalesce-cloud-api)
+
+All take `--profile <p>` (or `--token`/`--domain`) and most take
+`--environmentID <id>`. `coa environments list` is how you find an ID.
+
+- `coa plan -d <dir> --environmentID <id> [--out ./coa-plan.json]` — diffs
+  local files (not the pushed commit; `--gitsha` only labels the plan) against
+  the Environment and writes a plan file. Read-only against the cloud, but it
+  stops for a Y/N confirmation when the working tree has uncommitted changes
+  and has no non-interactive flag — commit first, or it hangs under an agent.
+- `coa deploy -d <dir> --environmentID <id> --plan ./coa-plan.json` — applies
+  the plan (DDL) to the Environment. Cloud-mutating: ASK FIRST.
+- `coa refresh --environmentID <id> [--include "<selector>"] [--jobID <id>]` —
+  runs the deployed nodes' DML. Cloud-mutating: ASK FIRST.
+- `coa rerun`, `coa cancel`, `coa runs list|get|list-results`, `coa jobs`,
+  `coa nodes` — inspect or steer runs in an Environment.
+- `coa environments list|get|create|update|delete`, `coa projects ...` —
+  create/update take `--inputFile <request.json>`. Creating or changing an
+  Environment or Project is shared, cloud-visible state: ASK FIRST.
 
 ## Selectors (`--include` / `--exclude`)
 
@@ -130,23 +168,27 @@ path with `--config <path>`).
 
 **Pass `--profile <name>` explicitly**, matching the workspace's platform, on
 every command that accepts it — `sources`, `create`, `run`, `install`,
-`doctor`, `init`. `coa validate` has NO `--profile` flag (it reads no profile
-at all and needs no warehouse). Relying on the default profile is where this
-goes wrong: a `[default]` whose platform differs from the workspace fails
-every warehouse-touching command with `Profile "default" uses <x>, but
-data.yml does not declare a platformKind`.
+`doctor`, `init`, and every Cloud Operations command. `coa validate` has NO
+`--profile` flag (it reads no profile at all and needs no warehouse). Relying
+on the default profile is where this goes wrong: a `[default]` whose platform
+differs from the workspace fails every warehouse-touching command with
+`Profile "default" uses <x>, but data.yml does not declare a platformKind`.
 
-Supports Snowflake (Basic / KeyPair), Databricks
+Supports Snowflake (Basic / KeyPair / OAuth for local commands), Databricks
 (Token / OAuth M2M), and BigQuery (Service Account); any field has an
-equivalent CLI flag. `workspace.yml` holds ONLY local storage mappings
-(location → database/schema), never credentials. NEVER put secrets in repo
-files.
+equivalent CLI flag. Snowflake OAuth profiles work for local commands, not for
+cloud plan/deploy. `workspace.yml` holds ONLY local storage mappings (location
+→ database/schema), never credentials. NEVER put secrets in repo files.
 
 ## Approval gates (`coa describe workflow`)
 
 - Allowed without asking: `coa validate`, `coa describe`, any `--dry-run`
-  preview, `coa install`, and `coa doctor` without `--fix`.
-- ASK FIRST: anything that writes credentials or shared config — `coa init`,
-  `coa doctor --fix`, editing `data.yml` / `locations.yml` / `workspace.yml`,
-  node types (creating one included), jobs, macros, environments. Never
-  auto-bootstrap, auto-fix, or push to a remote without explicit approval.
+  preview, `coa install`, `coa doctor` without `--fix`, and cloud reads
+  (`coa environments list|get`, `coa runs ...`, `coa plan` from a committed
+  tree — it writes only the local plan file).
+- ASK FIRST: anything that writes credentials, shared config, or cloud state —
+  `coa init`, `coa doctor --fix`, editing `data.yml` / `locations.yml` /
+  `workspace.yml`, node types (creating one included), jobs, macros,
+  `environments/`, and `coa deploy`, `coa refresh`, `coa rerun`,
+  `coa environments|projects create|update|delete`. Never auto-bootstrap,
+  auto-fix, deploy, or push to a remote without explicit approval.

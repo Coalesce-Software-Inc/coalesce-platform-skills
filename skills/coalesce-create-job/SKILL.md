@@ -48,4 +48,6 @@ by selectors, so view those rules as well with `coa describe selectors`
 
 A job only **selects** nodes; running it locally is just `coa create` / `coa run`
 with the job's selector against the warehouse (local development, not a deploy).
-Cloud plan/deploy is a separate process (git push → Coalesce web UI / CI).
+In a deployed Environment the same job runs via `coa refresh --environmentID
+<id> --jobID <id>` or the Coalesce web UI — an approved, cloud-mutating step
+(see coalesce-cloud-api).

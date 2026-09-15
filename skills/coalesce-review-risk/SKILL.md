@@ -86,8 +86,10 @@ Format rules being checked:
 ## Constraints
 
 - READ-ONLY. Never run `coa create`/`coa run` without `--dry-run` (they
-  execute SQL directly against the warehouse — local dev, NOT deploy; cloud
-  plan/deploy is a separate git-push process). Never edit files.
+  execute SQL directly against the warehouse — local dev, NOT deploy), and
+  never run `coa deploy`/`coa refresh` (cloud-mutating). `coa plan` output,
+  if the user provides it, is good evidence of what a deploy would change.
+  Never edit files.
 - Report findings factually with the `coa` output as evidence; do not
   editorialize or minimize. Always state when impact analysis is incomplete
   (e.g. validate could not run, or selectors were unscoped).

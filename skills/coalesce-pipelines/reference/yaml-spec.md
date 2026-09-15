@@ -50,6 +50,14 @@ resolve refs. Credentials do NOT go here (they live in `~/.coa/config`).
 
 `{ name, id, type: "Environment", fileVersion,
 mappingDefinitions: { <LOC>: { database, schema } } }` — all fields required.
+This file is the Environment's DEPLOY-TIME storage mapping: `coa plan` reads
+`mappingDefinitions` from it (one `{database, schema}` per location in
+`locations.yml`), and a missing or incomplete file fails plan with one
+`Storage Location ... Schema: N/A, Database: N/A` error per node. It is not
+a create path: the Environment itself is created in the Coalesce App or with
+`coa environments create`, and `id` must be that Environment's ID from
+`coa environments list`. Commit it with the work it deploys. Deploy journey:
+coalesce-cloud-api.
 
 ## Job (jobs/<NAME>.yml) — `coa describe schema job`
 
