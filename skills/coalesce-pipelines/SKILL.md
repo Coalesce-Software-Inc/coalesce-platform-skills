@@ -1,6 +1,6 @@
 ---
 name: coalesce-pipelines
-description: Use when working in a Coalesce Transform repository (data.yml + nodes/ with <LOCATION>-<NAME>.sql/.yml files) — building, editing, validating, running, or deploying data transformation pipelines with the coa CLI. Start here; it routes to the more specific coalesce-* skills.
+description: Use when working in a Coalesce Transform repository (data.yml + nodes/ with <LOCATION>-<NAME>.sql/.yml files) — building, editing, validating, or running data transformation pipelines with the coa CLI. Start here; it routes to the more specific coalesce-* skills.
 ---
 <!-- coalesce-node-managed: true -->
 
@@ -11,8 +11,7 @@ transformation DAG. Nodes are authored as **SQL nodes** — SQL files with
 lightweight annotations (`nodes/<LOCATION>-<NAME>.sql`) — or **YAML nodes**
 (`nodes/<LOCATION>-<NAME>.yml`); workspace metadata (locations, environments,
 jobs, subgraphs, node types, macros) is YAML. The `coa` CLI validates the
-repo, executes SQL against the warehouse for local development, and plans
-and deploys to Coalesce Environments.
+repo and executes SQL against the warehouse for local development.
 
 Coalesce formerly called these Node V2 (SQL) and Node V1 (YAML). The app's
 **Build Settings > Node Types** and the `coa describe` / `coa validate` text
@@ -60,8 +59,7 @@ name the same concept.
 ## Reference (read as needed)
 
 - [coa CLI](reference/coa-cli.md) — describe topics, the core loop, selectors,
-  init/doctor/install, the Cloud Operations commands, approval gates,
-  local-vs-deploy.
+  init/doctor/install, approval gates, local-vs-deploy.
 - [SQL format](reference/sql-format.md) — SQL vs YAML nodes, `@id`/`@nodeType`,
   `ref()` macros, reserved and declared annotations, naming.
 - [YAML spec](reference/yaml-spec.md) — data.yml, locations, workspace,
@@ -77,10 +75,8 @@ dry-runs are mandatory: `create --dry-run` only proves the DDL renders, while a
 node whose `config` is missing its node-type defaults renders ZERO run SQL and
 would silently load no data (see coalesce-pipeline-structure).
 `coa create`/`coa run` without `--dry-run` execute SQL DIRECTLY against the
-warehouse — that is LOCAL development, NOT deploy. Deploying is a separate,
-approved step: commit and push, then `coa plan` / `coa deploy` against an
-Environment (or the Coalesce web UI) — see coalesce-cloud-api ("Deploy
-journey").
+warehouse — that is LOCAL development, NOT deploy. Work reaches the cloud only
+via git push, then plan/deploy in the Coalesce web UI or CI.
 
 ## Rules
 
@@ -133,12 +129,12 @@ journey").
 8. After editing, run `coa validate`, then `coa create --dry-run` AND
    `coa run --dry-run --verbose`, before executing anything. Also pass
    `--profile <name>` matching the workspace platform on every command that
-   accepts one (`sources`, `create`, `run`, `install`, `doctor`, and the
-   cloud commands); `coa validate` has no `--profile` flag.
+   accepts one (`sources`, `create`, `run`, `install`, `doctor`);
+   `coa validate` has no `--profile` flag.
 9. Treat `coa describe` and `coa <command> --help` as the source of truth.
    The bundled example-repository FAILS `coa validate` — never copy its
-   shapes. Where `coa describe` still says V1/V2 or "no deployment step",
-   the binary's `--help` is the authority (see reference/coa-cli.md).
+   shapes. Where `coa describe` still says V1/V2, read V1 as YAML and V2 as
+   SQL (see reference/coa-cli.md).
 
 ## Guardrail — ask before editing shared config
 
@@ -148,10 +144,8 @@ and read-only commands (`coa validate`, `coa describe`, any `--dry-run`).
 ASK FIRST: editing nodes NOT in the request; creating, modifying, or removing
 ANY node type (incl. bumping its `fileVersion` or swapping its template
 pattern); changing locations, workspace/environments, jobs, macros, or
-`data.yml`; `coa init` / `coa doctor --fix`; and every cloud-mutating command
-(`coa deploy`, `coa refresh`, `coa environments|projects create|update|
-delete`). These are shared across many nodes, or visible to the whole team —
-stop and surface the choice.
+`data.yml`; `coa init` / `coa doctor --fix`. These are shared across many nodes
+and can silently break unrelated ones — stop and surface the choice.
 
 Node types are search-first, and the search ends in a package, never in a
 file you write. Never author a node type to satisfy a `.sql` node. Base types
@@ -175,8 +169,8 @@ and why. See coalesce-workspace-config.
   jobs, subgraphs (DAG topology).
 - **coalesce-workspace-config** — data.yml, locations, workspace,
   environments, node type definitions/templates.
-- **coalesce-cloud-api** — coa init/doctor/install, credentials, and the
-  deploy journey (environments, plan, deploy, refresh).
+- **coalesce-cloud-api** — coa init/doctor/install, credentials, cloud
+  bootstrap and diagnostics.
 - **coalesce-git-publication** — branches, commits, pushing work so it can be
   planned/deployed.
 - **coalesce-review-risk** — read-only review of changes: validation evidence,

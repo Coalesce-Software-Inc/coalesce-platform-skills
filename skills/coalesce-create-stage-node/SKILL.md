@@ -183,5 +183,4 @@ Run the core loop and fix issues before moving on:
 
 `coa create`/`coa run` execute SQL DIRECTLY against the warehouse (local
 development, not deployment). Stop after the dry-run unless the user wants to
-materialize the table; deploying to an Environment is a separate, approved
-step (commit, push, `coa plan` / `coa deploy` — see coalesce-cloud-api).
+materialize the table; cloud deploy is a separate git-push + web-UI flow.
