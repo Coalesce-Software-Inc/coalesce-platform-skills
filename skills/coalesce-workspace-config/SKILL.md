@@ -121,6 +121,18 @@ changes the generated DDL/DML for *every* node of that type — always ask.
 `coa describe node-types` still says V1/V2 and "UNKNOWN types"; the yaml-spec
 reference is current.
 
+## environments/ — deploy-time mappings, not a create path
+
+`environments/<NAME>.yml` holds the storage mappings `coa plan` uses when
+deploying to that Environment (one `{database, schema}` per location). The
+Environment itself is created in the Coalesce App or with
+`coa environments create`; this file must carry that Environment's `id`.
+Editing or adding the file never creates, renames, or reconfigures an
+Environment. Missing or partial mappings fail plan with `Storage Location ...
+Schema: N/A, Database: N/A` per node. Shared config: confirm values with the
+user and commit the file with the work it deploys (coalesce-cloud-api,
+"Deploy journey").
+
 ## Workflow (define → validate → dry-run → verify)
 
 1. Confirm the change with the user (guardrail above).
@@ -137,5 +149,5 @@ reference is current.
    and SQL is non-empty for affected nodes. `run.sql.j2` is where config
    gating lives, so a create dry-run alone never proves data would load.
 6. `coa create`/`coa run` execute SQL DIRECTLY against the warehouse — LOCAL
-   development, NOT deploy/publish. Cloud plan/deploy is separate (git push →
-   Coalesce web UI/CI).
+   development, NOT deploy/publish. Deploying is a separate, approved step
+   (commit, push, `coa plan` / `coa deploy` — see coalesce-cloud-api).

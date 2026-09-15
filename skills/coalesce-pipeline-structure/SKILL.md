@@ -33,8 +33,9 @@ Define → `coa validate -d <dir>` →
 → verify → iterate. Both dry-runs are required: `create --dry-run` proves only
 that the DDL renders, not that the node can load any data (see "Creating a
 YAML (.yml) node"). `coa create`/`coa run` without `--dry-run` execute SQL
-DIRECTLY against the warehouse — LOCAL development, NOT deploy. Cloud
-plan/deploy is separate (git push → web UI/CI).
+DIRECTLY against the warehouse — LOCAL development, NOT deploy. Deploying is
+a separate, approved step (commit, push, `coa plan` / `coa deploy` — see
+coalesce-cloud-api).
 
 ## In scope without asking
 
