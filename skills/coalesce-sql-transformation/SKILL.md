@@ -29,17 +29,20 @@ Shared format rules (refs, annotations, SQL vs YAML nodes, naming):
 - Add/remove/reorder columns; change joins, filters, aggregations, CTEs.
 - Add/update node- and column-level annotations: the reserved set
   (`@description`, `@materializationType`, column `@description` / `@notNull`
-  / `@defaultValue`), `@isBusinessKey` / `@isChangeTracking` / column `@id`,
-  and whatever the node type DECLARES in its `annotations:` block (read its
-  `definition.yml`). Repeat a repeatable annotation once per value; never
+  / `@defaultValue`), `@isBusinessKey` / `@isChangeTracking`, and whatever
+  the node type DECLARES in its `annotations:` block (read its
+  `definition.yml`). Never `@id` on a column — the column name is the column
+  ID, and renaming an alias is creating a new column as far as lineage and
+  downstream nodes are concerned (see sql-format reference, "Column
+  identity"). Repeat a repeatable annotation once per value; never
   pass several values in one call. Nothing else — an undeclared annotation is
   accepted and silently does nothing.
 - Fix SQL syntax or format violations.
 
 ## Constraints
 
-- NEVER modify an existing `@id` (node or column). New `@id` values are fresh
-  UUIDs; never reuse one.
+- NEVER modify the node's `@id`. Columns on a SQL node carry no `@id`; do
+  not add one.
 - Do NOT change `@nodeType` as part of SQL work — swapping a node type is a
   shared-config change, ASK FIRST. Its value must match a node type in
   `nodeTypes/<ID>/` or a package type ID.
