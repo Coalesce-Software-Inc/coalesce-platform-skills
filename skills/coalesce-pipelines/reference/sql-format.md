@@ -147,9 +147,24 @@ literal arguments — strings quoted, numbers and booleans unquoted.
   not a test), `@defaultValue("0")` / `@defaultValue("'NA'")` (quoted for the
   column's type).
 - Also accepted on the SQL parser's native set: `@isBusinessKey` (MERGE/SCD
-  key; **affects DDL**; required on Persistent Stage + Dimension types),
-  `@isChangeTracking` (change detection; **affects DML**), and column
-  `@id("col-id")` (lineage; metadata only).
+  key; **affects DDL**; required on Persistent Stage + Dimension types) and
+  `@isChangeTracking` (change detection; **affects DML**).
+
+**Column identity: the column name IS the column ID. Never write `@id` on a
+column.** On a SQL node there are no column ids to mint: each column's
+identity (`columnReference.columnCounter`) is its name as the warehouse sees
+it — an unquoted alias uppercased (`AS nation_name` → `NATION_NAME`), a quoted
+alias exactly as written (`AS "Mixed_Case"` → `Mixed_Case`). That name is
+what downstream nodes, lineage, and plan diffing key on, so renaming a column
+is creating a new one. The parser does accept `@id("...")` on a column and
+silently re-keys the column's identity to that string; every existing
+name-based reference to the column (from YAML nodes and from the app) then
+breaks, `coa validate` only warns (`sourceColumnMissing`), and the downstream
+load renders `NULL` for that column instead of failing. `@id` belongs on the
+node line only. (Author-set column identity is a future feature, TRA-8; until
+it ships, nothing should write column `@id`.) A YAML node downstream of a
+SQL node references its columns by that name: see coalesce-v1-yaml-nodes,
+"Referencing a SQL node's columns".
 
 **Declared annotations**: a SQL node type's `nodeMetadataSpec` may carry an
 `annotations:` block declaring additional node- and column-level annotations
@@ -197,7 +212,8 @@ Hazards (verified on coa 7.42.5):
   locally, and tell the user why.
 
 Do NOT invent annotations that are neither reserved nor declared by the node
-type: `@isSurrogateKey`, `@pii`, `@synqMonitor` are NOT in the spec.
+type: `@isSurrogateKey`, `@pii`, `@synqMonitor` are NOT in the spec, and
+column `@id` is never written (see "Column identity" above).
 (`isSurrogateKey` exists as a boolean column field in the YAML node JSON
 schema — legitimate in a `.yml` node — but it is NOT a `.sql` column
 annotation.)

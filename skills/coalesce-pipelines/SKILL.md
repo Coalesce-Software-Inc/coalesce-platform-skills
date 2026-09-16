@@ -80,8 +80,11 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
 
 ## Rules
 
-1. NEVER modify or reuse an existing `@id` (node or column). New `@id` values
-   are fresh UUIDs. In a `.sql` node, `@id` and `@nodeType` are BARE first
+1. NEVER modify or reuse an existing node `@id`. New node `@id` values are
+   fresh UUIDs. Columns on a SQL node have NO `@id` annotation — the column
+   name is the column ID (see reference/sql-format.md, "Column identity"), and
+   a YAML node downstream of a SQL node references its columns by that name.
+   In a `.sql` node, `@id` and `@nodeType` are BARE first
    lines — never prefixed with `--` or wrapped in `/* */`. A commented-out
    annotation is invisible to `coa`: the node is silently dropped from the
    graph (validate still shows 0 errors, but the node is never built). See

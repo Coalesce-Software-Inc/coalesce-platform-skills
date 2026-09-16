@@ -151,9 +151,11 @@ Rules:
 - `{{ ref("LOCATION", "NODE_NAME") }}` — double quotes, both args required.
   There is no name-only form. `ref()` creates the lineage edge and resolves to
   the real `database.schema.table`; NEVER hardcode `db.schema.table`.
-- A plain 1:1 Stage needs no column annotations. If you want lineage IDs or
-  docs, use `@id("col-id")` and `@description("text")` (both metadata-only),
-  placed AFTER the alias and BEFORE the comma. `@isBusinessKey` /
+- A plain 1:1 Stage needs no column annotations. For docs, use
+  `@description("text")` placed AFTER the alias and BEFORE the comma. Never
+  write `@id` on a column: on a SQL node the column name IS the column ID
+  (lineage and downstream YAML nodes key on it), and a column `@id` silently
+  re-keys it (see sql-format reference, "Column identity"). `@isBusinessKey` /
   `@isChangeTracking` belong on Persistent Stage/Dimension, not a plain Stage.
   Additional annotations exist ONLY if the node type declares them in its
   `annotations:` block — an undeclared or misspelled annotation is accepted
