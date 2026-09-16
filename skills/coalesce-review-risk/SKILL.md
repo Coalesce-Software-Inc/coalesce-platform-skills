@@ -64,10 +64,13 @@ Format rules being checked:
   edges).
 - One-arg `ref()`, hardcoded `db.schema.table`, or annotations the node
   type does not accept. Valid on a `.sql` node: the reserved set (`@id`,
-  `@nodeType`, `@description`, `@materializationType`; column
+  `@nodeType`, `@description`, `@materializationType` on the node; column
   `@description`, `@notNull`, `@defaultValue`), `@isBusinessKey`,
-  `@isChangeTracking`, column `@id`, and the annotations DECLARED in the
-  node type's `definition.yml` `annotations:` block. Anything else
+  `@isChangeTracking`, and the annotations DECLARED in the node type's
+  `definition.yml` `annotations:` block. A column-level `@id` is a red flag
+  on its own: the column name IS the column ID on a SQL node, and `@id`
+  silently re-keys it so downstream YAML nodes and the app lose the column
+  (validate only warns `sourceColumnMissing`; the load renders NULL). Anything else
   (`@isSurrogateKey`, `@pii`, `@synqMonitor`, `@prgTest`, a misspelled
   declared name, …) is accepted by the parser and silently does nothing —
   flag it. Also flag a repeatable annotation written with several values in

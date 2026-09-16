@@ -27,7 +27,7 @@ install the Coalesce Agent Skills package (see the `coalesce-agent-skills`
 distribution: run its `install.sh`, or let the Coalesce Node desktop app sync
 it automatically).
 
-## Two rules that always apply
+## Three rules that always apply
 
 1. `coa create` / `coa run` execute SQL directly against the warehouse —
    local development, NOT deploy. Work reaches the cloud only via git push,
@@ -35,6 +35,11 @@ it automatically).
 2. Ask before editing shared config (`data.yml`, `locations.yml`,
    `workspace.yml`, `environments/`, `jobs/`, `macros/`, `packages/`,
    `nodeTypes/`) — an edit there can silently break unrelated nodes.
+3. SQL nodes never carry `@id` on a column. The column name IS the column
+   ID (uppercased unless the alias is quoted). A YAML node downstream of a
+   SQL node references its columns with `stepCounter` = the SQL node's `@id`
+   and `columnCounter` = the column name. Adding column `@id`s to "create
+   ids" silently breaks that lineage.
 
 If `.claude/workspace-context.json` exists, read it first — it holds the
 current node inventory, edges, jobs, environments, and diagnostics.
