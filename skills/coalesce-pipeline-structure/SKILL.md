@@ -48,11 +48,12 @@ separate (git push → web UI/CI).
   `fileVersion` or swapping its template pattern.
 - Changing locations, workspaces, environments, jobs, macros, or `data.yml`.
 
-**Never author a node type for a `.sql` node.** Base types come from the
-installed base node types package, which `coa install` materializes as a
-read-only tree at `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/`; each
-materialized `definition.yml` carries the resolvable `<alias>:::<id>` id to put
-in `@nodeType()`. Discovery is file-system based: check `nodeTypes/` and
+**Never author a node type for a `.sql` node — node types are search-first.**
+Base types come from the installed base node types package, which
+`coa install` materializes as a read-only tree at
+`.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/`; each materialized
+`definition.yml` carries the resolvable `<alias>:::<id>` id to put in
+`@nodeType()`. Discovery is file-system based: check `nodeTypes/` and
 `.coa/cache/packages/*/nodeTypes/`, and read each `definition.yml` — TYPE
 NAMES VARY BY WORKSPACE, so never assume a type called `Stage` exists (in the
 base packages the staging-layer type is typically `Work`, e.g.
@@ -61,7 +62,8 @@ safe without asking, though it hydrates only packages already declared under
 `packages/` and prints "No packages to install." otherwise; `coa init` writes
 that declaration, so an absent `packages/` means re-running `coa init` (ask
 the user), never hand-creating shared config. If that still yields nothing,
-author the node as V1 `.yml` and continue. See coalesce-workspace-config.
+author the node as V1 `.yml` and continue. Report which path you took. See
+coalesce-workspace-config.
 
 ## Creating a node (V2 .sql, when a `fileVersion: 2` node type exists)
 
@@ -81,11 +83,18 @@ author the node as V1 `.yml` and continue. See coalesce-workspace-config.
   `coa create --dry-run --verbose --include "{ NODE }"` — not `coa validate`
   alone, which stays green for a dropped node.
 - Use V1 (`.yml`, fileVersion 1) whenever the node type you need has no
-  `fileVersion: 2` definition, and for Source nodes and V1-only types. Generate
-  Source nodes with `coa sources add`, never by hand. Load
-  `coalesce-v1-yaml-nodes` before touching an existing `nodes/*.yml`.
+  `fileVersion: 2` definition, for config-driven types (e.g. SCD2 Dimension),
+  and for Source nodes and V1-only types (see coalesce-pipelines Rule 4 and
+  glossary). Generate Source nodes with `coa sources add`, never by hand. V1
+  nodes may be authored via the UI or by hand in files — hand-authoring is
+  intricate, so load `coalesce-v1-yaml-nodes` and follow its "Authoring a new
+  V1 node" checklist (alongside the minimal recipe below) before writing or
+  touching any `nodes/*.yml`.
 - Refs, column annotations, and a full example: see the sql-format reference.
-  Only `@isBusinessKey`, `@isChangeTracking`, `@id`, `@description` exist.
+  Native annotations are `@isBusinessKey`, `@isChangeTracking`, `@id`,
+  `@description`; node types may DECLARE more in their `annotations:` block —
+  an undeclared or misspelled annotation is accepted and silently does
+  nothing.
 
 ## Creating a V1 (.yml) node
 

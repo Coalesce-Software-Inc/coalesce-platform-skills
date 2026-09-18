@@ -58,24 +58,27 @@ Then branch:
 
 - **A V2 staging node type exists (`fileVersion: 2`)** — proceed; author a
   `.sql` node (preferred for all transformations). Note its `id` for step 3.
-- **No V2 staging type on disk** — run `coa install -d <dir>` to hydrate
-  the workspace's packages (safe, no need to ask), then re-check `nodeTypes/`
-  and `.coa/cache/packages/*/nodeTypes/`. `coa install` hydrates only packages
-  already declared under `packages/` and otherwise just prints "No packages to
-  install."; `coa init` writes that declaration, so if `packages/` is absent
-  the fix is re-running `coa init` (ask the user first), never hand-creating
-  shared config. Do NOT create a node type yourself: V2 types come from the
-  platform's base node types package (`coa init` declares it; the package may
-  be unavailable outside production registries).
+- **No V2 staging type on disk** — SEARCH-FIRST, never author: run
+  `coa install -d <dir>` to hydrate the workspace's packages (safe, no need to
+  ask), then re-check `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`.
+  `coa install` hydrates only packages already declared under `packages/` and
+  otherwise just prints "No packages to install."; `coa init` writes that
+  declaration, so if `packages/` is absent the fix is re-running `coa init`
+  (ask the user first), never hand-creating shared config. Do NOT create a
+  node type yourself: V2 types come from the platform's base node types
+  package (`coa init` declares it; the package may be unavailable outside
+  production registries). Report which path you took.
 - **Only a V1 staging type exists (`fileVersion` absent or `1`)**: author the
   node as a V1 `.yml` node. Do NOT upgrade the node type and do NOT stop: V1
-  is the supported authoring format whenever the workspace's node types are V1.
-  The `fileVersion` in `nodeTypes/<ID>/definition.yml` decides this, never the
-  platform. Follow the recipe in
-  **coalesce-pipeline-structure** ("Creating a V1 (.yml) node"), copy the
-  column list from the source node in `nodes/`, then go straight to step 4 to
-  verify. Bumping an in-use type's `fileVersion` changes DDL/DML for every node
-  of that type, so that still requires **STOP and ASK the user first**.
+  is the supported authoring format whenever the workspace's node types are V1
+  (nodes may be authored freely in either format; a `.sql` file just needs a
+  V2 type behind it). The `fileVersion` in the type's `definition.yml` decides
+  this, never the platform. Follow the recipe in
+  **coalesce-pipeline-structure** ("Creating a V1 (.yml) node") and the
+  checklist in **coalesce-v1-yaml-nodes** ("Authoring a new V1 node"), copy
+  the column list from the source node in `nodes/`, then go straight to step 4
+  to verify. Bumping an in-use type's `fileVersion` changes DDL/DML for every
+  node of that type, so that still requires **STOP and ASK the user first**.
 
   Never silently write a `.sql` node against a V1 staging type — that is the
   empty-columns trap above.
@@ -147,10 +150,13 @@ Rules:
   There is no name-only form. `ref()` creates the lineage edge and resolves to
   the real `database.schema.table`; NEVER hardcode `db.schema.table`.
 - A plain 1:1 Stage needs no column annotations. If you want lineage IDs or
-  docs, the only valid column annotations are `@id("col-id")` and
-  `@description("text")` (both metadata-only), placed AFTER the alias and BEFORE
-  the comma. `@isBusinessKey` / `@isChangeTracking` belong on Persistent
-  Stage/Dimension, not a plain Stage. Do NOT invent annotations.
+  docs, use `@id("col-id")` and `@description("text")` (both metadata-only),
+  placed AFTER the alias and BEFORE the comma. `@isBusinessKey` /
+  `@isChangeTracking` belong on Persistent Stage/Dimension, not a plain Stage.
+  Additional annotations exist ONLY if the node type declares them in its
+  `annotations:` block — an undeclared or misspelled annotation is accepted
+  and silently does nothing (see sql-format reference). Do NOT invent
+  annotations.
 
 ## 4. Verify with coa (mandatory)
 
