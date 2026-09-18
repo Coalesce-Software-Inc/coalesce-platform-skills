@@ -26,10 +26,6 @@ Three identifiers, easy to confuse:
 | **Registry slug** | `coalesce_snowflake_cortex` | The Package ID with the leading `@` dropped and every `/` replaced by `_`. This is the `{packageID}` path segment the registry API expects and the docs URL slug. |
 | **Release ID** | `5625047f-0da2-485a-865f-66d37d9e3de8` | A UUID for one published version (the Marketplace shows the version, `4.2.0`; the declaration needs the UUID). |
 
-> If `coa --help` lists a `packages` command, prefer `coa packages add
-> <packageID>` and skip to Step 4. As of coa 7.43.0 it does not exist and the
-> steps below are the supported path.
-
 ## Step 0 — Orient
 
 1. Confirm the workspace platform: `platformKind` in `data.yml` (absent means
