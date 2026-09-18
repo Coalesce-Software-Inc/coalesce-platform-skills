@@ -94,9 +94,10 @@ template gates its DML on them.
 1. `coa install -d <dir>` — hydrates declared packages. Safe, run it without
    asking, then re-check `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`.
    It hydrates only packages already declared under `packages/` and otherwise
-   prints "No packages to install."; `coa init` writes that declaration, so if
-   `packages/` is absent, re-running `coa init` (ask first) is the fix — never
-   hand-create the declaration or any other shared config instead.
+   prints "No packages to install."; `coa init` writes the base package's
+   declaration, so if `packages/` is absent, re-running `coa init` (ask first)
+   is the fix. To add a different Marketplace package, use
+   coalesce-install-package — never improvise the declaration.
 2. Still none — the base node types package may be unavailable (it exists only
    in the production registry; lower environments 404). Author the node as a V1
    `.yml` node and continue; that is supported, not a workaround. Do NOT create

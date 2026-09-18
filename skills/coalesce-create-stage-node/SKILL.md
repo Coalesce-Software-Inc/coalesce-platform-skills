@@ -62,9 +62,10 @@ Then branch:
   the workspace's packages (safe, no need to ask), then re-check `nodeTypes/`
   and `.coa/cache/packages/*/nodeTypes/`. `coa install` hydrates only packages
   already declared under `packages/` and otherwise just prints "No packages to
-  install."; `coa init` writes that declaration, so if `packages/` is absent
-  the fix is re-running `coa init` (ask the user first), never hand-creating
-  shared config. Do NOT create a node type yourself: V2 types come from the
+  install."; `coa init` writes the base package's declaration, so if
+  `packages/` is absent the fix is re-running `coa init` (ask the user first);
+  other Marketplace packages are added via coalesce-install-package, never by
+  improvising shared config. Do NOT create a node type yourself: V2 types come from the
   platform's base node types package (`coa init` declares it; the package may
   be unavailable outside production registries).
 - **Only a V1 staging type exists (`fileVersion` absent or `1`)**: author the

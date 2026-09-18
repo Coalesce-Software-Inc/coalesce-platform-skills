@@ -59,8 +59,9 @@ base packages the staging-layer type is typically `Work`, e.g.
 `base-node-types:::204`). If none are present, run `coa install -d <dir>` —
 safe without asking, though it hydrates only packages already declared under
 `packages/` and prints "No packages to install." otherwise; `coa init` writes
-that declaration, so an absent `packages/` means re-running `coa init` (ask
-the user), never hand-creating shared config. If that still yields nothing,
+the base package's declaration, so an absent `packages/` means re-running
+`coa init` (ask the user); other Marketplace packages are added via
+coalesce-install-package, never by improvising shared config. If that still yields nothing,
 author the node as V1 `.yml` and continue. See coalesce-workspace-config.
 
 ## Creating a node (V2 .sql, when a `fileVersion: 2` node type exists)
