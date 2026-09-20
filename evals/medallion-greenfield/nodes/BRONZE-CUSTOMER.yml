@@ -1,0 +1,152 @@
+fileVersion: 1
+id: c552513e-3f62-41db-bf3f-d862b076b0c0
+name: CUSTOMER
+operation:
+  database: COALESCE_SAMPLE_DATABASE
+  deployEnabled: true
+  description: ""
+  locationName: BRONZE
+  metadata:
+    columns:
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 57179db9-32df-417b-91de-58fbed19f0c3
+          stepCounter: c552513e-3f62-41db-bf3f-d862b076b0c0
+        config: {}
+        dataType: NUMBER(38,0)
+        defaultValue: ""
+        description: SF*150,000 are populated
+        name: C_CUSTKEY
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 8f91b10f-d42a-478a-86d5-1be37f857816
+          stepCounter: c552513e-3f62-41db-bf3f-d862b076b0c0
+        config: {}
+        dataType: VARCHAR(25)
+        defaultValue: ""
+        description: ""
+        name: C_NAME
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: eb78545b-a638-48de-8c9c-f2fc21158efb
+          stepCounter: c552513e-3f62-41db-bf3f-d862b076b0c0
+        config: {}
+        dataType: VARCHAR(40)
+        defaultValue: ""
+        description: ""
+        name: C_ADDRESS
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 1eb81dbd-9db2-4710-9d8c-e231e65ad2c6
+          stepCounter: c552513e-3f62-41db-bf3f-d862b076b0c0
+        config: {}
+        dataType: NUMBER(38,0)
+        defaultValue: ""
+        description: Foreign Key to N_NATIONKEY
+        name: C_NATIONKEY
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 1cb9c507-bd01-4e16-9649-4d9126aa8225
+          stepCounter: c552513e-3f62-41db-bf3f-d862b076b0c0
+        config: {}
+        dataType: VARCHAR(15)
+        defaultValue: ""
+        description: ""
+        name: C_PHONE
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 5411edc8-7af8-4bbe-851d-0625a4e6d983
+          stepCounter: c552513e-3f62-41db-bf3f-d862b076b0c0
+        config: {}
+        dataType: NUMBER(12,2)
+        defaultValue: ""
+        description: ""
+        name: C_ACCTBAL
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 490eae9f-1c1a-43c5-8b9a-9a2ebdfb1f58
+          stepCounter: c552513e-3f62-41db-bf3f-d862b076b0c0
+        config: {}
+        dataType: VARCHAR(10)
+        defaultValue: ""
+        description: ""
+        name: C_MKTSEGMENT
+        nullable: true
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: ea424423-ed07-4509-ae73-d37a74fb4b16
+          stepCounter: c552513e-3f62-41db-bf3f-d862b076b0c0
+        config: {}
+        dataType: VARCHAR(117)
+        defaultValue: ""
+        description: ""
+        name: C_COMMENT
+        nullable: true
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+  name: CUSTOMER
+  schema: TPCH_SF001
+  sqlType: Source
+  type: sourceInput
+  version: 1
+type: Node

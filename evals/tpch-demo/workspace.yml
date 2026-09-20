@@ -1,0 +1,7 @@
+locations:
+  SRC:
+    database: COALESCE_SAMPLE_DATABASE
+    schema: TPCH_SF001
+  TARGET:
+    database: SKILLS_EVAL_PLACEHOLDER
+    schema: ANALYTICS
