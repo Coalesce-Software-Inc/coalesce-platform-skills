@@ -62,7 +62,9 @@ against a deployed environment: git push, then plan/deploy in the Coalesce web
 UI or CI (it diffs the pushed Git state against the deployed environment). The
 CLI's Cloud Operations commands (`coa plan`, `coa deploy`, `coa refresh`, …)
 drive that same cloud process, are NOT part of the local loop, and always
-require explicit user approval.
+require explicit user approval. Their flags, the committed
+`environments/<NAME>.yml` mapping file `coa plan` depends on, output shapes,
+and failure modes are documented in the coalesce-deploy skill.
 
 ## Selectors (`--include` / `--exclude`)
 

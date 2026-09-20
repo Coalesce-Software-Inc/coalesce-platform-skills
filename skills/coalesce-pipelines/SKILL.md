@@ -147,6 +147,10 @@ asks — and even then, ASK FIRST. See coalesce-workspace-config.
   bootstrap and diagnostics.
 - **coalesce-git-publication** — branches, commits, pushing work so it can be
   planned/deployed.
+- **coalesce-deploy** — promoting pushed work to a cloud Environment with the
+  Cloud Operations commands: `coa environments`, the committed
+  `environments/<NAME>.yml` mapping file, `coa plan` → review → `coa deploy`
+  → `coa refresh`, run results, `rerun`/`cancel`. All ASK FIRST.
 - **coalesce-review-risk** — read-only review of changes: validation evidence,
   blast radius, risk flags.
 - Task recipes: **coalesce-create-stage-node**, **coalesce-add-column**,

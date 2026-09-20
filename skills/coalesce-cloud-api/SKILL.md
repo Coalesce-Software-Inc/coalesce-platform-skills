@@ -25,6 +25,7 @@ runs against a deployed environment — git push → Coalesce web UI / CI plans
 (diff desired vs deployed state) and deploys. The CLI's Cloud Operations
 commands (`coa plan`, `coa deploy`, `coa refresh`, …) drive that same process
 and are outside this loop; every one of them requires explicit user approval.
+They are the coalesce-deploy skill's job — load it for anything past `git push`.
 
 ## The four commands
 
