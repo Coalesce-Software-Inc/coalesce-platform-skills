@@ -25,6 +25,7 @@ runs against a deployed environment — git push → Coalesce web UI / CI plans
 (diff desired vs deployed state) and deploys. The CLI's Cloud Operations
 commands (`coa plan`, `coa deploy`, `coa refresh`, …) drive that same process
 and are outside this loop; every one of them requires explicit user approval.
+They are the coalesce-deploy skill's job — load it for anything past `git push`.
 
 ## The four commands
 
@@ -47,9 +48,11 @@ and are outside this loop; every one of them requires explicit user approval.
   (after init, or after pulling such a repo). Fetch/cache only — safe to run
   without asking. It hydrates only packages ALREADY DECLARED under
   `packages/`; with no declaration it is a no-op printing "No packages to
-  install." `coa init` writes that declaration, so if `packages/` is absent
-  the fix is re-running `coa init` (ask the user first) — never hand-create
-  the declaration or other shared config to work around it.
+  install." `coa init` writes the base package's declaration, so if
+  `packages/` is absent the fix is re-running `coa init` (ask the user first).
+  Declaring an additional Marketplace package is the coalesce-install-package
+  recipe (registry lookup → `packages/<alias>.yml` → `coa install`); never
+  improvise the declaration or other shared config.
 - **`coa profile <list|show|use|unset|create|set-cloud|delete|rename>`** — the
   ONLY supported way to manage `~/.coa/config` sections. See Profiles below.
 

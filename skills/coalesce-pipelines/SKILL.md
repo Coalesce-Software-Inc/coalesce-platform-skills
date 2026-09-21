@@ -79,9 +79,10 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    use in `@nodeType()`. If none are present, run `coa install -d <dir>`;
    never author one (see coalesce-workspace-config). `coa install` hydrates
    only packages already declared under `packages/` and prints "No packages to
-   install." otherwise — `coa init` writes that declaration, so if `packages/`
-   is absent the fix is to re-run `coa init` (ask the user first), never to
-   hand-create shared config.
+   install." otherwise — `coa init` writes the base package's declaration, so
+   if `packages/` is absent the fix is to re-run `coa init` (ask the user
+   first). To add any OTHER Marketplace package, follow
+   coalesce-install-package; never improvise the declaration.
    When no `fileVersion: 2` type exists for the target node type (the package
    may be unavailable), author V1 `.yml` instead; that is supported, not a
    workaround.
@@ -126,8 +127,9 @@ and can silently break unrelated ones — stop and surface the choice.
 Never author a node type to satisfy a `.sql` node. Base types come from the
 installed base node types package; if none are present, run `coa install -d
 <dir>` (safe without asking — but it is a no-op unless `packages/` already
-declares a package) and, failing that, author the node as V1 `.yml` and
-continue. A custom net-new type is authored only when the user explicitly
+declares a package; adding a Marketplace package is the
+coalesce-install-package recipe) and, failing that, author the node as V1
+`.yml` and continue. A custom net-new type is authored only when the user explicitly
 asks — and even then, ASK FIRST. See coalesce-workspace-config.
 
 ## When to use the other coalesce-* skills
@@ -145,7 +147,13 @@ asks — and even then, ASK FIRST. See coalesce-workspace-config.
   bootstrap and diagnostics.
 - **coalesce-git-publication** — branches, commits, pushing work so it can be
   planned/deployed.
+- **coalesce-deploy** — promoting pushed work to a cloud Environment with the
+  Cloud Operations commands: `coa environments`, the committed
+  `environments/<NAME>.yml` mapping file, `coa plan` → review → `coa deploy`
+  → `coa refresh`, run results, `rerun`/`cancel`. All ASK FIRST.
 - **coalesce-review-risk** — read-only review of changes: validation evidence,
   blast radius, risk flags.
 - Task recipes: **coalesce-create-stage-node**, **coalesce-add-column**,
-  **coalesce-rename-node-cascade**, **coalesce-create-job**.
+  **coalesce-rename-node-cascade**, **coalesce-create-job**,
+  **coalesce-install-package** (add, upgrade, or remove a Marketplace
+  package such as `@coalesce/snowflake/cortex`).

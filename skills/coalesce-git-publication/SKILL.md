@@ -14,9 +14,10 @@ changes.
 - `coa create` / `coa run` are NOT publication. They execute SQL directly
   against the warehouse for local development and iterative testing.
 - Committing locally and pushing the branch IS how work reaches the cloud.
-  The Coalesce cloud plan/deploy process (web UI or CI) diffs the pushed Git
-  state against the deployed environment, then deploys. That is a separate
-  process you do not run from here.
+  The Coalesce cloud plan/deploy process (web UI, CI, or the CLI's Cloud
+  Operations commands — see coalesce-deploy) diffs the workspace against the
+  deployed environment, then deploys. That is a separate step, not part of
+  publication.
 - So: validate and verify with `coa` locally, then commit + push so the
   changes are available to plan/deploy. Never call `coa create`/`coa run` a
   "deploy" or "publish", and never assume a push touches the warehouse.
@@ -57,4 +58,5 @@ changes.
 4. Commit with a clear message.
 5. Push only when the user has approved it.
 6. Report the commit hash, branch, and changed-file summary. If pushed, note
-   that cloud plan/deploy is the next (separate) step.
+   that cloud plan/deploy is the next (separate) step — the coalesce-deploy
+   skill, and only when the user asks for it.

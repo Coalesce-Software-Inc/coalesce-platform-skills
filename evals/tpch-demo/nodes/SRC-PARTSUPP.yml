@@ -1,0 +1,101 @@
+fileVersion: 1
+id: 97ab99e7-9471-4be5-85d4-a9f0d5c3f992
+name: PARTSUPP
+operation:
+  database: COALESCE_SAMPLE_DATABASE
+  deployEnabled: true
+  description: ""
+  locationName: SRC
+  metadata:
+    columns:
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: af9fe046-6fe9-414b-88e4-f2d44dc7b000
+          stepCounter: 97ab99e7-9471-4be5-85d4-a9f0d5c3f992
+        config: {}
+        dataType: NUMBER(38,0)
+        defaultValue: ""
+        description: Foreign Key to P_PARTKEY
+        name: PS_PARTKEY
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 0ad7c612-3b09-4140-97c4-282f7cfc28fb
+          stepCounter: 97ab99e7-9471-4be5-85d4-a9f0d5c3f992
+        config: {}
+        dataType: NUMBER(38,0)
+        defaultValue: ""
+        description: Foreign Key to S_SUPPKEY
+        name: PS_SUPPKEY
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 9d5fd537-f396-4ea9-b790-64696bbcef09
+          stepCounter: 97ab99e7-9471-4be5-85d4-a9f0d5c3f992
+        config: {}
+        dataType: NUMBER(38,0)
+        defaultValue: ""
+        description: ""
+        name: PS_AVAILQTY
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: c03785f5-1bd4-4f19-9382-f0856414d882
+          stepCounter: 97ab99e7-9471-4be5-85d4-a9f0d5c3f992
+        config: {}
+        dataType: NUMBER(12,2)
+        defaultValue: ""
+        description: ""
+        name: PS_SUPPLYCOST
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: fb3f76f8-9683-4e0f-84e9-33c2ff6b6df6
+          stepCounter: 97ab99e7-9471-4be5-85d4-a9f0d5c3f992
+        config: {}
+        dataType: VARCHAR(199)
+        defaultValue: ""
+        description: ""
+        name: PS_COMMENT
+        nullable: true
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+  name: PARTSUPP
+  schema: TPCH_SF001
+  sqlType: Source
+  type: sourceInput
+  version: 1
+type: Node

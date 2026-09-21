@@ -62,7 +62,9 @@ against a deployed environment: git push, then plan/deploy in the Coalesce web
 UI or CI (it diffs the pushed Git state against the deployed environment). The
 CLI's Cloud Operations commands (`coa plan`, `coa deploy`, `coa refresh`, …)
 drive that same cloud process, are NOT part of the local loop, and always
-require explicit user approval.
+require explicit user approval. Their flags, the committed
+`environments/<NAME>.yml` mapping file `coa plan` depends on, output shapes,
+and failure modes are documented in the coalesce-deploy skill.
 
 ## Selectors (`--include` / `--exclude`)
 
@@ -181,9 +183,11 @@ run it after init or after pulling a repo that uses packages. It only fetches
 and caches (no shared-config mutation), so it is safe to run without asking.
 It hydrates ONLY packages already declared under `packages/`: with no
 declaration it is a no-op that prints "No packages to install." `coa init`
-writes the declaration, so if `packages/` is absent, re-running `coa init` (or
-asking the user to) is the fix — never hand-create the declaration or any
-other shared config to work around it.
+writes the base package's declaration, so if `packages/` is absent,
+re-running `coa init` (or asking the user to) is the fix. Additional
+Marketplace packages are declared per the coalesce-install-package skill
+(registry lookup for the release ID, then `packages/<alias>.yml`) — never
+improvise the declaration or other shared config.
 This is how the base node types package for the platform (declared by
 `coa init` in `packages/base-node-types.yml`) becomes usable — it is the fix
 for "no V2 node type available", never hand-writing one. It materializes each

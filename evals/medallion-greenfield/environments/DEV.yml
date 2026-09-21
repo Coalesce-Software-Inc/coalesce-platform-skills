@@ -1,0 +1,14 @@
+name: DEV
+id: "1"
+type: Environment
+fileVersion: 1
+mappingDefinitions:
+  BRONZE:
+    database: COALESCE_SAMPLE_DATABASE
+    schema: RAW
+  SILVER:
+    database: SKILLS_EVAL_PLACEHOLDER
+    schema: CLEANSED_DEV
+  GOLD:
+    database: SKILLS_EVAL_PLACEHOLDER
+    schema: MARTS_DEV

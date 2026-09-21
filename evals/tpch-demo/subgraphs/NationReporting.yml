@@ -1,0 +1,7 @@
+id: "11"
+type: Subgraph
+fileVersion: 1
+name: NationReporting
+steps:
+  - '{ name: "NATION_SUMMARY" }'
+  - '{ name: "NATION_REVENUE_REPORT" }'

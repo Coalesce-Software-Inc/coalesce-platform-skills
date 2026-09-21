@@ -1,0 +1,6 @@
+defaultStorageMapping: GOLD
+fileVersion: 1
+locations:
+  - BRONZE
+  - SILVER
+  - GOLD
