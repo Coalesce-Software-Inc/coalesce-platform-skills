@@ -37,14 +37,20 @@ KEY or SECRET.
 ## Running
 
 ```sh
-set -a && . ./.env && set +a          # then map to the EVAL_* names above
-claude plugin eval . --case '01-*' --runs 1 --ablation with-without \
-  --scaffold --no-publish --keep-temp --trust-plugin --judge-model opus \
-  --allow-tools Bash Write Edit 'WebFetch(domain:...)'
+evals/run.sh                    # the live case, one run per arm
+evals/run.sh --case '02-*'      # a different case; your flags override the defaults
+evals/run.sh --print            # show the command without running it
 ```
 
-`--scaffold` runs each case's `setup.sh` as you, unconfined. `--keep-temp`
-preserves the sandbox so `tools/trace-metrics.py` can read the traces.
+`run.sh` sources `.env`, maps the four names above that the sandbox would
+otherwise strip, checks every variable resolves (reporting names only, never
+values), and derives the sandbox network grants from the configuration so no
+real endpoint is written into this repository. Run it from the worktree whose
+checkout you want to test: `claude plugin eval .` tests the plugin at that path.
+
+It passes `--scaffold`, which runs each case's `setup.sh` as you and unconfined,
+and `--keep-temp`, which preserves the sandbox so `tools/trace-metrics.py` can
+read the traces.
 
 Each live run **creates a cloud Environment and does not delete it.** Clean up
 afterwards or they accumulate.
