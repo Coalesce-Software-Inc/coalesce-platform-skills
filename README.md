@@ -121,3 +121,10 @@ Dynamic workspace state (node inventory, diagnostics) is NOT in these files —
 if a harness generates `.claude/workspace-context.json` per invocation, the
 skills tell agents to read it when present and fall back to `coa describe`
 when not.
+
+## Evals
+
+Changes to the skills are measured with a `claude plugin eval` suite that runs
+each case with and without the plugin loaded. See [EVALS.md](EVALS.md) for how
+to run it, how to point it at an open pull request, and how to read the
+results.
