@@ -54,7 +54,11 @@ Shared format rules (refs, annotations, V1/V2, naming):
 ## Workflow (per node)
 
 1. Read `.claude/workspace-context.json` (if present), then the target `.sql`
-   file.
+   file. While it is open, check every `{{ ref(LOC, NAME) }}` in it resolves
+   to a real file `nodes/LOC-NAME.sql` or `nodes/LOC-NAME.yml` (`ls nodes/`).
+   A ref whose location does not hold that node is a latent bug in the file
+   you were asked to edit: fix its LOCATION arg to where the node lives as
+   part of this edit (that is still "the node asked for"), and say so.
 2. Make the requested edit — only the node(s) asked for.
 3. Verify with coa (LOCAL warehouse commands, not deployment):
    - `coa validate -d <dir>` (schema + scanners)
@@ -63,7 +67,10 @@ Shared format rules (refs, annotations, V1/V2, naming):
      — always, not just "if relevant": run templates gate their DML on
      `config`, so a node can pass validate and the create dry-run and still
      render ZERO run SQL)
-4. Fix and re-validate until clean. Iterate downstream nodes only if asked.
+4. Fix and re-validate until clean — **0 errors and 0 warnings**. A green
+   exit with `warning[namedDependencyUnresolved]` is NOT clean: it means a
+   ref's location is wrong (see coalesce-pipelines Rule 8). Iterate
+   downstream nodes only if asked.
 
 ## Ask first (shared config — can break unrelated nodes)
 
