@@ -1,0 +1,5 @@
+id: "1"
+type: Job
+fileVersion: 1
+name: daily_load
+includeSelector: '{ location: "TARGET" }'

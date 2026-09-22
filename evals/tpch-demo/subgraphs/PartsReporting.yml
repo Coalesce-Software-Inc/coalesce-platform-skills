@@ -1,0 +1,6 @@
+id: "12"
+type: Subgraph
+fileVersion: 1
+name: PartsReporting
+steps:
+  - '{ name: "PARTS_*" }'

@@ -1,0 +1,18 @@
+# coa credentials template for live-tier skills-eval runs.
+#
+# Copy this file to `config` in the same directory (gitignored) and fill in
+# real values. NEVER commit the realized config. The harness installs it
+# into each live sandbox's fresh $HOME/.coa/config, substituting:
+#   @EVAL_DATABASE@  -> the provisioned SKILLS_EVAL_<TS> run database
+#   @EVAL_SCHEMA@    -> the per-run schema
+# Credentials must point at the SAME Snowflake account as the snow CLI
+# connection passed to `toolbelt skills-eval run --connection ...`.
+
+[default]
+token=<COALESCE_CLOUD_TOKEN>
+domain=<COALESCE_DOMAIN e.g. https://app.coalesce.io>
+snowflakeAuthType=KeyPair
+snowflakeKeyPairKey=<ABSOLUTE_PATH_TO_PRIVATE_KEY.p8>
+snowflakeAccount=<SNOWFLAKE_ACCOUNT e.g. xy12345.us-east-1>
+snowflakeUsername=<SNOWFLAKE_USERNAME>
+environmentID=<ENVIRONMENT_ID>
