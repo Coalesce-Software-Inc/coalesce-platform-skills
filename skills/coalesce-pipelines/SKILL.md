@@ -13,9 +13,9 @@ lightweight annotations (`nodes/<LOCATION>-<NAME>.sql`) — or **YAML nodes**
 jobs, subgraphs, node types, macros) is YAML. The `coa` CLI validates the
 repo and executes SQL against the warehouse for local development.
 
-Coalesce formerly called these Node V2 (SQL) and Node V1 (YAML). The app's
-**Build Settings > Node Types** and the `coa describe` / `coa validate` text
-still show V1/V2; read V2 as SQL and V1 as YAML. The internal marker is
+Coalesce formerly called these Node V2 (SQL) and Node V1 (YAML). The app and
+`coa validate` say YAML / SQL since 7.44.0; `coa describe` and older releases
+still say V1/V2, so read V2 as SQL and V1 as YAML. The internal marker is
 unchanged: a SQL node type has `fileVersion: 2` in its `definition.yml`, a
 YAML node type has `1` or none.
 

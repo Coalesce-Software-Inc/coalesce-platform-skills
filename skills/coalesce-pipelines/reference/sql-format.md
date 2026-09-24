@@ -35,10 +35,10 @@ is a Source node → YAML node. (`@isBusinessKey` and `@isChangeTracking` work
 on SQL nodes too — the choice is about authoring ergonomics, not a capability
 gap.)
 
-The app still labels the two kinds **Node V1** / **Node V2** in **Build
-Settings > Node Types** and shows **V1** / **V2** in the **Version** column;
-`coa describe` and `coa validate` messages still say V1/V2 as well. Read
-V1 as YAML and V2 as SQL.
+Since 7.44.0 the app labels the two kinds **YAML** / **SQL** in the **Type**
+column of **Build Settings > Node Types** and in the Create Node Type menu,
+and `coa validate` messages say YAML / SQL node types. `coa describe` still
+says V1/V2, as do releases before 7.44.0: read V1 as YAML and V2 as SQL.
 
 ## The silently-empty-columns trap
 
