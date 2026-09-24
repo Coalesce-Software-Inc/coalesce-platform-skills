@@ -4,13 +4,14 @@
 # Coalesce Transform Repository
 
 This is a Coalesce Transform workspace: a Git-backed representation of a data
-transformation DAG. Nodes live in `nodes/` as `<LOCATION>-<NAME>.sql` (V2) or
-`.yml` (V1) files — Source nodes are always V1, and every other node is V2
-when a `fileVersion: 2` node type exists for its type, otherwise V1; workspace
-metadata (locations, environments, jobs, subgraphs, node types, macros) is
-YAML. The `coa` CLI validates the repo and runs SQL against the warehouse for
-local development — `coa describe <topic>` is the source of truth for every
-format and schema.
+transformation DAG. Nodes live in `nodes/` as `<LOCATION>-<NAME>.sql` (SQL
+nodes) or `.yml` (YAML nodes) files — the node type decides which: a SQL node
+type (`fileVersion: 2` in its definition; the app still labels it "V2")
+takes `.sql`, a YAML node type (formerly "V1") takes `.yml`, and Source nodes
+are always YAML. Workspace metadata (locations, environments, jobs,
+subgraphs, node types, macros) is YAML. The `coa` CLI validates the repo and
+runs SQL against the warehouse for local development — `coa describe <topic>`
+is the source of truth for every format and schema.
 
 ## Use the Coalesce Agent Skills
 
