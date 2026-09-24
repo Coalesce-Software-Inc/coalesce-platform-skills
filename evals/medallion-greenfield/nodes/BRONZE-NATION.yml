@@ -1,0 +1,84 @@
+fileVersion: 1
+id: 1ca493ac-d763-40d5-af35-9c325c973aff
+name: NATION
+operation:
+  database: COALESCE_SAMPLE_DATABASE
+  deployEnabled: true
+  description: ""
+  locationName: BRONZE
+  metadata:
+    columns:
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 73804b44-dc21-4750-824c-a98012cc6619
+          stepCounter: 1ca493ac-d763-40d5-af35-9c325c973aff
+        config: {}
+        dataType: NUMBER(38,0)
+        defaultValue: ""
+        description: ""
+        name: N_NATIONKEY
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 18c331ef-a3a8-428d-9173-50cf148f9040
+          stepCounter: 1ca493ac-d763-40d5-af35-9c325c973aff
+        config: {}
+        dataType: VARCHAR(25)
+        defaultValue: ""
+        description: ""
+        name: N_NAME
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 7272f915-38d1-48ef-a969-86b9bbf503d1
+          stepCounter: 1ca493ac-d763-40d5-af35-9c325c973aff
+        config: {}
+        dataType: NUMBER(38,0)
+        defaultValue: ""
+        description: ""
+        name: N_REGIONKEY
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: b6b119fe-dcb2-4cf7-a6d8-d236093c9b39
+          stepCounter: 1ca493ac-d763-40d5-af35-9c325c973aff
+        config: {}
+        dataType: VARCHAR(152)
+        defaultValue: ""
+        description: ""
+        name: N_COMMENT
+        nullable: true
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+  name: NATION
+  schema: TPCH_SF001
+  sqlType: Source
+  type: sourceInput
+  version: 1
+type: Node

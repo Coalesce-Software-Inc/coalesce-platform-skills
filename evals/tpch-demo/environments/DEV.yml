@@ -1,0 +1,11 @@
+name: DEV
+id: "1"
+type: Environment
+fileVersion: 1
+mappingDefinitions:
+  SRC:
+    database: COALESCE_SAMPLE_DATABASE
+    schema: TPCH_SF001
+  TARGET:
+    database: SKILLS_EVAL_PLACEHOLDER
+    schema: ANALYTICS_DEV

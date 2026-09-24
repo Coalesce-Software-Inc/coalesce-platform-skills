@@ -1,0 +1,6 @@
+id: "10"
+type: Subgraph
+fileVersion: 1
+name: Staging
+steps:
+  - '{ name: "STG_*" }'

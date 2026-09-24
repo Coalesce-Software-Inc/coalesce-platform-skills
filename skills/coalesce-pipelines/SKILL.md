@@ -97,11 +97,12 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    `coa install -d <dir>` and re-check the file system; never author one (see
    coalesce-workspace-config). `coa install` hydrates only packages already
    declared under `packages/` and prints "No packages to install." otherwise —
-   `coa init` writes that declaration, so if `packages/` is absent the fix is
-   to re-run `coa init` (ask the user first), never to hand-create shared
-   config. When no `fileVersion: 2` type exists for the target node type (the
-   package may be unavailable), author V1 `.yml` instead; that is supported,
-   not a workaround.
+   `coa init` writes the base package's declaration, so if `packages/` is
+   absent the fix is to re-run `coa init` (ask the user first). To add any
+   OTHER Marketplace package, follow coalesce-install-package; never improvise
+   the declaration. When no `fileVersion: 2` type exists for the target node
+   type (the package may be unavailable), author V1 `.yml` instead; that is
+   supported, not a workaround.
 5. Reference upstream nodes with `{{ ref("LOC", "NAME") }}` (both args).
    Never hardcode `db.schema.table`.
 6. Use the correct node type per layer (staging → persistent staging →
@@ -118,10 +119,23 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    `error[missingNodeType]: node type "X" is not available`.
 7. Keep changes minimal — modify only what the task requires.
 8. After editing, run `coa validate`, then `coa create --dry-run` AND
-   `coa run --dry-run --verbose`, before executing anything. Also pass
-   `--profile <name>` matching the workspace platform on every command that
-   accepts one (`sources`, `create`, `run`, `install`, `doctor`);
+   `coa run --dry-run --verbose`, before executing anything. Settle the profile
+   FIRST with `coa profile list -d <dir>`: it names the profiles available and
+   which one that workspace resolves to. If the workspace is bound (`profile:`
+   in `workspace.yml`), run local commands without `--profile` — the flag
+   outranks the binding and would override the user's choice. If nothing is
+   bound, pass `--profile <name>` matching the workspace platform on every
+   command that accepts one (`sources`, `create`, `run`, `install`, `doctor`);
    `coa validate` has no `--profile` flag.
+   Clean means **0 errors AND 0 warnings**. `coa validate` exits 0 and prints
+   "0 errors" even when it emits warnings, and a warning is a real defect.
+   The one you will meet most:
+   `warning[namedDependencyUnresolved]: "LOC"."NAME" is not a node` — a
+   `{{ ref("LOC", "NAME") }}` points at a location where that node does not
+   exist (there is no `nodes/LOC-NAME.sql|.yml`). Fix the LOCATION arg to
+   where the file actually lives (a `STG_*`/transform node lives in its own
+   location, e.g. `TARGET`, not in a `SRC` location); never delete the ref or
+   move on with the warning standing.
 9. Treat `coa describe` as the source of truth. The bundled example-repository
    FAILS `coa validate` — never copy its shapes.
 
@@ -140,7 +154,8 @@ Node types are search-first, and the search ends in a package, never in a
 file you write. Never author a node type to satisfy a `.sql` node. Base types
 come from the installed base node types package; if none are present, run
 `coa install -d <dir>` (safe without asking — but it is a no-op unless
-`packages/` already declares a package), re-check `nodeTypes/` and
+`packages/` already declares a package; adding a Marketplace package is the
+coalesce-install-package recipe), re-check `nodeTypes/` and
 `.coa/cache/packages/*/nodeTypes/`, and, failing that, author the node as V1
 `.yml` and continue. A custom net-new type is authored only when the user
 explicitly asks — and even then, ASK FIRST. Report which path you took and
@@ -161,7 +176,13 @@ why. See coalesce-workspace-config.
   bootstrap and diagnostics.
 - **coalesce-git-publication** — branches, commits, pushing work so it can be
   planned/deployed.
+- **coalesce-deploy** — promoting pushed work to a cloud Environment with the
+  Cloud Operations commands: `coa environments`, the committed
+  `environments/<NAME>.yml` mapping file, `coa plan` → review → `coa deploy`
+  → `coa refresh`, run results, `rerun`/`cancel`. All ASK FIRST.
 - **coalesce-review-risk** — read-only review of changes: validation evidence,
   blast radius, risk flags.
 - Task recipes: **coalesce-create-stage-node**, **coalesce-add-column**,
-  **coalesce-rename-node-cascade**, **coalesce-create-job**.
+  **coalesce-rename-node-cascade**, **coalesce-create-job**,
+  **coalesce-install-package** (add, upgrade, or remove a Marketplace
+  package such as `@coalesce/snowflake/cortex`).

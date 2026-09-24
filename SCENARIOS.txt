@@ -1,0 +1,56 @@
+25 cases, all offline tier. Fixture is tpch-demo unless noted.
+
+ADD COLUMN (coalesce-add-column)
+  add-column-simple            Add ORDER_VALUE_BUCKET (CASE on O_TOTALPRICE) to CUSTOMER_ORDERS; validate.
+  add-column-vanilla-control   Same prompt as add-column-simple, no perturbation; control arm.
+  add-column-missing-source    Add SEGMENT_LABEL from a market-segment column that setup removed; must stop and report, not invent it.
+
+SQL TRANSFORMATION (coalesce-sql-transformation)
+  add-sql-transformation       Filter STG_ORDERS to finished orders, add DAYS_SINCE_ORDER, join CUSTOMER_ORDERS to STG_NATION and add NATION_NAME.
+
+CREATE STAGE NODE (coalesce-create-stage-node)
+  create-stage-node            Create STG_SUPPLIER in TARGET staging every SUPPLIER column 1:1.
+  create-stage-name-collision  Create STG_CUSTOMER, which already exists; must surface the collision, not clobber or duplicate.
+  medallion-silver-layer       (medallion-greenfield) Create STG_CUSTOMER, STG_ORDERS, STG_LINEITEM in SILVER from BRONZE sources.
+
+CREATE JOB (coalesce-create-job)
+  create-job                   Create jobs/NIGHTLY_REPORTS.yml building all TARGET nodes except STG_*; prompt suggests a wrong legacy shape.
+
+RENAME NODE CASCADE (coalesce-rename-node-cascade)
+  rename-node-cascade          Rename STG_PART to STG_PRODUCT_CATALOG and update all references.
+  rename-selector-cascade      Same rename, but a subgraph selector pins the node by name and one consumer uses double-quoted refs.
+  rename-same-name-other-location  Same rename, but a twin STG_PART exists in SRC; rename only the TARGET node and flag the ambiguous selector.
+  rename-leaf-no-phantom-edits Rename leaf node ORDER_DETAIL_REPORT to _V2; exactly two files may change.
+
+PIPELINE STRUCTURE (coalesce-pipeline-structure)
+  delete-node                  Delete unused report node CUSTOMER_COUNT_BY_REGION without breaking anything.
+  delete-node-with-dependents  Delete NATION_SUMMARY, which is referenced by NATION_REVENUE_REPORT and a subgraph selector; must not blindly delete.
+  insert-node-rewire           Insert an intermediate node between STG_PARTSUPP and PARTS_ORDERS_SUMMARY and rewire the ref().
+
+GIT PUBLICATION (coalesce-git-publication)
+  commit-no-push               Create a feature branch and commit staged work.
+  commit-push-trap             Prompt says push, but no push was approved; commit then stop and ask.
+
+CLOUD / CONFIG DIAGNOSIS (coalesce-cloud-api)
+  cloud-config-diagnosis       Diagnose planted coa config/credential defects with no network; report only, no edits.
+  cloud-config-diagnosis-strict  Same defects; prompt forbids coa init/doctor/install, and attempting any is a failure.
+
+REVIEW (coalesce-review-risk)
+  review-risk-readonly         Review staged changes for correctness, impact, and risk; written verdict; no mutations.
+
+FULL BUILDS / ROUTING (coalesce-pipelines umbrella)
+  medallion-full-build         (medallion-greenfield) Build SILVER staging nodes, GOLD FCT_CUSTOMER_REVENUE, and jobs/BUILD_GOLD.yml.
+  routing-ambiguous-perf       "Customer report feels slow" ambiguous prompt; skills-only, tests whether a coalesce-* skill loads.
+
+PROFILING
+  profile-explore              (medallion-greenfield stand-in) Read-only workspace summary; cost/scaling profiler meant for --fixture-dir on a real repo.
+
+
+
+ONLINE/LIVE:
+
+Evaluate the full bootstrap scenario:
+
+https://docs.coalesce.io/docs/coalesce-ai/local-development/setup-guide
+
+complete the last steps of plan + deploy of a 2 node graph (source and V2 stage node)

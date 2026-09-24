@@ -1,0 +1,67 @@
+fileVersion: 1
+id: 94e06bf9-8a7b-4731-bb2c-41858df9c8a8
+name: REGION
+operation:
+  database: COALESCE_SAMPLE_DATABASE
+  deployEnabled: true
+  description: ""
+  locationName: BRONZE
+  metadata:
+    columns:
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 2c63a545-f1b8-469c-9eb8-232f9f23b110
+          stepCounter: 94e06bf9-8a7b-4731-bb2c-41858df9c8a8
+        config: {}
+        dataType: NUMBER(38,0)
+        defaultValue: ""
+        description: ""
+        name: R_REGIONKEY
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 1f6b972c-28a2-47a8-afe3-14352de7c41e
+          stepCounter: 94e06bf9-8a7b-4731-bb2c-41858df9c8a8
+        config: {}
+        dataType: VARCHAR(25)
+        defaultValue: ""
+        description: ""
+        name: R_NAME
+        nullable: false
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+      - acceptedValues:
+          strictMatch: true
+          values: []
+        appliedColumnTests: {}
+        columnReference:
+          columnCounter: 1f2109b5-f3b7-4327-a030-eb5a7ce2f70e
+          stepCounter: 94e06bf9-8a7b-4731-bb2c-41858df9c8a8
+        config: {}
+        dataType: VARCHAR(152)
+        defaultValue: ""
+        description: ""
+        name: R_COMMENT
+        nullable: true
+        sourceColumnReferences:
+          - columnReferences: []
+            transform: ""
+        transform: ""
+  name: REGION
+  schema: TPCH_SF001
+  sqlType: Source
+  type: sourceInput
+  version: 1
+type: Node

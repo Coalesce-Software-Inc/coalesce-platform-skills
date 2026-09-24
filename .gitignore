@@ -1,1 +1,12 @@
 .DS_Store
+
+# Operator credentials for the live eval suite (EVAL_* values are exported from
+# here by the run command). Never commit.
+.env
+
+# `claude plugin eval` run output: aggregate-result.json + report.html per run.
+# Regenerable, and several MB per run.
+evals/results/
+
+# Local-only fixtures. This repo is public; keep internal workspaces out of it.
+evals/edw-greenfield/

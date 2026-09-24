@@ -54,8 +54,9 @@ resolvable id in `<alias>:::<id>` form, which is what `@nodeType()` takes. If
 none are present, run `coa install -d <dir>` to hydrate packages and re-check
 the file system — `coa install` hydrates only packages already declared under
 `packages/` and otherwise prints "No packages to install.", and `coa init`
-writes that declaration, so an absent `packages/` means re-running `coa init`
-(ask the user first), never hand-creating shared config. If that still yields
+writes the base package's declaration, so an absent `packages/` means
+re-running `coa init` (ask the user first); other Marketplace packages are
+added via coalesce-install-package, never by improvising shared config. If that still yields
 nothing, the package may be unavailable —
 author the node as V1 `.yml` and continue. Do NOT author a
 node type. Upgrading a V1 type that existing nodes already use changes their
@@ -126,7 +127,11 @@ columns means the annotations were not read (commented out, missing, or a V1
 ## References
 
 Double-quoted Jinja macros with BOTH args — there is NO name-only /
-single-arg form. Never hardcode `db.schema.table`.
+single-arg form. Never hardcode `db.schema.table`. The LOCATION arg must be
+the location the node file actually lives in (`nodes/<LOCATION>-<NAME>.*`);
+a ref to the wrong location still validates with exit 0, surfacing only as
+`warning[namedDependencyUnresolved]: "LOC"."NAME" is not a node` — treat that
+warning as an error and correct the location.
 
 - `{{ ref("LOCATION", "NODE_NAME") }}` — resolves to the table AND creates a
   lineage edge.
