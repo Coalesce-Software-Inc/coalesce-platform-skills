@@ -41,6 +41,15 @@ type definitions (a `.sql` node requires a `fileVersion: 2` node type);
 `@nodeType` (SQL node annotation) and `operation.sqlType` (YAML node field)
 name the same concept.
 
+**`type: sql` does NOT mean SQL node.** Every YAML transformation node carries
+`operation.type: sql` (Source nodes carry `sourceInput`) and names its node
+type in `operation.sqlType`. Both field names predate SQL nodes: they describe
+the YAML node's operation shape, not its kind. Tell the kind by the file, never
+by a field value: `nodes/*.sql` is a SQL node, `nodes/*.yml` is a YAML node,
+and the node type's `fileVersion` confirms it (2 = SQL, 1 or absent = YAML).
+Never treat a `.yml` node as SQL because it says `type: sql`, and never
+rewrite one as `.sql` on that basis (there is no YAML-to-SQL conversion).
+
 ## Orient first
 
 1. If `.claude/workspace-context.json` exists in the repo, READ IT FIRST — it

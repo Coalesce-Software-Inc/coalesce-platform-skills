@@ -62,6 +62,12 @@ Five required top-level keys, `additionalProperties: false`:
   `name`, `type`, `isMultisource`, `metadata`, `materializationType`. Its
   `metadata` requires both `columns` and `sourceMapping`.
 
+> **`type: sql` is not "SQL node".** It marks a YAML transformation node's
+> operation shape, and every one of them carries it. The field predates SQL
+> nodes; so does `sqlType`, which names the node type. A `.yml` file is a YAML
+> node whatever these fields say. SQL nodes are `.sql` files with no
+> `operation` block at all.
+
 Other `operation` fields you will see: `database`/`schema` (usually `""` —
 resolved from `workspace.yml`/environment mappings, not from here),
 `description`, `deployEnabled`, `config` (node-type options such as
@@ -192,7 +198,7 @@ operation:
         noLinkRefs: []
   name: CALL_HISTORY                          # mirrors the top-level name
   sqlType: Stage                              # the node type — name varies; often "Work"
-  type: sql
+  type: sql                                   # every YAML transformation node; NOT a SQL node
   overrideSQL: false
 type: Node
 ```

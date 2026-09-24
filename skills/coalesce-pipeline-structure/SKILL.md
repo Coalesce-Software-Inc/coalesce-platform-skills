@@ -139,7 +139,7 @@ id: <fresh UUID v4>                 # this node's id; never reuse another node's
 name: <NAME>
 type: Node
 operation:
-  type: sql                         # sourceInput only for Source nodes
+  type: sql                         # YAML transformation node (NOT a SQL node); sourceInput for Source nodes
   sqlType: <TYPE_NAME_OR_ID>        # read off disk; often Work, not Stage
   locationName: <LOCATION>
   name: <NAME>                      # mirrors the top-level name
