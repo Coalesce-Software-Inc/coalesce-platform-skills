@@ -1,33 +1,39 @@
 ---
 name: coalesce-sql-transformation
-description: Use when editing the SQL inside existing Coalesce V2 node files (.sql) — changing column expressions, joins, filters, CTEs, inline column annotations, or ref() macros. Not for creating/deleting node files (use coalesce-pipeline-structure).
+description: Use when editing the SQL inside existing Coalesce SQL node files (.sql, formerly V2 nodes) — changing column expressions, joins, filters, CTEs, inline annotations, or ref() macros. Not for creating/deleting node files (use coalesce-pipeline-structure).
 ---
 <!-- coalesce-node-managed: true -->
 
 > **Prerequisite — load `coalesce-pipelines` first.** If you have not already
 > loaded the `coalesce-pipelines` skill in this session, load it now, read its
 > "Orient first" step, core `coa` loop, and Rules, then return here. This skill
-> assumes those invariants (bare `@id`/`@nodeType` first lines, `fileVersion: 2`
-> node types, one-node-at-a-time validate → dry-run → create loop) are already
-> in context.
+> assumes those invariants (bare `@id`/`@nodeType` first lines, SQL node types
+> carry `fileVersion: 2`, one-node-at-a-time validate → dry-run → create loop)
+> are already in context.
 
 # SQL Transformation
 
-Scope: the SQL inside V2 node files (`.sql`, fileVersion 2) — the SELECT body,
-column expressions, inline column annotations, and `{{ ref(...) }}` macros.
+Scope: the SQL inside SQL node files (`.sql`, on a SQL node type — formerly
+"V2") — the SELECT body, column expressions, inline annotations, and
+`{{ ref(...) }}` macros.
 The `coa` CLI is the source of truth: run `coa describe sql-format` and
 `coa describe schema <type>` whenever unsure, and prefer it over the bundled
 example files (they currently FAIL `coa validate`).
 
-Shared format rules (refs, annotations, V1/V2, naming):
+Shared format rules (refs, annotations, SQL vs YAML nodes, naming):
 [sql-format reference](../coalesce-pipelines/reference/sql-format.md).
 
 ## Allowed operations
 
 - Edit existing `nodes/<LOCATION>-<NAME>.sql` files.
 - Add/remove/reorder columns; change joins, filters, aggregations, CTEs.
-- Add/update inline column annotations (only the real set: `@isBusinessKey`,
-  `@isChangeTracking`, `@id`, `@description`).
+- Add/update node- and column-level annotations: the reserved set
+  (`@description`, `@materializationType`, column `@description` / `@notNull`
+  / `@defaultValue`), `@isBusinessKey` / `@isChangeTracking` / column `@id`,
+  and whatever the node type DECLARES in its `annotations:` block (read its
+  `definition.yml`). Repeat a repeatable annotation once per value; never
+  pass several values in one call. Nothing else — an undeclared annotation is
+  accepted and silently does nothing.
 - Fix SQL syntax or format violations.
 
 ## Constraints
@@ -45,11 +51,12 @@ Shared format rules (refs, annotations, V1/V2, naming):
 - Do NOT create or delete node files (coalesce-pipeline-structure's job).
 - Do NOT touch non-SQL files (`.yml` nodes, jobs, subgraphs, locations,
   macros).
-- Editing an existing `.sql` node whose `@nodeType` resolves to a V1 type
+- Editing an existing `.sql` node whose `@nodeType` resolves to a YAML type
   (silently-empty-columns trap)? Do NOT silently bump its `fileVersion` — that
   type is in use, so upgrading it is a shared-config change: STOP and ASK
-  (see coalesce-workspace-config). The fix is a V2 type from the installed base
-  node types package, not a hand-written one — never author a node type here.
+  (see coalesce-workspace-config). The fix is a SQL type from the installed
+  base node types package, not a hand-written one — never author a node type
+  here.
 
 ## Workflow (per node)
 
