@@ -109,9 +109,14 @@ a supported authoring path, not a workaround. File:
 `nodes/<LOCATION>-<NAME>.yml`. Identity comes from the YAML, not the filename,
 so keep both in sync.
 
-Copy the column list from the imported source node in `nodes/` rather than
-inventing one: names, `dataType`, and the upstream `columnCounter` values you
-need for lineage all live there.
+Copy the column list from the upstream node in `nodes/` rather than inventing
+one: names, `dataType`, and the upstream `columnCounter` values you need for
+lineage all live there. If the upstream is a SQL node (`.sql`), there are no
+column ids in its file: its `columnCounter` values are the column NAMES as the
+warehouse sees them (uppercased unless the alias is quoted), and its
+`stepCounter` is the node's `@id`. Never add column `@id`s to the SQL node to
+manufacture ids (coalesce-v1-yaml-nodes, "Referencing a SQL node's
+columns").
 
 Two values you cannot guess:
 
@@ -179,8 +184,9 @@ operation:
 - `columnReference.stepCounter` is ALWAYS this node's own `id`; `columnCounter`
   is a fresh UUID per column. Never reuse an id.
 - `sourceColumnReferences[].columnReferences[]` names the UPSTREAM node's `id`
-  and the UPSTREAM column's `columnCounter`. That is the lineage edge. A
-  computed column with no upstream uses `columnReferences: []` and carries the
+  and the UPSTREAM column's `columnCounter` (a UUID for a YAML upstream; the
+  column NAME for a SQL upstream). That is the lineage edge. A computed
+  column with no upstream uses `columnReferences: []` and carries the
   expression in `transform`.
 - Verify with `coa validate -d <dir> --include "{ <NAME> }"`, then
   `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose`; confirm the

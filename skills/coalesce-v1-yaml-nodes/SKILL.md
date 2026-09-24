@@ -128,6 +128,31 @@ names**:
 Fabricating these ids by hand is how YAML nodes get silently broken: the node
 still parses, but lineage points nowhere.
 
+### Referencing a SQL node's columns
+
+A SQL node (`.sql`) has no column ids in its file. Its columns' identity is
+their NAME as the warehouse sees it: an unquoted alias uppercased
+(`AS nation_name` → `NATION_NAME`), a quoted alias exactly as written
+(`AS "Mixed_Case"` → `Mixed_Case`), a bare column reference by its name. So a
+YAML node downstream of a SQL node writes
+
+```yaml
+sourceColumnReferences:
+  - columnReferences:
+      - stepCounter: <the SQL node's @id>
+        columnCounter: NATION_NAME      # the column name, not a UUID
+    transform: ""
+```
+
+Never "fix" this by adding `@id("...")` to the SQL node's columns to mint
+ids: that silently re-keys the column's identity, and every name-based
+reference (yours, other nodes', the app's) stops resolving. Verify the wiring
+with `coa validate` — a wrong `columnCounter` surfaces as
+`warning[sourceColumnMissing]: references to columns that do not exist on
+<NODE>` — and with `coa run --dry-run --verbose`: an unresolved reference
+renders `NULL AS "<COLUMN>"` in the load instead of failing, so a green run
+can be loading nulls.
+
 
 ## `sourceMapping` — the FROM/JOIN half of the node
 
@@ -207,7 +232,7 @@ with `type: sourceInput`, `sqlType: Source`, and a single
 |----------|---------------|
 | What columns, what types? | `operation.metadata.columns[].name` / `.dataType` |
 | What does column X compute? | that column's `sourceColumnReferences[].transform` |
-| Where does column X come from? | its `sourceColumnReferences[].columnReferences[]` → find the node whose `id` matches `stepCounter`, then the column whose `columnCounter` matches |
+| Where does column X come from? | its `sourceColumnReferences[].columnReferences[]` → find the node whose `id` matches `stepCounter`, then the column whose `columnCounter` matches (for a SQL upstream, `columnCounter` is the column name) |
 | What are this node's upstreams? | `sourceMapping[].dependencies[]` (and the `ref()` calls in `joinCondition`) |
 | What are its downstreams? | `coa create --include "{ NAME }+" --dry-run`, or grep `nodeName: NAME` across `nodes/` |
 | What's the merge/SCD key? | columns with `isBusinessKey: true` / `keyColumnType` |
@@ -289,8 +314,11 @@ step matters:
    `columnReference.stepCounter` = the node's own `id`;
    `columnReference.columnCounter` = fresh UUID per column.
    `sourceColumnReferences[].columnReferences[]` must point at the REAL
-   upstream node `id` and the upstream column's `columnCounter` — read them
-   out of the upstream file; never fabricate.
+   upstream node `id` and the upstream column's `columnCounter` — for a YAML
+   upstream read them out of its file; for a SQL upstream, `stepCounter` is
+   the node's `@id` and `columnCounter` is the column NAME as the warehouse
+   sees it (see "Referencing a SQL node's columns"); never fabricate, and
+   never add column `@id`s to the SQL node to create ids.
 3. **Transforms**: `sourceColumnReferences[0].transform` is what
    `get_source_transform(col)` emits — put the aliased SQL expression there
    (e.g. `"CUSTOMER"."C_CUSTKEY"`). Derived columns (aggregates, literals) use
