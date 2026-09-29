@@ -167,6 +167,36 @@ Node-level values land on `config.<name>`; column-level values are flattened
 onto the column object as `col.<name>`. Check the node type's `definition.yml`
 for what it declares — that is the only list of what its templates act on.
 
+**System columns in V2 node types.** A V2 type with an `annotations:` block
+has no `systemColumns` list. Its system columns are declared column
+annotations whose description marks them as a system column (e.g. the base
+Dimension: `@isSurrogateKey`, `@isSystemVersion`, `@isSystemCurrentFlag`,
+`@isSystemCreateDate`, `@isSystemUpdateDate`, `@isSystemEndDate`). The UI
+adds these when a node is created (the base Dimension's
+`sqlInitializationTemplate` writes them); `coa` does not, and `coa validate`
+does not flag them as missing. When creating a node, add each one the node
+needs using the "Expected expression" in its description:
+
+```sql
+    0 AS "DIM_CUSTOMER_KEY" @isSurrogateKey,
+    ...business columns...,
+    1 AS "SYSTEM_VERSION" @isSystemVersion,
+    'Y' AS "SYSTEM_CURRENT_FLAG" @isSystemCurrentFlag,
+    CAST(CURRENT_TIMESTAMP AS TIMESTAMP) AS "SYSTEM_CREATE_DATE" @isSystemCreateDate,
+    CAST(CURRENT_TIMESTAMP AS TIMESTAMP) AS "SYSTEM_UPDATE_DATE" @isSystemUpdateDate,
+    CAST('2999-12-31 00:00:00' AS TIMESTAMP) AS "SYSTEM_END_DATE" @isSystemEndDate
+```
+
+If the type has a `sqlInitializationTemplate`, read it: it is the SELECT the
+UI would generate for a new node, including column order.
+
+A V2 type without an `annotations:` block (the older `config:` style) may
+instead carry a `systemColumns` list. Add each entry as a SELECT line aliased
+to its `displayName` (with `{{NODE_NAME}}` replaced) using its `transform`,
+or a literal of its `dataType` when `transform` is empty (e.g. `1` for
+`NUMBER`, `'Y'` for a flag); `coa` recognizes these by name and sets the
+flag, but only on columns that are already in the SELECT.
+
 Hazards (verified on coa 7.42.5):
 
 - **An undeclared or misspelled annotation does nothing, silently.** The
@@ -192,9 +222,11 @@ Hazards (verified on coa 7.42.5):
   boolean — a quoted `"false"` is a string and Jinja treats it as true.
 
 Do NOT invent annotations that are neither native nor declared by the node
-type: `@isSurrogateKey`, `@pii`, `@synqMonitor` are NOT in the spec.
-(`isSurrogateKey` exists as a boolean column field in the V1 node JSON schema —
-legitimate in a `.yml` node — but it is NOT a `.sql` column annotation.)
+type: `@pii` and `@synqMonitor` are not native, and neither is
+`@isSurrogateKey`. Use one only when the node type's `annotations:` block
+declares it (the V2 base Dimension declares `@isSurrogateKey` as a system
+column; see above). (`isSurrogateKey` is also a boolean column field in the
+V1 node JSON schema, which is legitimate in a `.yml` node.)
 
 ## SQL conventions
 

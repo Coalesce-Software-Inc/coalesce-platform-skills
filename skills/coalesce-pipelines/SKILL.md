@@ -138,6 +138,15 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    move on with the warning standing.
 9. Treat `coa describe` as the source of truth. The bundled example-repository
    FAILS `coa validate` — never copy its shapes.
+10. When CREATING a node, do what the UI's Add Node does, because `coa` does
+    not: read the node type's `definition.yml` and apply its config defaults
+    and its system columns. V1: `nodeMetadataSpec.config` and
+    `nodeMetadataSpec.systemColumns` (coalesce-v1-yaml-nodes checklist steps
+    5-6). V2: the system-column annotations in its `annotations:` block
+    (reference/sql-format.md → "System columns in V2 node types"). A missing
+    system column passes `coa validate`, then fails at run time or quietly
+    produces the wrong DML. This applies to package and custom node types
+    alike; do not assume only Dimensions have system columns.
 
 ## Guardrail — ask before editing shared config
 
