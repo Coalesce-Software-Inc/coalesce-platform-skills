@@ -173,11 +173,28 @@ literal arguments — strings quoted, numbers and booleans unquoted.
 - Column-level: `@description("text")`, `@notNull` (a DDL NOT NULL constraint,
   not a test), `@defaultValue("0")` / `@defaultValue("'NA'")` (quoted for the
   column's type).
-- Column `@id("col-id")` is also accepted (lineage; metadata only).
 - `@isBusinessKey` and `@isChangeTracking` are NOT reserved. They are ordinary
   declared annotations: a merge or SCD type declares them and its templates
   read them (the Base Node Types - SQL `Dimension` does); the SQL `Work` type
   does not, so on a `Work` node `coa validate` warns and they are ignored.
+
+**Column identity: the column name IS the column ID. Never write `@id` on a
+column.** On a SQL node there are no column ids to mint: each column's
+identity (`columnReference.columnCounter`) is its name as the warehouse sees
+it — an unquoted alias uppercased (`AS nation_name` → `NATION_NAME`), a quoted
+alias exactly as written (`AS "Mixed_Case"` → `Mixed_Case`). That name is
+what downstream nodes, lineage, and plan diffing key on, so renaming a column
+is creating a new one. The parser does accept `@id("...")` on a column (it is
+an undocumented reserved name, so `coa validate` does not warn on it) and
+silently re-keys the column's identity to that string; every existing
+name-based reference to the column (from YAML nodes and from the app) then
+breaks, `coa validate` only warns on the downstream node
+(`sourceColumnMissing`), and the downstream load renders `NULL` for that
+column instead of failing. `@id` belongs on the node line only. (Author-set
+column identity is a future feature, TRA-8; until it ships, nothing should
+write column `@id`.) A YAML node downstream of a SQL node references its
+columns by that name: see coalesce-v1-yaml-nodes, "Referencing a SQL node's
+columns".
 
 **Declared annotations**: a SQL node type's `nodeMetadataSpec` may carry an
 `annotations:` block declaring additional node- and column-level annotations
@@ -232,9 +249,9 @@ Hazards (verified on coa 7.45.4 with Base Node Types - SQL 2.1.0):
   locally, and tell the user why.
 
 Do NOT invent annotations that are neither reserved nor declared by the node
-type: `@pii` and `@synqMonitor` are declared by no packaged type, and
+type: `@pii` and `@synqMonitor` are declared by no packaged type,
 `@isSurrogateKey` exists only on types that declare it (the SQL `Dimension`
-does).
+does), and column `@id` is never written (see "Column identity" above).
 (`isSurrogateKey` exists as a boolean column field in the YAML node JSON
 schema — legitimate in a `.yml` node — but it is NOT a `.sql` column
 annotation.)
