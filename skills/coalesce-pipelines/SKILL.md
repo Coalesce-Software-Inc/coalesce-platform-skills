@@ -182,6 +182,9 @@ why. See coalesce-workspace-config.
   → `coa refresh`, run results, `rerun`/`cancel`. All ASK FIRST.
 - **coalesce-review-risk** — read-only review of changes: validation evidence,
   blast radius, risk flags.
+- **coalesce-reflect** — end-of-session retro: turn corrections, failed
+  commands, and wrong or missing skill guidance into skill edits, and open a
+  PR to the skills repo (through a fork if needed). Only with user approval.
 - Task recipes: **coalesce-create-stage-node**, **coalesce-add-column**,
   **coalesce-rename-node-cascade**, **coalesce-create-job**,
   **coalesce-install-package** (add, upgrade, or remove a Marketplace
