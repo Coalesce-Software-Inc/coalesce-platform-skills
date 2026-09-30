@@ -52,8 +52,9 @@ user's explicit request and approval.
 A node type's `fileVersion` is its kind: `2` is a SQL node type (formerly
 "V2"; its nodes are `.sql`), `1` or absent is a YAML node type (formerly
 "V1"; its nodes are `.yml`). SQL `.sql` nodes REQUIRE a SQL node type. With a
-YAML type, a `.sql` node parses to `columns: []` — no error, but broken
-DDL/DML at render.
+YAML type, `coa validate` reports `error[extensionVersionMismatch]` for the
+`.sql` node; create/run skip that check and render it with `columns: []`
+(zero-column DDL).
 
 The remedy is never to write a template: point `@nodeType` at a SQL type from
 an installed package — normally Base Node Types - SQL (see "Getting SQL node

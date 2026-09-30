@@ -53,8 +53,9 @@ Format rules being checked:
 ## Risk factors to flag
 
 - SQL `.sql` node (formerly V2) whose `@nodeType` definition lacks
-  `fileVersion: 2` (i.e. points at a YAML node type, formerly V1) → columns
-  are SILENTLY EMPTY (`columns: []`), producing broken DDL/DML.
+  `fileVersion: 2` (i.e. points at a YAML node type, formerly V1) → `coa
+  validate` reports `error[extensionVersionMismatch]`; if it is merged anyway,
+  create/run render zero columns (`columns: []`).
 - Hand-authored YAML `.yml` node with an empty or partial `operation.config` →
   run templates gate their DML on config values (a staging type typically
   needs `insertStrategy: INSERT`, `truncateBefore: true`), so the node passes

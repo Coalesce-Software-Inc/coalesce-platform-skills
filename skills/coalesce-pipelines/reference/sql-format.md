@@ -41,13 +41,14 @@ column of **Build Settings > Node Types** and in the Create Node Type menu,
 and `coa validate` messages say YAML / SQL node types. `coa describe` still
 says V1/V2, as do releases before 7.44.0: read V1 as YAML and V2 as SQL.
 
-## The silently-empty-columns trap
+## The wrong-kind node type trap
 
 A `.sql` node REQUIRES a SQL node type — one whose `definition.yml` has
 `fileVersion: 2`. If `@nodeType` points at a YAML type (`fileVersion: 1` or
-absent), the node still loads but its columns are **SILENTLY EMPTY**
-(`columns: []`) — `coa create`/`coa run` then emit broken DDL/DML with no
-error. The built-in common types (Source, Stage, View, Dimension, Fact,
+absent), `coa validate` reports `error[extensionVersionMismatch]: ... uses a
+.sql file but its node type "<Type>" requires a .yml file`. Validate catches
+it; `coa create`/`coa run` do not — skip validate and they render the node's
+columns as **EMPTY** (`columns: []`) and emit a zero-column table. The built-in common types (Source, Stage, View, Dimension, Fact,
 Persistent Stage) are YAML types; using them in a `.sql` file triggers this
 trap. Never assume a name or a kind: the YAML base package `coa init`
 installs ships no `Stage` type (its staging type is a YAML `Work`,
@@ -94,13 +95,14 @@ nodes: annotations precede the SQL; there is no bare `fileVersion` line.
 `/* */`). They look like they belong in a comment because a bare `@id("…")`
 line is not itself valid Snowflake SQL — but do NOT "fix" that by commenting
 them. A `.sql` node whose annotations are commented out has, as far as `coa` is
-concerned, NO `@id` and NO `@nodeType`: the node is **silently dropped from the
-graph** — `coa validate` still reports 0 errors (the node simply isn't there),
-`coa create` never builds it, and lineage is missing. This is the single most
-common way a "finished" node quietly does nothing.
+concerned, NO `@id` and NO `@nodeType`. `coa validate` still reports **no
+problems** — so a green validate proves nothing here — while `coa create`
+fails the whole workspace load with `Failed to extract metadata from ...:
+Missing @id annotation or @id has no value`, and the app cannot load the node
+either.
 
 ```sql
--- WRONG — commented out; coa ignores these, node is silently dropped
+-- WRONG — commented out; coa ignores these, and create then fails to load
 -- @id("b2c3d4e5-f6a7-8901-bcde-f12345678901")
 -- @nodeType("<alias>:::<id>")
 SELECT ...
@@ -115,9 +117,10 @@ SELECT ...
 
 After writing a node, confirm the node actually loaded — do not trust a green
 `coa validate` alone. Run `coa create --dry-run --verbose --include "{ NODE }"`
-and check the node appears with its columns rendered; "0 nodes matched" or empty
-columns means the annotations were not read (commented out, missing, or a YAML
-`@nodeType`).
+and check the node appears with its columns rendered. `Missing @id annotation`
+means the annotations were not read (commented out or missing); empty columns
+mean a YAML `@nodeType` (validate reports that one as
+`extensionVersionMismatch`).
 
 ## References
 

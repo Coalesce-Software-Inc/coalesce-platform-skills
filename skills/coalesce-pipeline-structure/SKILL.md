@@ -80,15 +80,17 @@ a YAML node type (formerly "V1") has `1` or none.
   convention; `nodes/` has no subdirectories.
 - Required top annotations before any SQL: `@id("<fresh UUID>")` (never reuse
   an existing one) and `@nodeType("<TypeID>")` — which MUST resolve to a
-  `fileVersion: 2` node type, or columns are SILENTLY EMPTY (broken DDL/DML).
+  `fileVersion: 2` node type — validate errors with `extensionVersionMismatch`
+  otherwise, and create/run render zero columns.
   Normally `<alias>:::<id>` from Base Node Types - SQL; if none is available,
   see above and coalesce-workspace-config.
 - Write both annotations as BARE lines — do NOT prefix them with `--` or wrap
   them in `/* */`. `@id("…")` is not valid SQL on its own, but commenting it
-  out makes `coa` unable to read it: the node is silently dropped (validate
-  shows 0 errors, node never builds). Then confirm the node loaded with
+  out makes `coa` unable to read it: validate still reports no problems, and
+  `coa create` fails the workspace load with `Missing @id annotation`. Then
+  confirm the node loaded with
   `coa create --dry-run --verbose --include "{ NODE }"` — not `coa validate`
-  alone, which stays green for a dropped node.
+  alone, which stays green for commented-out annotations.
 - Use a YAML node (`.yml`) whenever the node type you need has no SQL
   (`fileVersion: 2`) definition, for config-driven types (e.g. SCD2
   Dimension), and for Source nodes and YAML-only types (see

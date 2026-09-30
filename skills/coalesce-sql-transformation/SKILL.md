@@ -53,7 +53,7 @@ Shared format rules (refs, annotations, SQL vs YAML nodes, naming):
 - Do NOT touch non-SQL files (`.yml` nodes, jobs, subgraphs, locations,
   macros).
 - Editing an existing `.sql` node whose `@nodeType` resolves to a YAML type
-  (silently-empty-columns trap)? Do NOT silently bump its `fileVersion` — that
+  (wrong-kind node type trap: validate reports extensionVersionMismatch)? Do NOT silently bump its `fileVersion` — that
   type is in use, so upgrading it is a shared-config change: STOP and ASK
   (see coalesce-workspace-config). The fix is a SQL type from an installed
   package (Base Node Types - SQL), not a hand-written one — never author a

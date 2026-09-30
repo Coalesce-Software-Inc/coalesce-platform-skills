@@ -39,9 +39,10 @@ can be either kind, so always read its `fileVersion`.
 
 A `.sql` node is a SQL node and REQUIRES a node type whose `definition.yml` has
 `fileVersion: 2`. If you point `@nodeType(...)` at a YAML staging type
-(`fileVersion: 1` or absent), the node loads but its columns are
-**silently empty** (`columns: []`) — `coa create`/`coa run` then emit broken
-DDL/DML with no error. (`coa describe sql-format`, `coa describe node-types`.)
+(`fileVersion: 1` or absent), `coa validate` reports
+`error[extensionVersionMismatch]`; `coa create`/`coa run` skip that check and
+render the node with no columns (`columns: []`). (`coa describe sql-format`,
+`coa describe node-types`.)
 
 Check what staging type actually exists:
 
@@ -90,7 +91,7 @@ Then branch:
   node of that type, so that still requires **STOP and ASK the user first**.
 
   Never silently write a `.sql` node against a YAML staging type — that is
-  the empty-columns trap above.
+  the wrong-kind node type trap above.
 
 ## 1. Gather the source
 

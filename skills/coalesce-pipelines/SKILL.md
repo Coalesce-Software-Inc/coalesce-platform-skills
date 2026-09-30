@@ -92,8 +92,8 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
 1. NEVER modify or reuse an existing `@id` (node or column). New `@id` values
    are fresh UUIDs. In a `.sql` node, `@id` and `@nodeType` are BARE first
    lines — never prefixed with `--` or wrapped in `/* */`. A commented-out
-   annotation is invisible to `coa`: the node is silently dropped from the
-   graph (validate still shows 0 errors, but the node is never built). See
+   annotation is invisible to `coa`: validate still reports no problems, but
+   `coa create` fails the workspace load with `Missing @id annotation`. See
    reference/sql-format.md → "Write the annotations BARE".
 2. NEVER delete a node without checking downstream dependents
    (`--include "{ NODE }+"` or a ref search).
@@ -106,8 +106,9 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    both kinds of type exist for a layer, prefer SQL where the node's value is
    its SQL (transforms, metrics, joins) and YAML where its value is
    configuration (SCD2 Dimensions and other config-driven patterns). A `.sql`
-   node works only against a `fileVersion: 2` node type; otherwise columns
-   are silently empty (see reference/sql-format.md).
+   node works only against a `fileVersion: 2` node type; otherwise
+   `coa validate` reports `error[extensionVersionMismatch]` and create/run
+   render zero columns (see reference/sql-format.md).
    SQL node types come from a package, and NOT the one `coa init` installs:
    `coa init` declares only the YAML base node types package (all
    `fileVersion: 1`); SQL types are in the separate Base Node Types - SQL

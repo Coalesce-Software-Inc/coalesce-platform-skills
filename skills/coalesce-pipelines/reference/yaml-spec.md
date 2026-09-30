@@ -142,7 +142,7 @@ workspace-local types; there, the `<ID>` after the last dash is the
 
 **SQL node types (fileVersion 2) — template context:** a `.sql` node
 requires `fileVersion: 2` in the type definition (see `sql-format.md` for the
-silently-empty-columns trap). Current `coa` INFERS `col.dataType` from the
+wrong-kind node type trap). Current `coa` INFERS `col.dataType` from the
 SELECT (aggregates and joins included), so explicit-column DDL
 (`"{{ col.name }}" {{ col.dataType }}`) works — that is what the Base Node
 Types - SQL package's `Work` type emits. Older builds surfaced `UNKNOWN`, and
