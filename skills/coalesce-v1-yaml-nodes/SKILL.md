@@ -94,8 +94,8 @@ by looking for the folder whose suffix after the last dash matches.
 **The names available VARY BY WORKSPACE — check before you write one.** The
 built-in names resolve only where those built-in YAML types exist in
 `nodeTypes/`, which `coa init` writes when the base node types package is
-unavailable; the base packages themselves ship no `Stage` type at all — their
-staging/work-layer type is `Work` (`base-node-types:::204`). So list
+unavailable; the YAML base package `coa init` installs ships no `Stage` type
+at all — its staging type is `Work` (`base-node-types:::204`). So list
 `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/` and read each
 `definition.yml` (`name`, `description`, `nodeMetadataSpec`) to pick the type.
 A name that isn't there fails as

@@ -20,8 +20,10 @@ layers build on a stable name. `coa describe sql-format` and `coa describe node-
 ## 0. Critical preflight — which staging node type exists, and is it a SQL type?
 
 **The staging-layer type's NAME varies by workspace — do not assume `Stage`.**
-The Snowflake base node types package ships no `Stage` type at all; its
-staging/work-layer type is named `Work` (`base-node-types:::204`). Naming a
+Neither base node types package ships a `Stage` type; the staging type is
+named `Work` in both. The YAML base package that `coa init` installs has a
+YAML `Work` (`base-node-types:::204`); the SQL `Work` is in the separate Base
+Node Types - SQL package (`<alias>:::707` on Snowflake). Naming a
 type that isn't there fails with
 `error[missingNodeType]: node type "Stage" is not available`. So discover the
 type before you write anything: list `nodeTypes/` and
@@ -32,7 +34,8 @@ layer, and its `fileVersion` tells you the kind: `2` is a SQL node type
 (formerly "V1", takes `.yml` nodes). Plain built-in names (`Stage`, `View`,
 `Dimension`, `Fact`, `persistentStage`) resolve only when those built-in YAML
 types are present in `nodeTypes/`, which `coa init` writes when the base
-package is unavailable; they are not always available.
+package is unavailable; they are not always available. A type named `Work`
+can be either kind, so always read its `fileVersion`.
 
 A `.sql` node is a SQL node and REQUIRES a node type whose `definition.yml` has
 `fileVersion: 2`. If you point `@nodeType(...)` at a YAML staging type
@@ -44,8 +47,8 @@ Check what staging type actually exists:
 
 - `.coa/cache/packages/*/nodeTypes/<Name>-<id>/definition.yml` — the installed
   package types, materialized as a read-only file tree by `coa install`. The
-  normal staging type is a package type from the base node types package
-  (typically named `Work`, not `Stage`); each
+  normal SQL staging type is `Work` from Base Node Types - SQL (not `Stage`,
+  and not the YAML `Work` from the base package `coa init` installs); each
   materialized `definition.yml` carries the resolvable id in `<alias>:::<id>`
   form, and that exact id is what `@nodeType()` takes. Never edit this tree —
   `coa install` regenerates it. (`coa describe node-types` documents the folder
@@ -67,10 +70,13 @@ Then branch:
   otherwise just prints "No packages to install."; `coa init` writes the base
   package's declaration, so if `packages/` is absent the fix is re-running
   `coa init` (ask the user first); other Marketplace packages are added via
-  coalesce-install-package, never by improvising shared config. Do NOT create
-  a node type yourself: SQL node types come from the platform's base node types
-  package (`coa init` declares it; the package may be unavailable outside
-  production registries). Report which path you took.
+  coalesce-install-package, never by improvising shared config. If
+  `packages/` does not declare Base Node Types - SQL
+  (`@coalesce/snowflake/base-node-types-sql`, or the BigQuery equivalent),
+  ask the user whether to add it via coalesce-install-package — `coa init`
+  does not install it. Do NOT create a node type yourself. If the user
+  declines or the package is unavailable (lower registries 404), take the
+  YAML path below. Report which path you took.
 - **Only a YAML staging type exists (`fileVersion` absent or `1`)**: author
   the node as a YAML `.yml` node. Do NOT upgrade the node type and do NOT
   stop: YAML is the supported authoring format whenever the workspace's node
@@ -128,7 +134,7 @@ double-quoted `ref()` with BOTH args:
 
 ```sql
 @id("3f29c8a1-7b04-4e6d-9c2a-1d5e8f0a6b73")
-@nodeType("base-node-types:::204")
+@nodeType("<alias>:::707")
 
 SELECT
     "C_CUSTKEY"    AS "C_CUSTKEY",
@@ -137,11 +143,12 @@ SELECT
 FROM {{ ref("SRC", "CUSTOMER") }} CUSTOMER
 ```
 
-In the example above, `"base-node-types:::204"` stands in for the actual SQL
-staging type ID from step 0 — usually a package ID of the form
-`<alias>:::<id>`, and in the base packages the staging type is `Work-204`.
-Substitute the real SQL type ID verbatim as the type's `definition.yml` on disk
-spells it. Do NOT write `@nodeType("Stage")` on the assumption that a `Stage`
+In the example above, `"<alias>:::707"` stands in for the actual SQL staging
+type ID from step 0 — the SQL `Work` from Base Node Types - SQL on Snowflake,
+with `<alias>` whatever the workspace's declaration names. Substitute the real
+SQL type ID verbatim as the type's `definition.yml` on disk spells it. Never
+use `base-node-types:::204` here: that is the YAML `Work`, and a `.sql` node
+on it renders no columns. Do NOT write `@nodeType("Stage")` on the assumption that a `Stage`
 type exists: the base packages ship none, and a plain built-in name resolves
 only when a `fileVersion: 2` type with that exact `id` is on disk (the
 built-in `Stage`/`View`/… types `coa init` writes when the base package is
@@ -155,11 +162,12 @@ Rules:
 - A plain 1:1 Stage needs no column annotations. If you want lineage IDs or
   docs, use `@id("col-id")` and `@description("text")` (both metadata-only),
   placed AFTER the alias and BEFORE the comma. `@isBusinessKey` /
-  `@isChangeTracking` belong on Persistent Stage/Dimension, not a plain Stage.
-  Additional annotations exist ONLY if the node type declares them in its
-  `annotations:` block — an undeclared or misspelled annotation is accepted
-  and silently does nothing (see sql-format reference). Do NOT invent
-  annotations.
+  `@isChangeTracking` belong on merge types that declare them (such as a SQL
+  Dimension), not on a plain Stage or `Work` node. Every annotation beyond
+  the reserved set exists ONLY if the node type declares it in its
+  `annotations:` block; an undeclared or misspelled one makes `coa validate`
+  warn (`annotationNameUnknown`) and is ignored at render (see sql-format
+  reference). Do NOT invent annotations.
 
 ## 4. Verify with coa (mandatory)
 

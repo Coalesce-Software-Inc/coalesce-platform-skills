@@ -108,27 +108,32 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
    configuration (SCD2 Dimensions and other config-driven patterns). A `.sql`
    node works only against a `fileVersion: 2` node type; otherwise columns
    are silently empty (see reference/sql-format.md).
-   SQL node types come from the installed base node types package — `coa
-   install` materializes them under `.coa/cache/packages/<alias>/nodeTypes/`,
-   and each materialized definition.yml carries the resolvable
-   `<alias>:::<id>` id to use in `@nodeType()`. Node types are SEARCH-FIRST:
+   SQL node types come from a package, and NOT the one `coa init` installs:
+   `coa init` declares only the YAML base node types package (all
+   `fileVersion: 1`); SQL types are in the separate Base Node Types - SQL
+   package (see coalesce-workspace-config, "Getting SQL node types"). `coa
+   install` materializes declared packages under
+   `.coa/cache/packages/<alias>/nodeTypes/`, and each materialized
+   definition.yml carries the resolvable `<alias>:::<id>` id to use in
+   `@nodeType()`. Node types are SEARCH-FIRST:
    if none are present, run `coa install -d <dir>` and re-check the file
    system; never author one (see coalesce-workspace-config). `coa install`
    hydrates only packages already declared under `packages/` and prints "No
    packages to install." otherwise — `coa init` writes the base package's
    declaration, so if `packages/` is absent the fix is to re-run `coa init`
-   (ask the user first). To add any OTHER Marketplace package, follow
-   coalesce-install-package; never improvise the declaration. When no SQL
-   node type exists for the target node type (the package may be
-   unavailable), author YAML `.yml` instead; that is supported, not a
-   workaround.
+   (ask the user first). When no SQL node type exists and Base Node Types -
+   SQL is not declared, offer to add it via coalesce-install-package (shared
+   config: ASK FIRST; never improvise the declaration). If the user declines
+   or the package is unavailable, author YAML `.yml` instead; that is
+   supported, not a workaround.
 5. Reference upstream nodes with `{{ ref("LOC", "NAME") }}` (both args).
    Never hardcode `db.schema.table`.
 6. Use the correct node type per layer (staging → persistent staging →
    fact/dimension → view); don't use the staging type for everything. NODE
    TYPE NAMES VARY BY WORKSPACE — never assume a type called `Stage` exists.
-   In the base node types packages the staging-layer type is typically named
-   `Work` (e.g. `base-node-types:::204`). Discover the real names before
+   In both base packages the staging-layer type is named `Work` — YAML
+   `base-node-types:::204`, SQL `<alias>:::707` (Snowflake) — so check the
+   `fileVersion`, not just the name. Discover the real names before
    naming one: list `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/` and
    read each `definition.yml` (`name`, `description`, `nodeMetadataSpec`).
    Plain built-in names (`Stage`, `View`, `Dimension`, `Fact`,
@@ -172,13 +177,13 @@ pattern); changing locations, workspace/environments, jobs, macros, or
 and can silently break unrelated ones — stop and surface the choice.
 
 Node types are search-first, and the search ends in a package, never in a
-file you write. Never author a node type to satisfy a `.sql` node. Base types
-come from the installed base node types package; if none are present, run
-`coa install -d <dir>` (safe without asking — but it is a no-op unless
-`packages/` already declares a package; adding a Marketplace package is the
-coalesce-install-package recipe), re-check `nodeTypes/` and
-`.coa/cache/packages/*/nodeTypes/`, and, failing that, author the node as
-YAML `.yml` and continue. A custom net-new type is authored only when the
+file you write. Never author a node type to satisfy a `.sql` node. SQL types
+come from the Base Node Types - SQL package, which `coa init` does not
+install; if none are present, run `coa install -d <dir>` (safe without asking
+— but it is a no-op unless `packages/` already declares a package), re-check
+`nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`, offer to add the SQL
+package via coalesce-install-package (ASK FIRST), and, failing that, author
+the node as YAML `.yml` and continue. A custom net-new type is authored only when the
 user explicitly asks — and even then, ASK FIRST. Report which path you took
 and why. See coalesce-workspace-config.
 

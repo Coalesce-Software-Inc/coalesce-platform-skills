@@ -42,8 +42,8 @@ by editing the file. Changing it repoints every local command in this directory
 at different warehouse credentials, so treat it as shared config: ASK FIRST.
 
 **Do NOT author node types** (see "Getting SQL node types" below). Node types
-are search-first and the search ends in a package: base types come from the
-installed base node types package, not from files you write. Creating,
+are search-first and the search ends in a package: node types come from
+installed packages, not from files you write. Creating,
 modifying, upgrading, or extending anything under `nodeTypes/` requires the
 user's explicit request and approval.
 
@@ -56,8 +56,8 @@ YAML type, a `.sql` node parses to `columns: []` — no error, but broken
 DDL/DML at render.
 
 The remedy is never to write a template: point `@nodeType` at a SQL type from
-the installed base node types package (hydrate with `coa install` if none are
-present — see below). For reviewing an existing type's templates: current
+an installed package — normally Base Node Types - SQL (see "Getting SQL node
+types" below). For reviewing an existing type's templates: current
 `coa` INFERS `col.dataType` for SQL nodes (verified: fully typed DDL renders
 even for aggregate SELECTs), so explicit-column DDL templates work — that is
 what the packaged `Work` type does; older builds surfaced `UNKNOWN`, and the
@@ -68,11 +68,27 @@ against it. Full template context and examples in the yaml-spec reference.
 
 ## Getting SQL node types
 
-SQL node types are NOT authored. They ship in the base node types package for
-your platform (Base Node Types - SQL: Snowflake and BigQuery), which
-`coa init` declares in `packages/base-node-types.yml` and `coa install`
-hydrates. Hydrated package types show up as package node types with IDs of
-the form `<alias>:::<id>` — that is the normal value for `@nodeType()`.
+SQL node types are NOT authored. They come from a package — and it is NOT the
+one `coa init` installs. There are two base packages:
+
+- **Base node types (YAML)** — what `coa init` declares in
+  `packages/base-node-types.yml` (`@coalesce/snowflake/base-node-types`,
+  `@coalesce/bigquery/bigquery-base-node-types`,
+  `@coalesce/databricks/base-node-types`). Every type in it is a YAML node
+  type (`fileVersion: 1`): `Work` (`base-node-types:::204`), Persistent Stage,
+  Dimension, Fact, Factless Fact, View. A `.sql` node on any of them renders
+  no columns.
+- **Base Node Types - SQL** — the SQL node types, in a separate package
+  (`@coalesce/snowflake/base-node-types-sql`,
+  `@coalesce/bigquery/bigquery-base-node-types-sql`) that `coa init` does NOT
+  install. It provides a SQL `Work` type (id `707` on Snowflake) and, from
+  2.1.0, a SQL `Dimension`. A workspace has it only if someone declared it
+  under `packages/`.
+
+Hydrated package types show up with IDs of the form `<alias>:::<id>`, where
+`<alias>` is whatever the declaration names — that exact id, read off the
+materialized `definition.yml`, is the value for `@nodeType()`. Check the
+`fileVersion` there, not just the type name: both packages have a `Work`.
 
 **Find them — search first; node type discovery is file-system based:**
 
@@ -89,8 +105,8 @@ the form `<alias>:::<id>` — that is the normal value for `@nodeType()`.
 
 Read each `definition.yml` you find (`name`, `description`,
 `nodeMetadataSpec`) rather than assuming a type name: **names vary by
-workspace**, and the base packages ship no `Stage` type — their
-staging/work-layer type is `Work` (`base-node-types:::204`). The built-in YAML
+workspace**, and neither base package ships a `Stage` type — the staging type
+is `Work` in both (YAML `base-node-types:::204`; SQL `<alias>:::707`). The built-in YAML
 names (`Stage`, `View`, `Dimension`, `Fact`, `persistentStage`) resolve only
 where `coa init` wrote those built-in types into `nodeTypes/`, which it does
 when the base package is unavailable. `nodeMetadataSpec` also carries the
@@ -104,13 +120,17 @@ act on.
 1. `coa install -d <dir>` — hydrates declared packages. Safe, run it without
    asking, then re-check `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`.
    It hydrates only packages already declared under `packages/` and otherwise
-   prints "No packages to install."; `coa init` writes the base package's
+   prints "No packages to install."; `coa init` writes the YAML base package's
    declaration, so if `packages/` is absent, re-running `coa init` (ask first)
-   is the fix. To add a different Marketplace package, use
-   coalesce-install-package — never improvise the declaration.
-2. Still none — the base node types package may be unavailable (it exists only
-   in the production registry; lower environments 404). Author the node as a
-   YAML `.yml` node and continue; that is supported, not a workaround. Do NOT
+   is the fix for that one.
+2. Still no SQL type, and `packages/` does not declare Base Node Types - SQL —
+   tell the user the workspace has only YAML node types and offer to add the
+   SQL package for their platform with coalesce-install-package. A new
+   declaration under `packages/` is shared config: ASK FIRST, and never
+   improvise the declaration.
+3. The user declines, or the package is unavailable (it exists only in the
+   production registry; lower environments 404) — author the node as a YAML
+   `.yml` node and continue; that is supported, not a workaround. Do NOT
    create `nodeTypes/*` to fill the gap and do NOT stop.
 
 **Custom node types** are only for a genuinely net-new type the user explicitly

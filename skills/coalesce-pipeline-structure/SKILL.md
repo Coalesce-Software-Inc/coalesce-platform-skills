@@ -49,21 +49,24 @@ plan/deploy is separate (git push → web UI/CI).
 - Changing locations, workspaces, environments, jobs, macros, or `data.yml`.
 
 **Never author a node type for a `.sql` node — node types are search-first.**
-Base types come from the installed base node types package, which
+SQL types come from the Base Node Types - SQL package — separate from the
+YAML base package `coa init` installs (see coalesce-workspace-config) — which
 `coa install` materializes as a read-only tree at
 `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/`; each materialized
 `definition.yml` carries the resolvable `<alias>:::<id>` id to put in
 `@nodeType()`. Discovery is file-system based: check `nodeTypes/` and
 `.coa/cache/packages/*/nodeTypes/`, and read each `definition.yml` — TYPE
-NAMES VARY BY WORKSPACE, so never assume a type called `Stage` exists (in the
-base packages the staging-layer type is typically `Work`, e.g.
-`base-node-types:::204`). If none are present, run `coa install -d <dir>` —
+NAMES VARY BY WORKSPACE, so never assume a type called `Stage` exists (in
+both base packages the staging type is `Work`: YAML `base-node-types:::204`,
+SQL `<alias>:::707`; check `fileVersion`). If none are present, run `coa install -d <dir>` —
 safe without asking, though it hydrates only packages already declared under
 `packages/` and prints "No packages to install." otherwise; `coa init` writes
 the base package's declaration, so an absent `packages/` means re-running
 `coa init` (ask the user); other Marketplace packages are added via
-coalesce-install-package, never by improvising shared config. If that still
-yields nothing, author the node as YAML `.yml` and continue. Report which path
+coalesce-install-package, never by improvising shared config. If no SQL type
+exists and Base Node Types - SQL is not declared, offer to add it that way
+(ASK FIRST); if that still yields nothing, author the node as YAML `.yml` and
+continue. Report which path
 you took. See coalesce-workspace-config.
 
 ## Creating a SQL node (.sql, when a SQL node type exists)
@@ -78,8 +81,8 @@ a YAML node type (formerly "V1") has `1` or none.
 - Required top annotations before any SQL: `@id("<fresh UUID>")` (never reuse
   an existing one) and `@nodeType("<TypeID>")` — which MUST resolve to a
   `fileVersion: 2` node type, or columns are SILENTLY EMPTY (broken DDL/DML).
-  Normally a package ID from the base node types package; if none is available,
-  `coa install -d <dir>` first (see coalesce-workspace-config).
+  Normally `<alias>:::<id>` from Base Node Types - SQL; if none is available,
+  see above and coalesce-workspace-config.
 - Write both annotations as BARE lines — do NOT prefix them with `--` or wrap
   them in `/* */`. `@id("…")` is not valid SQL on its own, but commenting it
   out makes `coa` unable to read it: the node is silently dropped (validate
@@ -98,9 +101,10 @@ a YAML node type (formerly "V1") has `1` or none.
 - Refs, annotations, and a full example: see the sql-format reference.
   Reserved annotations (`@id`, `@nodeType`, `@description`,
   `@materializationType`, column `@description`/`@notNull`/`@defaultValue`)
-  plus `@isBusinessKey`/`@isChangeTracking` work on every SQL node type; node
-  types DECLARE the rest in their `annotations:` block — an undeclared or
-  misspelled annotation is accepted and silently does nothing.
+  work on every SQL node type; everything else, `@isBusinessKey` /
+  `@isChangeTracking` included, exists only if the node type DECLARES it in
+  its `annotations:` block — `coa validate` warns (`annotationNameUnknown`) on
+  anything undeclared, and it is ignored at render.
 
 ## Creating a YAML (.yml) node
 

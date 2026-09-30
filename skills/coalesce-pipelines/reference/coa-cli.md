@@ -191,9 +191,12 @@ re-running `coa init` (or asking the user to) is the fix. Additional
 Marketplace packages are declared per the coalesce-install-package skill
 (registry lookup for the release ID, then `packages/<alias>.yml`) — never
 improvise the declaration or other shared config.
-This is how the base node types package for the platform (declared by
-`coa init` in `packages/base-node-types.yml`) becomes usable — it is the fix
-for "no SQL node type available", never hand-writing one. It materializes each
+This is how declared packages become usable. `coa init` declares only the
+YAML base node types package (`packages/base-node-types.yml`, all
+`fileVersion: 1`); SQL node types need the separate Base Node Types - SQL
+package declared first (coalesce-install-package, with the user's OK).
+Installing a package — never hand-writing a node type — is the fix for "no
+SQL node type available". It materializes each
 package type as a READ-ONLY file tree at
 `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/` (definition.yml plus
 `create.sql.j2` / `run.sql.j2`), and every materialized `definition.yml`

@@ -104,10 +104,12 @@ holding selector strings/node names, are NOT the schema shape.
 
 ## Node types (nodeTypes/<DisplayName>-<ID>/)
 
-Base node types are NOT authored here — they ship in the base node types package
-for the platform, declared under `packages/` (`coa init` writes
-`packages/base-node-types.yml`) and hydrated by `coa install`, which
-materializes them as a READ-ONLY file tree at
+Packaged node types are NOT authored here — they ship in Marketplace packages
+declared under `packages/` and hydrated by `coa install`. `coa init` declares
+only the YAML base node types package (`packages/base-node-types.yml`; every
+type in it is `fileVersion: 1`); SQL node types come from the separate Base
+Node Types - SQL package (coalesce-workspace-config, "Getting SQL node
+types"). `coa install` materializes declared packages as a READ-ONLY file tree at
 `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/` (definition.yml plus
 `create.sql.j2` / `run.sql.j2`). Each materialized `definition.yml` carries the
 resolvable id in `<alias>:::<id>` form — that exact id is the `@nodeType()`
@@ -129,9 +131,9 @@ workspace-local types; there, the `<ID>` after the last dash is the
   unknown fields there fail the spec at plan/run time, and `type`/`default`/
   `options` belong on a parameter, never on the annotation). Read
   `name`/`description`/`nodeMetadataSpec` to
-  identify a type — names vary by workspace, and the base packages ship no
-  `Stage` type (their staging/work-layer type is `Work`,
-  `base-node-types:::204`). `nodeMetadataSpec.config` holds the config
+  identify a type — names vary by workspace, and neither base package ships
+  a `Stage` type (the YAML staging type is `Work`, `base-node-types:::204`;
+  the SQL one is also `Work`, id `707` on Snowflake). `nodeMetadataSpec.config` holds the config
   DEFAULTS a hand-authored node must copy into `operation.config`: run
   templates gate their DML on those values (Work-204 on
   `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so an

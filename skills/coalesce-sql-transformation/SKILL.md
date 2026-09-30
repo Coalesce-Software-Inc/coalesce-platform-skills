@@ -29,11 +29,12 @@ Shared format rules (refs, annotations, SQL vs YAML nodes, naming):
 - Add/remove/reorder columns; change joins, filters, aggregations, CTEs.
 - Add/update node- and column-level annotations: the reserved set
   (`@description`, `@materializationType`, column `@description` / `@notNull`
-  / `@defaultValue`), `@isBusinessKey` / `@isChangeTracking` / column `@id`,
-  and whatever the node type DECLARES in its `annotations:` block (read its
-  `definition.yml`). Repeat a repeatable annotation once per value; never
-  pass several values in one call. Nothing else — an undeclared annotation is
-  accepted and silently does nothing.
+  / `@defaultValue`), column `@id`, and whatever the node type DECLARES in its
+  `annotations:` block (read its `definition.yml`) — `@isBusinessKey` /
+  `@isChangeTracking` only where declared. For multi-value annotations follow
+  the declaration's `description`. Nothing else: an undeclared annotation
+  makes `coa validate` warn (`annotationNameUnknown`) and is ignored at
+  render, so the edit is not done until that warning is gone.
 - Fix SQL syntax or format violations.
 
 ## Constraints
@@ -54,9 +55,9 @@ Shared format rules (refs, annotations, SQL vs YAML nodes, naming):
 - Editing an existing `.sql` node whose `@nodeType` resolves to a YAML type
   (silently-empty-columns trap)? Do NOT silently bump its `fileVersion` — that
   type is in use, so upgrading it is a shared-config change: STOP and ASK
-  (see coalesce-workspace-config). The fix is a SQL type from the installed
-  base node types package, not a hand-written one — never author a node type
-  here.
+  (see coalesce-workspace-config). The fix is a SQL type from an installed
+  package (Base Node Types - SQL), not a hand-written one — never author a
+  node type here.
 
 ## Workflow (per node)
 

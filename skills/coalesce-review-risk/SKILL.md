@@ -65,21 +65,21 @@ Format rules being checked:
 - One-arg `ref()`, hardcoded `db.schema.table`, or annotations the node
   type does not accept. Valid on a `.sql` node: the reserved set (`@id`,
   `@nodeType`, `@description`, `@materializationType`; column
-  `@description`, `@notNull`, `@defaultValue`), `@isBusinessKey`,
-  `@isChangeTracking`, column `@id`, and the annotations DECLARED in the
-  node type's `definition.yml` `annotations:` block. Anything else
-  (`@isSurrogateKey`, `@pii`, `@synqMonitor`, `@prgTest`, a misspelled
-  declared name, …) is accepted by the parser and silently does nothing —
-  flag it. Also flag a repeatable annotation written with several values in
-  one call (`@accepted_values("'A'", "'B'")`): only the first value renders
-  (TRA-2486). Note: `isSurrogateKey` DOES exist as a YAML `.yml` column
-  *property* — legitimate in a YAML node, but NOT an annotation on a `.sql`
-  node.
+  `@description`, `@notNull`, `@defaultValue`), column `@id`, and the
+  annotations DECLARED in the node type's `definition.yml` `annotations:`
+  block — `@isBusinessKey` / `@isChangeTracking` / `@isSurrogateKey` only
+  where declared. Anything else (`@pii`, `@synqMonitor`, `@prgTest`, a
+  misspelled declared name, a merge annotation on a `Work` node, …) appears
+  in `coa validate --json` as `annotationNameUnknown` and is ignored at
+  render — quote the warning and flag it. For multi-value annotations, check
+  the form against the declaration's `description` rather than assuming one.
+  Note: `isSurrogateKey` also exists as a YAML `.yml` column *property*.
 - Edits to SHARED config — `nodeTypes/*`, locations, workspace, environments,
   jobs, macros, `data.yml`, `fileVersion` bumps, template swaps. These were
   likely OUT of the request's scope and can silently break unrelated nodes;
   surface them prominently. A NEW `nodeTypes/*` directory is no exception:
-  SQL node types normally arrive via the installed base node types package, so a
+  SQL node types normally arrive via an installed package (Base Node Types -
+  SQL), so a
   hand-authored one in a diff is a shared-config change to surface — ask whether
   the user actually requested a custom type.
 
