@@ -73,7 +73,8 @@ Then branch:
   `coa init` (ask the user first); other Marketplace packages are added via
   coalesce-install-package, never by improvising shared config. If
   `packages/` does not declare Base Node Types - SQL
-  (`@coalesce/snowflake/base-node-types-sql`, or the BigQuery equivalent),
+  (`@coalesce/snowflake/base-node-types-sql`, or the BigQuery or Databricks
+  equivalent listed in coalesce-workspace-config),
   ask the user whether to add it via coalesce-install-package — `coa init`
   does not install it. Do NOT create a node type yourself. If the user
   declines or the package is unavailable (lower registries 404), take the

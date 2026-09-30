@@ -28,8 +28,8 @@ Shared format rules (refs, annotations, SQL vs YAML nodes, naming):
 - Edit existing `nodes/<LOCATION>-<NAME>.sql` files.
 - Add/remove/reorder columns; change joins, filters, aggregations, CTEs.
 - Add/update node- and column-level annotations: the reserved set
-  (`@description`, `@materializationType`, column `@description` / `@notNull`
-  / `@defaultValue`), column `@id`, and whatever the node type DECLARES in its
+  (`@description`, `@materializationType`, `@deployDisabled`, column
+  `@description` / `@notNull` / `@defaultValue`), column `@id`, and whatever the node type DECLARES in its
   `annotations:` block (read its `definition.yml`) — `@isBusinessKey` /
   `@isChangeTracking` only where declared. For multi-value annotations follow
   the declaration's `description`. Nothing else: an undeclared annotation

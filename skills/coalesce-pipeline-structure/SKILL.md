@@ -58,7 +58,7 @@ YAML base package `coa init` installs (see coalesce-workspace-config) — which
 `.coa/cache/packages/*/nodeTypes/`, and read each `definition.yml` — TYPE
 NAMES VARY BY WORKSPACE, so never assume a type called `Stage` exists (in
 both base packages the staging type is `Work`: YAML `base-node-types:::204`,
-SQL `<alias>:::707`; check `fileVersion`). If none are present, run `coa install -d <dir>` —
+SQL `<alias>:::707` on Snowflake; check `fileVersion`). If none are present, run `coa install -d <dir>` —
 safe without asking, though it hydrates only packages already declared under
 `packages/` and prints "No packages to install." otherwise; `coa init` writes
 the base package's declaration, so an absent `packages/` means re-running
@@ -102,7 +102,8 @@ a YAML node type (formerly "V1") has `1` or none.
   any `nodes/*.yml`.
 - Refs, annotations, and a full example: see the sql-format reference.
   Reserved annotations (`@id`, `@nodeType`, `@description`,
-  `@materializationType`, column `@description`/`@notNull`/`@defaultValue`)
+  `@materializationType`, `@deployDisabled`, column
+  `@description`/`@notNull`/`@defaultValue`)
   work on every SQL node type; everything else, `@isBusinessKey` /
   `@isChangeTracking` included, exists only if the node type DECLARES it in
   its `annotations:` block — `coa validate` warns (`annotationNameUnknown`) on

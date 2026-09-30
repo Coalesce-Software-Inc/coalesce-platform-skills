@@ -85,7 +85,8 @@ step: coalesce-workspace-config ("Getting SQL node types") and
   `definition.yml`.
 
 Keep `@id` and `@nodeType` as the first lines. Other node-level annotations
-(`@description`, `@materializationType`, and whatever the node type declares)
+(`@description`, `@materializationType`, `@deployDisabled`, and whatever the
+node type declares)
 also go above the leading `WITH` or `SELECT`. Match the existing `.sql`
 nodes: annotations precede the SQL; there is no bare `fileVersion` line.
 
@@ -157,7 +158,18 @@ literal arguments — strings quoted, numbers and booleans unquoted.
 **Reserved annotations** (every SQL node type; validated by Coalesce):
 
 - Node-level: `@id`, `@nodeType` (managed — never edit), `@description("text")`,
-  `@materializationType("table"|"view")` (lowercase; defaults to table).
+  `@materializationType("table"|"view")` (lowercase; defaults to table),
+  `@deployDisabled` (bare, no argument: `@deployDisabled(true)` is a
+  validate error; excludes the node from cloud deploy, while local
+  `coa create`/`coa run` still build it).
+- Exception: on a node type whose `nodeMetadataSpec` sets
+  `deployStrategy: advanced` (e.g. Base Node Types - SQL Advanced),
+  `@materializationType` is NOT reserved in the table/view sense. The node
+  type owns its values (declared under `annotations:` with its own
+  `options`, e.g. `"transient table"`), Coalesce does not check them, and the
+  value still arrives as `node.materializationType`. Read the type's
+  declaration before writing one; on any other type, a value outside
+  `table`/`view` is a validate error.
 - Column-level: `@description("text")`, `@notNull` (a DDL NOT NULL constraint,
   not a test), `@defaultValue("0")` / `@defaultValue("'NA'")` (quoted for the
   column's type).

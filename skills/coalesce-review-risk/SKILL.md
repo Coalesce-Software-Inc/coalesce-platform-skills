@@ -63,10 +63,15 @@ Format rules being checked:
   Check the `coa run --dry-run` output per node, not just create.
 - Deleted/renamed nodes with downstream dependents (stale `{{ ref() }}`
   edges).
+- A newly added `@deployDisabled` (the node silently drops out of the next
+  cloud deploy, though local create/run still build it), or a
+  `@materializationType` value other than `table`/`view`, a validate error
+  unless the node type sets `deployStrategy: advanced` and declares that
+  value (sql-format, reserved annotations).
 - One-arg `ref()`, hardcoded `db.schema.table`, or annotations the node
   type does not accept. Valid on a `.sql` node: the reserved set (`@id`,
-  `@nodeType`, `@description`, `@materializationType`; column
-  `@description`, `@notNull`, `@defaultValue`), column `@id`, and the
+  `@nodeType`, `@description`, `@materializationType`, `@deployDisabled`;
+  column `@description`, `@notNull`, `@defaultValue`), column `@id`, and the
   annotations DECLARED in the node type's `definition.yml` `annotations:`
   block — `@isBusinessKey` / `@isChangeTracking` / `@isSurrogateKey` only
   where declared. Anything else (`@pii`, `@synqMonitor`, `@prgTest`, a

@@ -80,11 +80,15 @@ one `coa init` installs. There are two base packages:
   Dimension, Fact, Factless Fact, View. A `.sql` node on any of them renders
   no columns.
 - **Base Node Types - SQL** — the SQL node types, in a separate package
-  (`@coalesce/snowflake/base-node-types-sql`,
-  `@coalesce/bigquery/bigquery-base-node-types-sql`) that `coa init` does NOT
-  install. It provides a SQL `Work` type (id `707` on Snowflake) and, from
-  2.1.0, a SQL `Dimension`. A workspace has it only if someone declared it
-  under `packages/`.
+  per platform that `coa init` does NOT install:
+  `@coalesce/snowflake/base-node-types-sql` (SQL `Work` id `707`, plus a SQL
+  `Dimension` from 2.1.0), `@coalesce/bigquery/bigquery-base-node-types-sql`
+  (`Work` id `705`), `@coalesce/databricks/databricks-base-node-types-sql`
+  (`Work` id `708`). A workspace has it only if someone declared it under
+  `packages/`. Snowflake also has **Base Node Types - SQL Advanced**
+  (`@coalesce/snowflake/base-node-types-sql-advanced`), a SQL `Work`
+  type with the advanced deploy strategy (see sql-format, reserved
+  annotations).
 
 Hydrated package types show up with IDs of the form `<alias>:::<id>`, where
 `<alias>` is whatever the declaration names — that exact id, read off the
@@ -107,7 +111,7 @@ materialized `definition.yml`, is the value for `@nodeType()`. Check the
 Read each `definition.yml` you find (`name`, `description`,
 `nodeMetadataSpec`) rather than assuming a type name: **names vary by
 workspace**, and neither base package ships a `Stage` type — the staging type
-is `Work` in both (YAML `base-node-types:::204`; SQL `<alias>:::707`). The built-in YAML
+is `Work` in both (YAML `base-node-types:::204`; SQL `<alias>:::707` on Snowflake). The built-in YAML
 names (`Stage`, `View`, `Dimension`, `Fact`, `persistentStage`) resolve only
 where `coa init` wrote those built-in types into `nodeTypes/`, which it does
 when the base package is unavailable. `nodeMetadataSpec` also carries the
