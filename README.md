@@ -31,6 +31,11 @@ enforced by whatever harness runs the agent, using its own permission model.
   `coalesce-rename-node-cascade`, `coalesce-create-job`,
   `coalesce-install-package` (add a Marketplace package: registry lookup,
   `packages/<alias>.yml`, `coa install`).
+- Data reconciliation: `coalesce-reconciliation-cli` (run a `synq-recon` suite:
+  check → drill → diagnose → fix the cause → prove it) and
+  `coalesce-reconciliation-authoring` (write the suite YAML, one
+  reconciliation per question). Reference docs live in each skill's
+  `reference/` subdirectory.
 - `templates/workspace-CLAUDE.md` — the small per-workspace instruction file
   (see below).
 
