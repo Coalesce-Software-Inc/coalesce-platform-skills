@@ -318,8 +318,12 @@ created; hand-authoring has to do them explicitly:
      transform>}]` (an empty `transform` stays `""`)
    - a fresh `columnReference.columnCounter`, like any other column
    Put entries with `placement: beginning` before the mapped columns and the
-   rest after. Templates find these columns by the flag, so a missing column or
-   flag fails at run time or quietly produces the wrong DML. For SCD2 types
+   rest after. Templates find these columns by the flag. At render time `coa`
+   also sets the flag for a column whose name matches the spec's
+   `displayName`, and copies any keys under the column's `config:` onto the
+   column, so a flag under `config:` works too; write it top-level anyway,
+   that is what the UI writes. A missing column cannot be recovered that way
+   and fails at run time or quietly produces the wrong DML. For SCD2 types
    (Dimension, Persistent Stage), also set `isBusinessKey: true` on the
    business key and `isChangeTracking: true` on tracked columns.
 7. **Verify before executing**: `coa validate`, then
