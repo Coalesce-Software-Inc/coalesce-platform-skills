@@ -86,8 +86,9 @@ coalesce-pipeline-structure skill ("Creating a V1 (.yml) node").
   new nodes. NEVER reuse or modify an existing `@id` (node or column).
 - `@nodeType("<TypeID>")` — normally a package node type ID, `<alias>:::<id>`
   (e.g. `"dynamic-tables:::347"`), from the installed base node types package.
-  A workspace-local type uses the ID after the last dash in its
-  `nodeTypes/<ID>/` folder name.
+  A workspace-local type uses the `id` field of its
+  `nodeTypes/<DisplayName>-<ID>/definition.yml`, never an ID parsed from the
+  folder name.
 
 Keep `@id` and `@nodeType` as the first lines. Match the existing `.sql`
 nodes: only those two annotations precede the SQL (no bare `fileVersion`
