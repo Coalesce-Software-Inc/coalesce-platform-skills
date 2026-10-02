@@ -1,5 +1,5 @@
 ---
-name: coalesce-data-test-authoring
+name: coalesce-quality-test-authoring
 description: Decide which data quality tests a table, view or model needs, and write them in whatever test format the project already uses (dbt, SYNQ YAML, SQLMesh audits, Soda, Great Expectations, custom SQL, and so on). Use it when asked to add, suggest, review or extend data tests for a warehouse asset, or when a change to a model should come with tests.
 ---
 <!-- coalesce-node-managed: true -->
