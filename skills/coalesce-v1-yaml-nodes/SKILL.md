@@ -279,7 +279,8 @@ catch exactly the damage a careless V1 edit does:
 ## Authoring a new V1 node by hand — checklist
 
 Verified end to end (a hand-authored SCD2 Dimension runs green), but every
-step matters:
+step matters. Steps 5 and 6 are what the UI does silently when a node is
+created; hand-authoring has to do them explicitly:
 
 1. **Schema first**: `coa describe schema node` is the authoritative shape.
    Do not copy a sibling file's quirks.
@@ -301,11 +302,30 @@ step matters:
    `truncateBefore` / `testsEnabled` as desired). The UI writes these
    invisibly; you must write them yourself. If a run dry-run reports
    "Template rendered zero SQL stages", check config first.
-6. **SCD2 Dimension**: business key column gets `isBusinessKey: true`; tracked
-   columns get `isChangeTracking: true`; add the system columns your Dimension
-   type's `systemColumns` spec names (surrogate key with
-   `isSurrogateKey: true`, `SYSTEM_VERSION`, `SYSTEM_CURRENT_FLAG`,
-   start/end/create/update dates with their `isSystem*` flags and transforms).
+6. **System columns come from the node type**: if the type's
+   `nodeMetadataSpec` has a `systemColumns` list, add one column per entry.
+   This is not just Dimensions: Persistent Stage, Fact, Copy Into, Snowpipe,
+   Date Dimension, and many package and custom types declare them. The UI
+   adds these when a node is created; `coa` never does, and `coa validate`
+   does not flag them as missing. For each entry, write a column with:
+   - `name` = `displayName`, with `{{NODE_NAME}}` replaced by this node's name
+     (e.g. `{{NODE_NAME}}_KEY` → `DIM_CUSTOMER_KEY`)
+   - the flag named by `attributeName` set to `true` (e.g.
+     `isSystemVersion: true`, `isSurrogateKey: true`)
+   - `dataType`, and `description` / `nullable` / `defaultValue` when the
+     entry sets them
+   - `sourceColumnReferences: [{columnReferences: [], transform: <entry's
+     transform>}]` (an empty `transform` stays `""`)
+   - a fresh `columnReference.columnCounter`, like any other column
+   Put entries with `placement: beginning` before the mapped columns and the
+   rest after. Templates find these columns by the flag. At render time `coa`
+   also sets the flag for a column whose name matches the spec's
+   `displayName`, and copies any keys under the column's `config:` onto the
+   column, so a flag under `config:` works too; write it top-level anyway,
+   that is what the UI writes. A missing column cannot be recovered that way
+   and fails at run time or quietly produces the wrong DML. For SCD2 types
+   (Dimension, Persistent Stage), also set `isBusinessKey: true` on the
+   business key and `isChangeTracking: true` on tracked columns.
 7. **Verify before executing**: `coa validate`, then
    `coa create --dry-run --verbose --include "{ NODE }"` AND
    `coa run --dry-run --verbose --include "{ NODE }"` — inspect the rendered
