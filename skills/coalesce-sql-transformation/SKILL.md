@@ -29,18 +29,21 @@ Shared format rules (refs, annotations, SQL vs YAML nodes, naming):
 - Add/remove/reorder columns; change joins, filters, aggregations, CTEs.
 - Add/update node- and column-level annotations: the reserved set
   (`@description`, `@materializationType`, `@deployDisabled`, column
-  `@description` / `@notNull` / `@defaultValue`), column `@id`, and whatever the node type DECLARES in its
-  `annotations:` block (read its `definition.yml`) — `@isBusinessKey` /
-  `@isChangeTracking` only where declared. For multi-value annotations follow
-  the declaration's `description`. Nothing else: an undeclared annotation
-  makes `coa validate` warn (`annotationNameUnknown`) and is ignored at
-  render, so the edit is not done until that warning is gone.
+  `@description` / `@notNull` / `@defaultValue`) and whatever the node type
+  DECLARES in its `annotations:` block (read its `definition.yml`) — `@isBusinessKey` /
+  `@isChangeTracking` only where declared. Never `@id` on a column — the
+  column name is the column ID, and renaming an alias is creating a new
+  column as far as lineage and downstream nodes are concerned (see
+  sql-format reference, "Column identity"). For multi-value annotations
+  follow the declaration's `description`. Nothing else: an undeclared
+  annotation makes `coa validate` warn (`annotationNameUnknown`) and is
+  ignored at render, so the edit is not done until that warning is gone.
 - Fix SQL syntax or format violations.
 
 ## Constraints
 
-- NEVER modify an existing `@id` (node or column). New `@id` values are fresh
-  UUIDs; never reuse one.
+- NEVER modify the node's `@id`. Columns on a SQL node carry no `@id`; do
+  not add one.
 - Do NOT change `@nodeType` as part of SQL work — swapping a node type is a
   shared-config change, ASK FIRST. Its value must match a node type in
   `nodeTypes/<ID>/` or a package type ID.

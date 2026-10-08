@@ -70,16 +70,22 @@ Format rules being checked:
   value (sql-format, reserved annotations).
 - One-arg `ref()`, hardcoded `db.schema.table`, or annotations the node
   type does not accept. Valid on a `.sql` node: the reserved set (`@id`,
-  `@nodeType`, `@description`, `@materializationType`, `@deployDisabled`;
-  column `@description`, `@notNull`, `@defaultValue`), column `@id`, and the
-  annotations DECLARED in the node type's `definition.yml` `annotations:`
-  block — `@isBusinessKey` / `@isChangeTracking` / `@isSurrogateKey` only
-  where declared. Anything else (`@pii`, `@synqMonitor`, `@prgTest`, a
-  misspelled declared name, a merge annotation on a `Work` node, …) appears
-  in `coa validate --json` as `annotationNameUnknown` and is ignored at
-  render — quote the warning and flag it. For multi-value annotations, check
-  the form against the declaration's `description` rather than assuming one.
-  Note: `isSurrogateKey` also exists as a YAML `.yml` column *property*.
+  `@nodeType`, `@description`, `@materializationType`, `@deployDisabled` on
+  the node; column `@description`, `@notNull`, `@defaultValue`) and the
+  annotations DECLARED
+  in the node type's `definition.yml` `annotations:` block —
+  `@isBusinessKey` / `@isChangeTracking` / `@isSurrogateKey` only where
+  declared. Anything else (`@pii`, `@synqMonitor`, `@prgTest`, a misspelled
+  declared name, a merge annotation on a `Work` node, …) appears in
+  `coa validate --json` as `annotationNameUnknown` and is ignored at render —
+  quote the warning and flag it. A column-level `@id` is a red flag on its
+  own, and validate does NOT warn on it: the column name IS the column ID on
+  a SQL node, and `@id` silently re-keys it so downstream YAML nodes and the
+  app lose the column (validate warns `sourceColumnMissing` only on the
+  downstream node; the load renders NULL). For multi-value annotations,
+  check the form against the declaration's `description` rather than
+  assuming one. Note: `isSurrogateKey` also exists as a YAML `.yml` column
+  *property*.
 - Edits to SHARED config — `nodeTypes/*`, locations, workspace, environments,
   jobs, macros, `data.yml`, `fileVersion` bumps, template swaps. These were
   likely OUT of the request's scope and can silently break unrelated nodes;
