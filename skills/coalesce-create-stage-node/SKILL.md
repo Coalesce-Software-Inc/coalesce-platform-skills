@@ -23,7 +23,8 @@ layers build on a stable name. `coa describe sql-format` and `coa describe node-
 Neither base node types package ships a `Stage` type; the staging type is
 named `Work` in both. The YAML base package that `coa init` installs has a
 YAML `Work` (`base-node-types:::204`); the SQL `Work` is in the separate Base
-Node Types - SQL package (`<alias>:::707` on Snowflake). Naming a
+Node Types - SQL package (`<alias>:::SQLWork` on Snowflake, `707` before
+2.2.0). Naming a
 type that isn't there fails with
 `error[missingNodeType]: node type "Stage" is not available`. So discover the
 type before you write anything: list `nodeTypes/` and
@@ -136,7 +137,7 @@ double-quoted `ref()` with BOTH args:
 
 ```sql
 @id("3f29c8a1-7b04-4e6d-9c2a-1d5e8f0a6b73")
-@nodeType("<alias>:::707")
+@nodeType("<alias>:::SQLWork")
 
 SELECT
     "C_CUSTKEY"    AS "C_CUSTKEY",
@@ -145,7 +146,7 @@ SELECT
 FROM {{ ref("SRC", "CUSTOMER") }} CUSTOMER
 ```
 
-In the example above, `"<alias>:::707"` stands in for the actual SQL staging
+In the example above, `"<alias>:::SQLWork"` stands in for the actual SQL staging
 type ID from step 0 — the SQL `Work` from Base Node Types - SQL on Snowflake,
 with `<alias>` whatever the workspace's declaration names. Substitute the real
 SQL type ID verbatim as the type's `definition.yml` on disk spells it. Never

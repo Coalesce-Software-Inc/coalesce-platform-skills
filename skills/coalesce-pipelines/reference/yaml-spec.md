@@ -135,8 +135,8 @@ both contain dashes. Each node type folder holds:
   `name`/`description`/`nodeMetadataSpec` to
   identify a type — names vary by workspace, and neither base package ships
   a `Stage` type (the YAML staging type is `Work`, `base-node-types:::204`;
-  the SQL one is also `Work`, id `707` on Snowflake, `705` on BigQuery, `708`
-  on Databricks). `nodeMetadataSpec.config` holds the config
+  the SQL one is also `Work`, id `SQLWork` on Snowflake (`707` before 2.2.0),
+  `705` on BigQuery, `708` on Databricks). `nodeMetadataSpec.config` holds the config
   DEFAULTS a hand-authored node must copy into `operation.config`: run
   templates gate their DML on those values (Work-204 on
   `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so an
