@@ -128,8 +128,12 @@ Required top annotations, before any SQL:
 - `@id("<UUID>")` — PREFER a fresh UUID v4. NEVER reuse or modify an existing
   node's `@id`; duplicate IDs collide across the workspace.
 - `@nodeType("<TypeID>")` — the SQL staging type ID you found in step 0.
-  Normally a package ID, `<alias>:::<id>`; a workspace-local type uses the `id`
-  from `nodeTypes/<DisplayName>-<ID>/definition.yml`.
+  Normally a package ID, `<alias>:::<id>`. `<alias>` is the package alias: the
+  `name` in the workspace's `packages/<alias>.yml`, chosen when the package was
+  installed, so it varies by workspace (not a SQL column alias). Don't assemble
+  the ID yourself: the materialized `definition.yml` already holds the full
+  `<alias>:::<id>`, so copy it whole. A workspace-local type has no alias: use
+  the `id` from `nodeTypes/<DisplayName>-<ID>/definition.yml`.
 
 Then a `SELECT` mapping each source column 1:1, and a `FROM` using a
 double-quoted `ref()` with BOTH args:
