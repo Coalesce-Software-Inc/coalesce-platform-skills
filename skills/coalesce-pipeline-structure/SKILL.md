@@ -58,7 +58,7 @@ YAML base package `coa init` installs (see coalesce-workspace-config) — which
 `.coa/cache/packages/*/nodeTypes/`, and read each `definition.yml` — TYPE
 NAMES VARY BY WORKSPACE, so never assume a type called `Stage` exists (in
 both base packages the staging type is `Work`: YAML `base-node-types:::204`,
-SQL `<alias>:::707` on Snowflake; check `fileVersion`). If none are present, run `coa install -d <dir>` —
+SQL `<alias>:::SQLWork` on Snowflake, `707` before 2.2.0; check `fileVersion`). If none are present, run `coa install -d <dir>` —
 safe without asking, though it hydrates only packages already declared under
 `packages/` and prints "No packages to install." otherwise; `coa init` writes
 the base package's declaration, so an absent `packages/` means re-running

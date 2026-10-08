@@ -116,8 +116,9 @@ resolvable id in `<alias>:::<id>` form — that exact id is the `@nodeType()`
 value. The tree is derived: `coa install` regenerates it, so never edit it
 (`.coa/cache/packages.json` is the machine cache the tree mirrors). Discovery
 is file-system based — read those folders plus `nodeTypes/`, which holds only
-workspace-local types; there, the `<ID>` after the last dash is the
-`@nodeType()` value. Each node type folder holds:
+workspace-local types; there, the `id` field in each `definition.yml` is the
+`@nodeType()` value. Never parse it from the folder name: names and ids can
+both contain dashes. Each node type folder holds:
 
 - **definition.yml** — `{ isDisabled, name, id, type: "NodeType", fileVersion,
   metadata: { nodeMetadataSpec, error: null } }`. `fileVersion: 2` makes it a
@@ -134,8 +135,8 @@ workspace-local types; there, the `<ID>` after the last dash is the
   `name`/`description`/`nodeMetadataSpec` to
   identify a type — names vary by workspace, and neither base package ships
   a `Stage` type (the YAML staging type is `Work`, `base-node-types:::204`;
-  the SQL one is also `Work`, id `707` on Snowflake, `705` on BigQuery, `708`
-  on Databricks). `nodeMetadataSpec.config` holds the config
+  the SQL one is also `Work`, id `SQLWork` on Snowflake (`707` before 2.2.0),
+  `705` on BigQuery, `708` on Databricks). `nodeMetadataSpec.config` holds the config
   DEFAULTS a hand-authored node must copy into `operation.config`: run
   templates gate their DML on those values (Work-204 on
   `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so an

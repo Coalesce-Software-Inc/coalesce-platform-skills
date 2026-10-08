@@ -79,10 +79,11 @@ step: coalesce-workspace-config ("Getting SQL node types") and
 
 - `@id("<UUID>")` — stable, immutable identifier. PREFER a fresh UUID v4 for
   new nodes. NEVER reuse or modify an existing `@id` (node or column).
-- `@nodeType("<TypeID>")` — must match a node type in `nodeTypes/<ID>/` (the
-  ID after the last dash in the folder name) or a package node type ID of
-  the form `"<alias>:::<id>"`, read verbatim off the materialized
-  `definition.yml`.
+- `@nodeType("<TypeID>")` — a package node type ID of the form
+  `"<alias>:::<id>"`, read verbatim off the materialized `definition.yml`, or
+  a workspace-local type's `id` field in its
+  `nodeTypes/<DisplayName>-<ID>/definition.yml`, never an ID parsed from the
+  folder name.
 
 Keep `@id` and `@nodeType` as the first lines. Other node-level annotations
 (`@description`, `@materializationType`, `@deployDisabled`, and whatever the
@@ -209,9 +210,10 @@ declares `@writeMode`, `@disableTests`, `@tests`, `@preSQL`, `@postSQL` at
 node level and column tests such as `@not_null`, `@uniqueness`,
 `@accepted_values`, `@min_max`, `@freshness`, plus `@inHash` for hash keys;
 the `Dimension` type (package 2.1.0+) adds `@mergeStrategy`,
-`@isBusinessKey`, `@isChangeTracking`, and the SCD system-column flags.
+`@isBusinessKey`, `@isChangeTracking`, and the SCD system-column flags; 2.2.0
+adds a SQL `Fact` type.
 
-Hazards (verified on coa 7.45.4 with Base Node Types - SQL 2.1.0):
+Hazards (verified on coa 7.46.1 with Base Node Types - SQL 2.2.0):
 
 - **An undeclared or misspelled annotation is a `coa validate` warning, and
   it is ignored.** Since coa 7.43.0 `coa validate` reports
@@ -239,8 +241,11 @@ Hazards (verified on coa 7.45.4 with Base Node Types - SQL 2.1.0):
 - A declared `default` is documentation only. Nothing applies it at runtime;
   the node type's template supplies the fallback, so omit the annotation to
   get the default rather than writing the default value out.
-- A quoted boolean is a string: `@disableTests("false")` is `"false"`, which
-  Jinja treats as true. Write `@disableTests(false)` or omit the annotation.
+- A quoted boolean is a string: `@disableTests("false")` hydrates as
+  `{parameters: ["false"]}`. The packaged SQL types normalize it (their
+  `get_boolean_config` macro reads `"false"` and `false` alike), but a template
+  that tests the value directly treats any non-empty string as true. Write
+  `@disableTests(false)` or omit the annotation.
 - **Macro calls inside the node's SELECT do not render locally.** The Base
   Node Types - SQL README shows `{{ get_hash("HK") }} AS ROW_HASH`; local
   `coa create`/`coa run` type that column `UNKNOWN` and emit the
@@ -291,7 +296,7 @@ FROM {{ ref("STG", "STG_CUSTOMERS") }}
 ```
 
 (`"<alias>:::<id>"` stands for the SQL `Work` type from Base Node Types - SQL
-— id `707` on Snowflake, with `<alias>` whatever the workspace's package
+— id `SQLWork` on Snowflake from 2.2.0 (`707` before), with `<alias>` whatever the workspace's package
 declaration names; read it verbatim off the materialized `definition.yml`.
 `@writeMode`, `@not_null`, and `@uniqueness` work only because that type
 declares them. `@isBusinessKey` / `@isChangeTracking` go on a type that
