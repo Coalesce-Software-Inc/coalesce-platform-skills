@@ -75,7 +75,7 @@ resolved from `workspace.yml`/environment mappings, not from here),
 `materializationType` (`table`/`view`), `overrideSQL`, `version: 1`.
 
 `config` is not decoration: node type run templates GATE their DML on it
-(Work-204 emits its INSERT only when `config.insertStrategy == 'INSERT'`, and
+(the YAML `Work` emits its INSERT only when `config.insertStrategy == 'INSERT'`, and
 its truncate only when `config.truncateBefore`). A hand-authored node must
 carry the type's config defaults, copied from its `definition.yml`
 `nodeMetadataSpec` — typical staging values `insertStrategy: INSERT`,
@@ -96,7 +96,7 @@ name: names and ids can both contain dashes.
 built-in names resolve only where those built-in YAML types exist in
 `nodeTypes/`, which `coa init` writes when the base node types package is
 unavailable; the YAML base package `coa init` installs ships no `Stage` type
-at all — its staging type is `Work` (`base-node-types:::204`). So list
+at all — its staging type is `Work`. So list
 `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/` and read each
 `definition.yml` (`name`, `description`, `nodeMetadataSpec`) to pick the type.
 A name that isn't there fails as

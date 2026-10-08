@@ -57,8 +57,8 @@ YAML base package `coa init` installs (see coalesce-workspace-config) — which
 `@nodeType()`. Discovery is file-system based: check `nodeTypes/` and
 `.coa/cache/packages/*/nodeTypes/`, and read each `definition.yml` — TYPE
 NAMES VARY BY WORKSPACE, so never assume a type called `Stage` exists (in
-both base packages the staging type is `Work`: YAML `base-node-types:::204`,
-SQL `<alias>:::SQLWork` on Snowflake, `707` before 2.2.0; check `fileVersion`). If none are present, run `coa install -d <dir>` —
+both base packages the staging type is `Work`, YAML in one and SQL in the
+other; check `fileVersion`). If none are present, run `coa install -d <dir>` —
 safe without asking, though it hydrates only packages already declared under
 `packages/` and prints "No packages to install." otherwise; `coa init` writes
 the base package's declaration, so an absent `packages/` means re-running
@@ -138,7 +138,7 @@ Two values you cannot guess:
   there fails as `error[missingNodeType]: node type "X" is not available`.
 - **`config`** — copy the node type's config DEFAULTS from its
   `definition.yml` `nodeMetadataSpec`. Node type run templates gate their DML
-  on config values (Work-204 gates the INSERT on
+  on config values (the YAML `Work` gates the INSERT on
   `config.insertStrategy == 'INSERT'` and the truncate on
   `config.truncateBefore`), so `config: {}` passes `coa validate` and
   `coa create --dry-run` yet renders ZERO run SQL — a node that can never load

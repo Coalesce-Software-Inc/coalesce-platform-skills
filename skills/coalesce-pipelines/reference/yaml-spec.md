@@ -134,11 +134,10 @@ both contain dashes. Each node type folder holds:
   `options` belong on a parameter, never on the annotation). Read
   `name`/`description`/`nodeMetadataSpec` to
   identify a type — names vary by workspace, and neither base package ships
-  a `Stage` type (the YAML staging type is `Work`, `base-node-types:::204`;
-  the SQL one is also `Work`, id `SQLWork` on Snowflake (`707` before 2.2.0),
-  `705` on BigQuery, `708` on Databricks). `nodeMetadataSpec.config` holds the config
+  a `Stage` type (the staging type is named `Work` in both, YAML in one and
+  SQL in the other, so check `fileVersion`; read the `id` from the file). `nodeMetadataSpec.config` holds the config
   DEFAULTS a hand-authored node must copy into `operation.config`: run
-  templates gate their DML on those values (Work-204 on
+  templates gate their DML on those values (the YAML `Work` on
   `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so an
   empty `config: {}` renders zero run SQL.
 - **create.sql.j2** (DDL) and **run.sql.j2** (DML) — Jinja templates.

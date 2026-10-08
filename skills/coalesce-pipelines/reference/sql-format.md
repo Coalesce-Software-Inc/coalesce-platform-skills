@@ -51,8 +51,8 @@ it; `coa create`/`coa run` do not — skip validate and they render the node's
 columns as **EMPTY** (`columns: []`) and emit a zero-column table. The built-in common types (Source, Stage, View, Dimension, Fact,
 Persistent Stage) are YAML types; using them in a `.sql` file triggers this
 trap. Never assume a name or a kind: the YAML base package `coa init`
-installs ships no `Stage` type (its staging type is a YAML `Work`,
-`base-node-types:::204`), and SQL node types come from a separate package,
+installs ships no `Stage` type (its staging type is a YAML `Work`), and SQL
+node types come from a separate package,
 Base Node Types - SQL, that `coa init` does not install (see
 coalesce-workspace-config, "Getting SQL node types"). If no SQL node type
 exists, run `coa install` and re-check `nodeTypes/` and
@@ -295,9 +295,10 @@ SELECT
 FROM {{ ref("STG", "STG_CUSTOMERS") }}
 ```
 
-(`"<alias>:::<id>"` stands for the SQL `Work` type from Base Node Types - SQL
-— id `SQLWork` on Snowflake from 2.2.0 (`707` before), with `<alias>` whatever the workspace's package
-declaration names; read it verbatim off the materialized `definition.yml`.
+(`"<alias>:::<id>"` stands for the SQL `Work` type from Base Node Types - SQL;
+read the id verbatim off its materialized `definition.yml`, which already
+carries the workspace's alias. Ids differ by platform and can change between
+releases, so never reuse one from another workspace or from memory.
 `@writeMode`, `@not_null`, and `@uniqueness` work only because that type
 declares them. `@isBusinessKey` / `@isChangeTracking` go on a type that
 declares them, such as the package's SQL `Dimension`.)
