@@ -22,9 +22,8 @@ layers build on a stable name. `coa describe sql-format` and `coa describe node-
 **The staging-layer type's NAME varies by workspace — do not assume `Stage`.**
 Neither base node types package ships a `Stage` type; the staging type is
 named `Work` in both. The YAML base package that `coa init` installs has a
-YAML `Work` (`base-node-types:::204`); the SQL `Work` is in the separate Base
-Node Types - SQL package (`<alias>:::SQLWork` on Snowflake, `707` before
-2.2.0). Naming a
+YAML `Work`; the SQL `Work` is in the separate Base Node Types - SQL package.
+Naming a
 type that isn't there fails with
 `error[missingNodeType]: node type "Stage" is not available`. So discover the
 type before you write anything: list `nodeTypes/` and
@@ -137,7 +136,7 @@ double-quoted `ref()` with BOTH args:
 
 ```sql
 @id("3f29c8a1-7b04-4e6d-9c2a-1d5e8f0a6b73")
-@nodeType("<alias>:::SQLWork")
+@nodeType("<alias>:::<id>")
 
 SELECT
     "C_CUSTKEY"    AS "C_CUSTKEY",
@@ -146,12 +145,12 @@ SELECT
 FROM {{ ref("SRC", "CUSTOMER") }} CUSTOMER
 ```
 
-In the example above, `"<alias>:::SQLWork"` stands in for the actual SQL staging
-type ID from step 0 — the SQL `Work` from Base Node Types - SQL on Snowflake,
-with `<alias>` whatever the workspace's declaration names. Substitute the real
-SQL type ID verbatim as the type's `definition.yml` on disk spells it. Never
-use `base-node-types:::204` here: that is the YAML `Work`, and a `.sql` node
-on it renders no columns. Do NOT write `@nodeType("Stage")` on the assumption that a `Stage`
+In the example above, `"<alias>:::<id>"` stands in for the actual SQL staging
+type ID from step 0, usually the SQL `Work` from Base Node Types - SQL.
+Substitute the id verbatim as the type's `definition.yml` on disk spells it;
+ids differ by platform and release, so never reuse one from memory. Never use
+the YAML `Work` here (no `fileVersion` or `fileVersion: 1`): a `.sql` node on
+it renders no columns. Do NOT write `@nodeType("Stage")` on the assumption that a `Stage`
 type exists: the base packages ship none, and a plain built-in name resolves
 only when a `fileVersion: 2` type with that exact `id` is on disk (the
 built-in `Stage`/`View`/… types `coa init` writes when the base package is
@@ -187,7 +186,7 @@ Run the core loop and fix issues before moving on:
    upgrading an in-use type).
 3. `coa run -d <dir> --include "{ <NAME> }" --dry-run --verbose` — mandatory,
    not optional. `create --dry-run` passes nodes that can never load data:
-   node type run templates gate their DML on config values (Work-204 gates the
+   node type run templates gate their DML on config values (the YAML `Work` gates the
    INSERT on `config.insertStrategy == 'INSERT'`, the truncate on
    `config.truncateBefore`), so a node whose `config` lacks the type's
    defaults renders ZERO run SQL. Empty run SQL here means fix `config`

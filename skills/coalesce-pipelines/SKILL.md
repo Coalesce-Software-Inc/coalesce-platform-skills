@@ -132,10 +132,9 @@ via git push, then plan/deploy in the Coalesce web UI or CI.
 6. Use the correct node type per layer (staging → persistent staging →
    fact/dimension → view); don't use the staging type for everything. NODE
    TYPE NAMES VARY BY WORKSPACE — never assume a type called `Stage` exists.
-   In both base packages the staging-layer type is named `Work` — YAML
-   `base-node-types:::204`, SQL `<alias>:::SQLWork` (Snowflake; `707` before
-   Base Node Types - SQL 2.2.0) — so check the
-   `fileVersion`, not just the name. Discover the real names before
+   In both base packages the staging-layer type is named `Work` (YAML in one,
+   SQL in the other), so check the `fileVersion`, not just the name, and take
+   the `id` from the `definition.yml`, never from memory. Discover the real names before
    naming one: list `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/` and
    read each `definition.yml` (`name`, `description`, `nodeMetadataSpec`).
    Plain built-in names (`Stage`, `View`, `Dimension`, `Fact`,
