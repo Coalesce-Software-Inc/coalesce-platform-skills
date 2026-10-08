@@ -79,10 +79,11 @@ step: coalesce-workspace-config ("Getting SQL node types") and
 
 - `@id("<UUID>")` — stable, immutable identifier. PREFER a fresh UUID v4 for
   new nodes. NEVER reuse or modify an existing `@id` (node or column).
-- `@nodeType("<TypeID>")` — must match a node type in `nodeTypes/<ID>/` (the
-  ID after the last dash in the folder name) or a package node type ID of
-  the form `"<alias>:::<id>"`, read verbatim off the materialized
-  `definition.yml`.
+- `@nodeType("<TypeID>")` — a package node type ID of the form
+  `"<alias>:::<id>"`, read verbatim off the materialized `definition.yml`, or
+  a workspace-local type's `id` field in its
+  `nodeTypes/<DisplayName>-<ID>/definition.yml`, never an ID parsed from the
+  folder name.
 
 Keep `@id` and `@nodeType` as the first lines. Other node-level annotations
 (`@description`, `@materializationType`, `@deployDisabled`, and whatever the

@@ -89,7 +89,8 @@ so always confirm with `coa run --include "{ NAME }" --dry-run --verbose`.
 (`Source`, `Stage`, `View`, `Dimension`, `Fact`, `persistentStage`) or a
 numeric string for a workspace/package type: `sqlType: "41"` resolves to
 `nodeTypes/PersistentStage-41/`, `"42"` to `nodeTypes/Stage-42/`. Resolve one
-by looking for the folder whose suffix after the last dash matches.
+by matching the `id` field in each `nodeTypes/*/definition.yml`, not the folder
+name: names and ids can both contain dashes.
 
 **The names available VARY BY WORKSPACE — check before you write one.** The
 built-in names resolve only where those built-in YAML types exist in
@@ -217,7 +218,7 @@ with `type: sourceInput`, `sqlType: Source`, and a single
 | What are this node's upstreams? | `sourceMapping[].dependencies[]` (and the `ref()` calls in `joinCondition`) |
 | What are its downstreams? | `coa create --include "{ NAME }+" --dry-run`, or grep `nodeName: NAME` across `nodes/` |
 | What's the merge/SCD key? | columns with `isBusinessKey: true` / `keyColumnType` |
-| What node type / layer? | `operation.sqlType` → `nodeTypes/<Name>-<sqlType>/definition.yml` or `.coa/cache/packages/*/nodeTypes/<Name>-<id>/definition.yml` |
+| What node type / layer? | `operation.sqlType` → the `nodeTypes/*/definition.yml` or `.coa/cache/packages/*/nodeTypes/*/definition.yml` whose `id` matches |
 | Table or view? | `operation.materializationType` |
 
 Prefer `coa` over reading raw YAML when you can: `coa create -d <dir>
