@@ -96,6 +96,18 @@ you took. See coalesce-workspace-config.
   `@description`; node types may DECLARE more in their `annotations:` block —
   an undeclared or misspelled annotation is accepted and silently does
   nothing.
+- System columns: read the node type's `annotations:` block before writing
+  the SELECT. Column annotations whose description says it is a system column
+  (e.g. Dimension's `@isSurrogateKey`, `@isSystemVersion`,
+  `@isSystemCurrentFlag`, `@isSystemCreateDate`, `@isSystemUpdateDate`,
+  `@isSystemEndDate`) are columns the UI adds when a node is created and
+  `coa` does not. Add each one the node needs (the description says when each
+  is required, e.g. SCD Type 1 vs Type 2) as a SELECT line using the
+  "Expected expression" in its description, e.g.
+  `1 AS "SYSTEM_VERSION" @isSystemVersion`. If the type has a
+  `sqlInitializationTemplate`, that template is the SELECT the UI would
+  generate; use it as the reference for which columns to include and in
+  what order. Details: the sql-format reference.
 
 ## Creating a V1 (.yml) node
 
@@ -108,7 +120,7 @@ Copy the column list from the imported source node in `nodes/` rather than
 inventing one: names, `dataType`, and the upstream `columnCounter` values you
 need for lineage all live there.
 
-Two values you cannot guess:
+Three things you cannot guess:
 
 - **`sqlType`** — the node type's real name or id, read off disk. Type names
   vary by workspace: list `nodeTypes/` and
@@ -127,6 +139,12 @@ Two values you cannot guess:
   `coa create --dry-run` yet renders ZERO run SQL — a node that can never load
   data. Typical staging values: `insertStrategy: INSERT`,
   `truncateBefore: true`, `testsEnabled: false`.
+- **System columns** — if the type's `nodeMetadataSpec` has a
+  `systemColumns` list, add one column per entry (Dimension, Persistent Stage,
+  Fact, Copy Into and many others do; staging types such as `Work` usually do
+  not). The UI adds these when a node is created; `coa` never does, and
+  `coa validate` does not flag them as missing. Field-by-field mapping:
+  `coalesce-v1-yaml-nodes`, authoring checklist step 6.
 
 ```yaml
 fileVersion: 1
