@@ -114,8 +114,9 @@ resolvable id in `<alias>:::<id>` form — that exact id is the `@nodeType()`
 value. The tree is derived: `coa install` regenerates it, so never edit it
 (`.coa/cache/packages.json` is the machine cache the tree mirrors). Discovery
 is file-system based — read those folders plus `nodeTypes/`, which holds only
-workspace-local types; there, the `<ID>` after the last dash is the
-`@nodeType()` value. Each node type folder holds:
+workspace-local types; there, the `id` field in each `definition.yml` is the
+`@nodeType()` value. Never parse it from the folder name: names and ids can
+both contain dashes. Each node type folder holds:
 
 - **definition.yml** — `{ isDisabled, name, id, type: "NodeType", fileVersion,
   metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML

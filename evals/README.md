@@ -36,29 +36,9 @@ KEY or SECRET.
 
 ## Running
 
-```sh
-evals/run.sh                    # the live case, one run per arm
-evals/run.sh --case '02-*'      # a different case; your flags override the defaults
-evals/run.sh --print            # show the command without running it
-```
-
-`run.sh` sources `.env`, maps the four names above that the sandbox would
-otherwise strip, checks every variable resolves (reporting names only, never
-values), and derives the sandbox network grants from the configuration so no
-real endpoint is written into this repository. Run it from the worktree whose
-checkout you want to test: `claude plugin eval .` tests the plugin at that path.
-
-It passes `--scaffold`, which runs each case's `setup.sh` as you and unconfined,
-and `--keep-temp`, which preserves the sandbox so `tools/trace-metrics.py` can
-read the traces.
-
-Each live run **creates a cloud Environment and does not delete it.** Clean up
-afterwards or they accumulate.
+See [EVALS.md](../EVALS.md) at the repository root for setup, the run command,
+how to evaluate an open pull request, and how to read the results.
 
 ## Reading the results
 
-`tools/trace-metrics.py evals/results/*/aggregate-result.json` reports effort
-per arm — turns, bash and `coa` call counts, CLI errors, per-verb retries —
-next to the score. Prefer it to the score alone: with a high `max_turns` both
-arms usually reach a correct artifact, so the score saturates while the effort
-gap does not.
+See [EVALS.md](../EVALS.md).

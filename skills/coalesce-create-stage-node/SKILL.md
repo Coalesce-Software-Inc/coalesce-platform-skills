@@ -50,7 +50,7 @@ Check what staging type actually exists:
   layout and `definition.yml` fields; it does not list what is installed.)
 - A workspace-local definition, if any, lives in
   `nodeTypes/<DisplayName>-<ID>/definition.yml`; the `@nodeType()` value is the
-  `id` field (also the part after the last dash in the folder name). Read its
+  `id` field (read it from the file, never from the folder name). Read its
   `fileVersion` (absent or `1` = V1; `2` = V2). `coa describe schema nodeType`
   documents the shape.
 
