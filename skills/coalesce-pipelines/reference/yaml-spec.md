@@ -128,7 +128,13 @@ both contain dashes. Each node type folder holds:
   DEFAULTS a hand-authored node must copy into `operation.config`: run
   templates gate their DML on those values (Work-204 on
   `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so an
-  empty `config: {}` renders zero run SQL.
+  empty `config: {}` renders zero run SQL. `nodeMetadataSpec.systemColumns`
+  lists the columns a hand-authored node must add itself (the UI adds them
+  when a node is created; `coa` does not): each entry has `displayName`
+  (may contain `{{NODE_NAME}}`), `attributeName` (the column flag to set,
+  e.g. `isSystemVersion`), `dataType`, `transform`, and `placement`. See
+  `coalesce-v1-yaml-nodes` authoring checklist step 6. V2 types declare
+  system columns as annotations instead; see the sql-format reference.
 - **create.sql.j2** (DDL) and **run.sql.j2** (DML) — Jinja templates.
 
 **fileVersion 1 vs 2:** V2 `.sql` nodes require `fileVersion: 2` in the node
