@@ -35,7 +35,10 @@ project you are working in.
    elsewhere in the repo, such as `schema.yml`/`*.yml` with `tests:`/`data_tests:`, SYNQ
    `*.yaml` check configs, SQLMesh `audits`, Soda `checks.yml`, GE suites or `tests/*.sql`.
    Copy their structure, naming, file placement and severity conventions. If there is no
-   format and the user named none, ask before inventing one.
+   format and the user named none, ask before inventing one. If the project uses
+   Coalesce Quality YAML (a file with `version: v1beta2` and `entities:`), follow
+   *Coalesce Quality (SYNQ) YAML* below for field names and behavior. Do not write
+   that format from memory.
 2. **Understand the asset.**
    - Schema: column types, nullability, primary or unique keys.
    - Code: the SQL or model that builds it. CASE branches, filters, joins, COALESCEs and
@@ -63,7 +66,7 @@ project you are working in.
 7. **Write the tests** in the project's format, each with a short explanation (see
    *Explanations*).
 8. **Validate** with the project's own tooling if there is any, such as compile, parse or
-   dry-run. Run the new tests once if you can. A test that fails on its first run needs a
+   dry-run (for Coalesce Quality, `synqcli deploy <files> --dry-run`). Run the new tests once if you can. A test that fails on its first run needs a
    look: it has either found a real issue or encoded a wrong rule. Report which.
 
 ## Test catalog
@@ -245,12 +248,108 @@ You will not always know the target format ahead of time. Map concepts onto it l
 2. If the format has no native construct for a concept, express it as the format's
    **custom SQL or assertion** construct, with the semantics defined above.
 3. If the format cannot express it at all, such as a time window on uniqueness, **say so**
-   and either drop the refinement and explain the trade-off, or skip the test.
+   and either drop the refinement and explain the trade-off, or skip the test. Don't skip
+   a test only because you are unsure of the syntax. Look it up, or use the format's
+   custom SQL construct.
 4. Keep the **inclusive or exclusive and NULL semantics** the same as above. When the
    native construct behaves differently (for example, an accepted-values test that fails
    on NULL), adjust or note it.
 5. Put tests where the project keeps them and follow its naming, tagging, ownership and
    severity conventions.
+
+## Coalesce Quality (SYNQ) YAML
+
+Coalesce Quality tests live in YAML files deployed with `synqcli deploy`. The editor
+schema is `https://schemas.synq.io/synq-monitors/v1/config.schema.json`. The schema
+rejects unknown fields, so one wrong key fails the whole deploy.
+
+```yaml
+# yaml-language-server: $schema=https://schemas.synq.io/synq-monitors/v1/config.schema.json
+version: v1beta2
+namespace: analytics-orders
+defaults:
+  severity: ERROR
+entities:
+  - id: <entity id, copied exactly from existing config or the Coalesce Quality UI>
+    tests:
+      - type: not_null
+        columns: [customer_id]
+    monitors:
+      - id: fct_orders_freshness
+        type: freshness
+        expression: loaded_at
+```
+
+- Add tests to the existing entry for the asset under `entities[].tests`. Keep
+  `version: v1beta2`. A file without it is read in a legacy layout.
+- Never guess an entity `id`, including the one a `relationships` test points at. Copy it
+  from another config file in the repo. If no file names it, ask for it.
+- `monitors:` on the same entity are existing coverage too. A `freshness` monitor already
+  covers freshness, so don't add a `freshness` test next to it.
+
+### Fields per test type
+
+Every test also accepts `id`, `name`, `description`, `severity` (`INFO`, `WARNING` or
+`ERROR`, not `WARN`), `select_columns`, `schedule`, `timezone` and `save_failures`.
+
+| Concept | `type` | Required fields | Optional fields |
+|---|---|---|---|
+| Not null | `not_null` | `columns: [..]` | |
+| Empty | `empty` | `columns: [..]` | |
+| Accepted values | `accepted_values` | `column`, `values: [..]` | |
+| Rejected values | `rejected_values` | `column`, `values: [..]` | |
+| Unique | `unique` | `columns: [..]` | `time_partition_column`, `time_window_seconds` |
+| Relationships | `relationships` | `references` (see below) | `ignore_nulls`, `time_partition_column`, `time_window_seconds` |
+| Freshness | `freshness` | | `time_partition_column`, `time_window_seconds` |
+| Minimum value | `min_value` | `column`, `min_value` | `strictly` |
+| Maximum value | `max_value` | `column`, `max_value` | `strictly` |
+| Range | `min_max` | `column`, `min_value`, `max_value` | `strictly` |
+| Relative time | `relative_time` | `column`, `relative_column` | |
+| Business rule | `business_rule` | `sql_expression` | |
+| Custom query | `business_query` | `sql_query` | `evaluators` |
+
+Field names to get right: `columns` is a list and `column` is a single name. The custom
+SQL field is `sql_expression`, not `sql` or `expression`. There is no `custom_sql` type.
+
+```yaml
+- type: relationships
+  references:
+    - entity: <id of the referenced asset>
+      columns:
+        - source: customer_id
+          reference: customer_id
+  ignore_nulls: true
+  time_partition_column: ordered_at
+  time_window_seconds: 2592000   # 30 days
+```
+
+### How each type behaves
+
+These come from the SQL that Coalesce Quality generates for each type. Where the public
+examples disagree, these are correct.
+
+- **`relative_time` fails when `column > relative_column`.** Put the **earlier** timestamp
+  in `column` and the later one in `relative_column`: `column: ordered_at`,
+  `relative_column: shipped_at`. Some published examples show the reverse
+  (`column: ship_date`, `relative_column: order_date`). That version flags every
+  correctly ordered row. Rows where either side is NULL pass.
+- **`relationships` fails on a NULL foreign key unless `ignore_nulls: true` is set.**
+  Optional relations need `ignore_nulls: true`. Leave it off only when NULL is invalid
+  too. That also covers not-null, so don't add a separate not-null test.
+- **`business_rule` reports rows where `sql_expression` is TRUE.** Write the condition
+  for a *bad* row, such as `status = 'shipped' and shipped_at is null`. An expression
+  that describes a good row flags every good row. Write `{{ table }}` to refer to the
+  asset in a subquery. It is the only placeholder allowed.
+- **`accepted_values` lets NULL through** (`col NOT IN (..)`). Add a `not_null` test if
+  NULL is invalid. `rejected_values` lets NULL through as well.
+- **`empty` catches NULL as well as blank text**, so it never needs a `not_null` partner.
+- **`min_value`, `max_value` and `min_max` are inclusive** unless `strictly: true`. NULL
+  passes.
+- **`unique` and `relationships` windows** keep only rows where
+  `time_partition_column >= now - time_window_seconds`. Use the row-creation or load
+  timestamp.
+- **`freshness`** fails when the newest `time_partition_column` value is older than
+  `time_window_seconds`.
 
 ## Worked example
 
@@ -372,3 +471,6 @@ freshness         loaded_at, window 36h
 - [ ] Custom SQL uses the asset's dialect, flags *invalid* rows (or is inverted correctly
       for the format) and handles NULLs.
 - [ ] The tests parse or compile with the project's tooling.
+- [ ] Coalesce Quality YAML: each field matches the table in *Fields per test type*,
+      `relative_time` puts the earlier column in `column`, optional foreign keys set
+      `ignore_nulls: true`, and every entity id is copied, not guessed.
