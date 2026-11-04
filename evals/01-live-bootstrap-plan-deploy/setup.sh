@@ -27,7 +27,10 @@ chmod +x "$TOOLS/bin/coa"
 # (path only; the file itself is copied below) and expand ~ against the operator's real home.
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 [ -f "$REPO_ROOT/.env" ] && { set +u; set -a; . "$REPO_ROOT/.env"; set +a; set -u; }
-REAL_HOME="$(dscl . -read "/Users/$(id -un)" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"; [ -n "$REAL_HOME" ] || REAL_HOME="/Users/$(id -un)"
+# dscl on macOS, getent on Linux (CI runners).
+REAL_HOME="$(dscl . -read "/Users/$(id -un)" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+[ -n "$REAL_HOME" ] || REAL_HOME="$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f6)"
+[ -n "$REAL_HOME" ] || REAL_HOME="/Users/$(id -un)"
 KEY_SRC="${EVAL_SNOWFLAKE_PK_FILE:-${DEV_AGENT_SNOWFLAKE_PK:-}}"
 KEY_SRC="${KEY_SRC/#\~/$REAL_HOME}"; KEY_SRC="${KEY_SRC/#$HOME\//$REAL_HOME/}"
 [ -n "$KEY_SRC" ] && [ -f "$KEY_SRC" ] || { echo "setup.sh: EVAL_SNOWFLAKE_PK_FILE or DEV_AGENT_SNOWFLAKE_PK (from .env) must name a readable key file (HOME=$HOME REAL_HOME=$REAL_HOME, got: '$KEY_SRC')" >&2; exit 1; }

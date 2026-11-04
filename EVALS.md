@@ -98,6 +98,34 @@ Two related traps:
   lazily and go stale after the base branch moves. Do the merge yourself.
 - Clean up when you are done: `git worktree remove --force /tmp/eval-pr<N>`.
 
+## Evaluating a pull request from GitHub Actions
+
+The **Plugin eval** workflow (`.github/workflows/plugin-eval.yml`) does the
+steps above on a GitHub runner and posts the result as a comment on the pull
+request. It only runs when started by hand, because of the cost.
+
+```sh
+gh workflow run plugin-eval.yml -f pr=<N> -f case='02-*'   # cheap smoke test
+gh workflow run plugin-eval.yml -f pr=<N>                  # the live case
+```
+
+It merges the pull request's exact head commit into `develop`, refuses a pull
+request from a fork unless `allow_fork` is set, and runs one eval at a time,
+because every run shares one cloud project. Inference goes through Vertex AI.
+The comment shows scores, the effort numbers from `trace-metrics.py`, and failed
+graders, with secret values masked. The full report is attached to the run as a
+download for 14 days.
+
+It reads its configuration from a GitHub environment named `plugin-evals`:
+
+| kind | names |
+|---|---|
+| secrets | `EVAL_COA_CLOUD`, `EVAL_GH_CRED`, `EVAL_SNOWFLAKE_PRIVATE_KEY` (the `.p8` file's contents, not its path) |
+| variables | `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `ANTHROPIC_VERTEX_PROJECT_ID`, `CLOUD_ML_REGION`, and the non-secret `EVAL_*` values in `evals/README.md` |
+
+The service account needs the Vertex AI User role in that project, and the
+workload identity provider must trust this repository.
+
 ## Reading the results
 
 Each run writes `evals/results/<timestamp>/` with an `aggregate-result.json` and
