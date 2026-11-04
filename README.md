@@ -27,6 +27,10 @@ enforced by whatever harness runs the agent, using its own permission model.
   `coalesce-cloud-api`, `coalesce-git-publication`, `coalesce-deploy` (plan,
   deploy, refresh a cloud Environment), `coalesce-review-risk`,
   `coalesce-transform-mcp-install`.
+- `coalesce-reflect` — end-of-session retro that turns what went wrong into
+  proposed skill edits and, with your approval, opens a pull request here. If
+  you can't push to this repo it forks it into your GitHub account first.
+  Needs `git` and a logged-in `gh`; without them it writes a patch file.
 - Task recipes: `coalesce-create-stage-node`, `coalesce-add-column`,
   `coalesce-rename-node-cascade`, `coalesce-create-job`,
   `coalesce-install-package` (add a Marketplace package: registry lookup,
