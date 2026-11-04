@@ -19,13 +19,16 @@ job/subgraph/location/env/nodeType shapes, missing `data.yml`).
 - `coa describe schema <type>` — `node`, `nodeType`, `job`, `subgraph`,
   `locations`, `environment`, `macro`, `workspace`, `data`
 - `coa describe command <name>` — `create`, `run`, `validate`, etc.
+- The describe text still says "V1" for YAML nodes and "V2" for SQL nodes
+  (Coalesce's former names); read V1 as YAML and V2 as SQL.
 
 ## Core loop (one node at a time)
 
 Define → validate → dry-run → create → run → verify → iterate. Use `-d <repo>`
 on every command (the repo root, where `data.yml`/`locations.yml`/`nodes/` live):
 
-1. **Define** — write/edit `nodes/<LOCATION>-<NAME>.sql` (V2) or `.yml` (V1).
+1. **Define** — write/edit `nodes/<LOCATION>-<NAME>.sql` (SQL node) or `.yml`
+   (YAML node).
 2. **Validate** — `coa validate -d <repo>` (add `--json` for machine output).
    Zod schema checks on every YAML file plus 15 offline graph scanners (broken
    refs, missing types, duplicate names, bad storage locations). No warehouse
@@ -188,9 +191,12 @@ re-running `coa init` (or asking the user to) is the fix. Additional
 Marketplace packages are declared per the coalesce-install-package skill
 (registry lookup for the release ID, then `packages/<alias>.yml`) — never
 improvise the declaration or other shared config.
-This is how the base node types package for the platform (declared by
-`coa init` in `packages/base-node-types.yml`) becomes usable — it is the fix
-for "no V2 node type available", never hand-writing one. It materializes each
+This is how declared packages become usable. `coa init` declares only the
+YAML base node types package (`packages/base-node-types.yml`, all
+`fileVersion: 1`); SQL node types need the separate Base Node Types - SQL
+package declared first (coalesce-install-package, with the user's OK).
+Installing a package — never hand-writing a node type — is the fix for "no
+SQL node type available". It materializes each
 package type as a READ-ONLY file tree at
 `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/` (definition.yml plus
 `create.sql.j2` / `run.sql.j2`), and every materialized `definition.yml`

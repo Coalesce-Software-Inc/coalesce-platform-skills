@@ -30,7 +30,7 @@ Three identifiers, easy to confuse:
 
 1. Confirm the workspace platform: `platformKind` in `data.yml` (absent means
    `snowflake`). Only install packages whose `platformKind` matches; the
-   platform is also the middle segment of a V2 Package ID.
+   platform is also the middle segment of a three-segment Package ID.
 2. `ls packages/` — see what is already declared. Each file is one package,
    named after its alias. If the package is already declared, this is an
    upgrade (see below), not an install.
@@ -83,7 +83,8 @@ registry (lower environments do not mirror production). Fall back to 1b.
 
 **1b. You only know roughly what the user wants** ("the Cortex package",
 "something for dynamic tables"). Search the full listing, restricted to
-certified Coalesce-published V2 packages for the workspace platform:
+certified Coalesce-published packages with a three-segment ID for the
+workspace platform:
 
 ```sh
 PK=snowflake   # from data.yml
@@ -234,4 +235,4 @@ deletion.
   editing `config`, committing (per coalesce-git-publication) or pushing.
 - NEVER: print the token, put it in a file, or hand-edit `.coa/cache/`;
   author node types to stand in for a package that will not hydrate (fall back
-  to V1 `.yml` nodes instead — see coalesce-pipelines Rule 4).
+  to YAML `.yml` nodes (formerly V1) instead — see coalesce-pipelines Rule 4).
