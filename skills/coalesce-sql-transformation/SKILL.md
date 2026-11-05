@@ -26,8 +26,10 @@ Shared format rules (refs, annotations, V1/V2, naming):
 
 - Edit existing `nodes/<LOCATION>-<NAME>.sql` files.
 - Add/remove/reorder columns; change joins, filters, aggregations, CTEs.
-- Add/update inline column annotations (only the real set: `@isBusinessKey`,
-  `@isChangeTracking`, `@id`, `@description`).
+- Add/update inline column annotations: the native set (`@isBusinessKey`,
+  `@isChangeTracking`, `@id`, `@description`) plus whatever the node type
+  declares in its `annotations:` block, including system columns such as
+  `@isSystemVersion` (see the sql-format reference).
 - Fix SQL syntax or format violations.
 
 ## Constraints
