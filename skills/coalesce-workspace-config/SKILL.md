@@ -4,133 +4,66 @@ description:  Use when a task touches Coalesce shared workspace configuration �
 ---
 <!-- coalesce-node-managed: true -->
 
-> **Prerequisite — load `coalesce-pipelines` first.** If you have not already
-> loaded the `coalesce-pipelines` skill in this session, load it now, read its
-> "Orient first" step, core `coa` loop, and Rules, then return here. This skill
-> assumes those invariants (bare `@id`/`@nodeType` first lines, `fileVersion: 2`
-> node types, one-node-at-a-time validate → dry-run → create loop) are already
-> in context.
+> **Prerequisite:** load `coalesce-pipelines` first if it is not already loaded
+> in this session. This skill assumes its rules, its "Node types" section, and
+> its core loop.
 
 # Workspace Configuration
 
-Scope: the SHARED, high-risk files — `data.yml`, `locations.yml`,
-`workspace.yml`, `environments/`, and node type definitions in `nodeTypes/`.
-Treat `coa describe <topic>` and `coa describe schema <type>` as the source of
-truth — NOT the example files (the bundled example-repository fails
-`coa validate`).
-
-File shapes, the location-name consistency rule, where node types come from, and
-the V2 CTAS template pattern:
+Scope: `data.yml`, `locations.yml`, `workspace.yml`, `environments/`, and node
+type definitions under `nodeTypes/`. File shapes and template patterns:
 [yaml-spec reference](../coalesce-pipelines/reference/yaml-spec.md).
-Credentials and `~/.coa/config`:
+Credentials and profiles:
 [coa-cli reference](../coalesce-pipelines/reference/coa-cli.md).
 
-## GUARDRAIL — surface the choice FIRST
+## Confirm before every edit
 
-Every file in this scope is shared across many nodes; an edit here can
-SILENTLY break unrelated nodes. Before editing `locations.yml`,
-`workspace.yml`, `environments/`, `data.yml`, jobs, macros, or modifying a node
-type that other nodes already use (including bumping its `fileVersion` /
-swapping its template pattern): STOP, explain the impact, and get the user's
-go-ahead. Read-only commands (`coa describe`, `coa validate`, `coa doctor`
-without `--fix`, any `--dry-run`) you may run freely. Never put secrets in repo
-files — credentials live in `~/.coa/config`, managed with `coa profile`, never
-by hand-editing the ini. `workspace.yml` may carry a `profile:` binding: that is
-a profile NAME, not a credential, and it is written by
-`coa profile use <name> -d <dir>` (or `coa init --profile <name>`) rather than
-by editing the file. Changing it repoints every local command in this directory
-at different warehouse credentials, so treat it as shared config: ASK FIRST.
+Each of these files is used by many nodes, and an edit can silently break
+unrelated ones. Before changing any of them, or a node type that nodes
+already use, explain the impact and get the user's go-ahead. Read-only
+commands (`coa describe`, `coa validate`, `coa doctor` without `--fix`, any
+`--dry-run`) need no approval.
 
-**Do NOT author node types** (see "Getting V2 node types" below). Node types
-are search-first and the search ends in a package: base types come from the
-installed base node types package, not from files you write. Creating,
-modifying, upgrading, or extending anything under `nodeTypes/` requires the
-user's explicit request and approval.
+- Never put secrets in repo files. Credentials live in `~/.coa/config`,
+  managed with `coa profile`.
+- The `profile:` key in `workspace.yml` is a profile name written by
+  `coa profile use` or `coa init --profile`, not by hand. Changing it repoints
+  every local command in the directory at different credentials, so it also
+  needs approval.
 
-## The fileVersion 1 vs 2 trap
+## Node types
 
-V2 `.sql` nodes REQUIRE a node type with `fileVersion: 2` in its
-`definition.yml`. With fileVersion 1 (or absent), a `.sql` node parses to
-`columns: []` — no error, but broken DDL/DML at render.
+Finding and choosing a type is covered in coalesce-pipelines ("Node types").
+The rules that matter here:
 
-The remedy is never to write a template: point `@nodeType` at a V2 type from
-the installed base node types package (hydrate with `coa install` if none are
-present — see below). For reviewing an existing type's templates: current
-`coa` INFERS `col.dataType` for V2 nodes (verified: fully typed DDL renders
-even for aggregate SELECTs), so explicit-column DDL templates work; older
-builds surfaced `UNKNOWN`, and the CTAS pattern (iterate `sources` →
-`source.columns`, guard create with `WHERE 1=0`) remains the conservative
-fallback. Whichever pattern a type uses, PROVE it with
-`coa create --dry-run --verbose` before authoring nodes against it. Full
-template example in the yaml-spec reference.
+- V2 types are not authored. They come from the base node types package, which
+  `coa init` declares in `packages/base-node-types.yml` and `coa install`
+  hydrates. `packages/` shows which packages the workspace expects; if you are
+  unsure which the org uses, ask.
+- If no V2 type can be had (the base package exists only in the production
+  registry; lower environments return 404), author nodes as V1 `.yml`. Do not
+  create a `nodeTypes/` folder to fill the gap, and do not stop.
+- Do not fix a `.sql` node with empty columns by bumping its type's
+  `fileVersion`. Point `@nodeType` at a V2 package type instead. Upgrading a
+  type changes the DDL/DML of every node that uses it.
+- A custom type is only for something net-new that the user explicitly asks
+  for. Ask first, then follow `coa describe node-types` and
+  `coa describe schema nodeType`.
 
-## Getting V2 node types
+When reviewing an existing type's templates: current `coa` infers
+`col.dataType` for V2 nodes, so explicit-column DDL works; older builds
+surfaced `UNKNOWN`, and the CTAS pattern in the yaml-spec reference is the
+conservative choice. Either way, prove a type with `coa create --dry-run
+--verbose` before authoring nodes against it.
 
-V2 node types are NOT authored. They ship in the base node types package for
-your platform, which `coa init` declares in `packages/base-node-types.yml` and
-`coa install` hydrates. Hydrated package types show up as package node types
-with IDs of the form `<alias>:::<id>` — that is the normal value for
-`@nodeType()`.
+## Workflow
 
-**Find them — search first; node type discovery is file-system based:**
-
-- `nodeTypes/<DisplayName>-<ID>/definition.yml` — the workspace's own types.
-- `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/definition.yml` — the
-  installed package types, materialized as a READ-ONLY file tree by
-  `coa install` (definition.yml plus `create.sql.j2` / `run.sql.j2`). Each
-  materialized `definition.yml` carries the resolvable id in `<alias>:::<id>`
-  form — that exact id is what goes in `@nodeType()`. The tree is derived;
-  `coa install` regenerates it, so never edit it. (`.coa/cache/packages.json`
-  is the machine cache the tree mirrors.)
-- `packages/` (the package declarations) confirms which packages the workspace
-  expects; if unsure which packages the org uses, ask the user.
-
-Read each `definition.yml` you find (`name`, `description`,
-`nodeMetadataSpec`) rather than assuming a type name: **names vary by
-workspace**, and the base packages ship no `Stage` type — their
-staging/work-layer type is `Work` (`base-node-types:::204`). The built-in V1
-names (`Stage`, `View`, `Dimension`, `Fact`, `persistentStage`) resolve only
-where `coa init` wrote those built-in types into `nodeTypes/`, which it does
-when the base package is unavailable. `nodeMetadataSpec` also carries the
-type's `config` defaults, which a hand-authored V1 node must copy — a run
-template gates its DML on them.
-
-**If no V2 type is available:**
-
-1. `coa install -d <dir>` — hydrates declared packages. Safe, run it without
-   asking, then re-check `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`.
-   It hydrates only packages already declared under `packages/` and otherwise
-   prints "No packages to install."; `coa init` writes the base package's
-   declaration, so if `packages/` is absent, re-running `coa init` (ask first)
-   is the fix. To add a different Marketplace package, use
-   coalesce-install-package — never improvise the declaration.
-2. Still none — the base node types package may be unavailable (it exists only
-   in the production registry; lower environments 404). Author the node as a V1
-   `.yml` node and continue; that is supported, not a workaround. Do NOT create
-   `nodeTypes/*` to fill the gap and do NOT stop.
-
-**Custom node types** are only for a genuinely net-new type the user explicitly
-asks for. ASK FIRST, then follow `coa describe node-types` — the authoring
-manual for the format (folder layout, `definition.yml` fields,
-`nodeMetadataSpec`, V2 template pattern) — and `coa describe schema nodeType`.
-Modifying or upgrading a type existing nodes already depend on changes the
-generated DDL/DML for *every* node of that type — always ask.
-
-## Workflow (define → validate → dry-run → verify)
-
-1. Confirm the change with the user (guardrail above).
-2. `coa describe schema <type>` to confirm the exact shape; edit the file.
-3. `coa validate -d <dir>` (add `--json`) — schemas + 15 graph scanners
-   (storage locations, node types, missing types, duplicates).
-4. `coa doctor -d <dir> [--profile <p>]` — verifies
-   data.yml/locations.yml/workspace.yml, auth, and warehouse connectivity.
-   `coa doctor --fix` can bootstrap a missing `workspace.yml` / update
-   `.gitignore` — still a shared-file change, confirm with the user first.
-5. For node-type/template edits, prove the contract holds on BOTH templates:
+1. Confirm the change with the user.
+2. `coa describe schema <type>` for the exact shape, then edit.
+3. `coa validate -d <dir>`.
+4. `coa doctor -d <dir> [--profile <p>]` to check the project files, auth, and
+   warehouse connectivity. `--fix` is itself a shared-config change.
+5. After a node type or template edit, run
    `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --verbose`
-   and the same command with `coa run` (add `--json`) — confirm columns render
-   and SQL is non-empty for affected nodes. `run.sql.j2` is where config
-   gating lives, so a create dry-run alone never proves data would load.
-6. `coa create`/`coa run` execute SQL DIRECTLY against the warehouse — LOCAL
-   development, NOT deploy/publish. Cloud plan/deploy is separate (git push →
-   Coalesce web UI/CI).
+   and the same with `coa run`. Columns must render and the SQL must be
+   non-empty for the affected nodes.
