@@ -8,6 +8,7 @@ Pass `-d <repo>` (the repo root, where `data.yml`, `locations.yml`, and `nodes/`
 
 - Topics: `coa describe` (overview), `concepts`, `sql-format`, `selectors`, `node-types`, `workflow`, `structure`.
 - `coa describe schema <type>`: `node`, `nodeType`, `job`, `subgraph`, `locations`, `environment`, `macro`, `workspace`, `data`.
+- `coa describe schemas` lists every workspace file type.
 - `coa describe command <name>`: `create`, `run`, `validate`, and so on.
 
 These are static manuals, not listings. `coa describe node-types` documents the node type format; it does not list the types this workspace has. Read `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/` for that.
@@ -17,7 +18,6 @@ These are static manuals, not listings. `coa describe node-types` documents the 
 - `coa validate -d <repo>` (`--json` for machine output). Schema checks on every YAML file plus 15 offline graph scanners (broken refs, missing types, duplicate names, bad storage locations). No warehouse and no profile needed. `--include` scopes the scanners only; schema validation always covers all files. The scanners need a `workspace.yml` to map locations. Without one they report "setup failed" and you get schema validation only; `coa doctor --fix` bootstraps the file (ask first).
 - `coa create -d <repo> --include "{ NODE }" --dry-run --verbose` renders the DDL. Check the column list is populated.
 - `coa run -d <repo> --include "{ NODE }" --dry-run --verbose` renders the DML. Empty output means the node's `config` is missing its type's defaults.
-- `coa create` / `coa run` without `--dry-run` execute against the warehouse with the resolved profile's credentials. Local development, not deploy.
 - `coa create -d <repo> --list-nodes` (or `coa run ... --list-nodes`) lists nodes and ids.
 - `coa sources list -d <repo>` lists warehouse tables per location; `coa sources add -d <repo>` scaffolds Source nodes from them.
 
@@ -62,7 +62,7 @@ Every section of `~/.coa/config` is a profile. Manage them with `coa profile` an
 - `delete <name> [-d <dir>]`: refuses `default`. Appends the section to `<config>.backup` first, then clears the binding in `-d` only. Other workspaces bound to it are left dangling.
 - `rename <old> <new> [-d <dir>]`: refuses `default`. Rewrites the binding in `-d` only, writes no backup, and does not rewrite a `[default] profile=<old>` key.
 
-`create`, `set-cloud`, and `init` accept `--non-interactive`; use it so a missing value fails instead of prompting. Profile names may contain letters, digits, `-`, `_`, spaces, `@`, and parentheses. Refused: `.`, `;`, `#`, `]`, line breaks, leading or trailing spaces, and the empty name.
+`create`, `set-cloud`, and `init` accept `--non-interactive`; use it so a missing value fails instead of prompting. `create` and `init` then abort with `Required value missing in --non-interactive mode: <field>`, and `set-cloud` with `A token is required. Pass --token, or drop --non-interactive to be prompted for it.` Profile names may contain letters, digits, `-`, `_`, spaces, `@`, and parentheses. Refused: `.`, `;`, `#`, `]`, line breaks, leading or trailing spaces, and the empty name.
 
 ```
 coa profile create dbx --non-interactive --platformKind Databricks \
@@ -84,8 +84,6 @@ Highest precedence first:
 
 Only commands that act on a workspace directory read the binding: `run`, `create`, `sources`, `install`, `serve`, `doctor`, `init`, `auth warehouse login`, and `coa profile`. Cloud Operations commands do not, so pass `--profile` on those. `coa validate` reads no profile.
 
-Check before reaching for `--profile`: run `coa profile list -d <dir>`. If the workspace is bound, omit the flag, because it overrides the profile the user chose. If nothing is bound, pass `--profile <name>` for the workspace's platform.
-
 ### Platform check
 
 `coa profile use` and `coa init` refuse a profile whose platform disagrees with the workspace:
@@ -94,21 +92,21 @@ Check before reaching for `--profile`: run `coa profile list -d <dir>`. If the w
 - `data.yml` with no recognized `platformKind`: counts as Snowflake.
 - `data.yml` naming a platform: that platform only.
 
-A profile's platform is its `platformKind`, else the one implied by its `snowflakeAuthType` / `databricksAuthType` / `bigQueryAuthType` field, read from the effective profile. The error reads `Profile "dbx" is for databricks, but this is a snowflake workspace.` It appears at bind time from `use`/`init` and at load time from `run`/`create`. Binding a profile with no warehouse credentials succeeds with a warning; local execution fails until they exist.
+A profile's platform is its `platformKind`, else the one implied by its `snowflakeAuthType` / `databricksAuthType` / `bigQueryAuthType` field, read from the effective profile. Only those three fields count: a section holding just `snowflakeAccount` has no platform. `coa init` never rewrites a platform already recorded in `data.yml`. The error reads `Profile "dbx" is for databricks, but this is a snowflake workspace.` It appears at bind time from `use`/`init` and at load time from `run`/`create`. Binding a profile with no warehouse credentials succeeds with a warning; local execution fails until they exist.
 
 ### Credentials
 
-Supported: Snowflake (`Basic`, `KeyPair`, `OAuth`), Databricks (`Token`, `OAuthM2M`), BigQuery (`ServiceAccount`, `ApplicationDefault`). `coa init` and `coa profile create` share one set of per-field flags: `--platformKind <Snowflake|Databricks|BigQuery>` plus that platform's flags. Snowflake OAuth stores only the auth type (and optional client id, secret, redirect URI) in the profile; the tokens come from `coa auth warehouse login -d <dir>`, a browser flow.
+Supported: Snowflake (`Basic`, `KeyPair`, `OAuth`), Databricks (`Token`, `OAuthM2M`), BigQuery (`ServiceAccount`, `ApplicationDefault`). `coa init` and `coa profile create` share one set of per-field flags: `--platformKind <Snowflake|Databricks|BigQuery>` plus that platform's flags. Snowflake OAuth stores only the auth type in the profile (plus the optional `--snowflakeOAuthClientID` / `--snowflakeOAuthClientSecret` / `--snowflakeOAuthRedirectUri`); the tokens come from `coa auth warehouse login -d <dir>`, a browser flow that caches them outside the config and refuses a profile whose auth type is not `OAuth`.
 
 `workspace.yml` holds the profile binding, local location mappings, and runtime parameters, never credentials. Never put secrets in repo files.
 
 ### Failure modes
 
-- A value of literally `true`, `false`, or `null` cannot be stored: the ini parser reads it back as a boolean or null. A write is refused whole (`Refusing to change <path>: the edit would not read back as intended`), and a hand-edited one aborts commands with `Expected profile <p> field <f> to be a string`.
+- A value of literally `true`, `false`, or `null` cannot be stored: the ini parser reads it back as a boolean or null. A write is refused whole (`Refusing to change <path>: the edit would not read back as intended`), and a hand-edited one aborts commands with `Expected profile <p> field <f> to be a string`. `coa profile list` still renders but silently omits that field.
 - A binding or `[default] profile=` naming a deleted profile fails every credential-reading command (`Unable to find profile <name>`, or `profile "<name>" not found. Available: …` from doctor). Fix with `coa profile list`, then `coa profile use <name> -d <dir>` or `unset`.
 - `coa plan` prompts when the repo has uncommitted changes and has no `--non-interactive`; piped, it hangs silently. Commit first or pass `--gitsha <sha>`.
 
 ## Approval gates (`coa describe workflow`)
 
 - Without asking: `coa validate`, `coa describe`, any `--dry-run`, `coa install`, `coa doctor` without `--fix`, `coa profile list` / `show`.
-- Ask first: anything that writes credentials or shared config. That covers `coa init`, `coa doctor --fix`, `coa profile create` / `set-cloud` / `delete` / `rename` / `use` / `unset`, edits to `data.yml`, `locations.yml`, `workspace.yml`, node types, jobs, macros, environments, every Cloud Operations command, and any push to a remote.
+- Ask first: anything that writes credentials or shared config. That covers `coa init`, `coa doctor --fix`, `coa profile create` / `set-cloud` / `delete` / `rename` / `use` / `unset`, edits to `data.yml`, `locations.yml`, `workspace.yml`, node types, jobs, macros, environments, every Cloud Operations command, and a push the user did not ask for.

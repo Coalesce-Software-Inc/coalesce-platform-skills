@@ -20,7 +20,7 @@ Scope: bootstrapping a workspace, diagnosing config, auth, and warehouse connect
 
 When asked what is wrong with a config or connection, diagnose and report; do not repair unless asked.
 
-1. Read what is there: `coa profile list -d <dir>`, `coa profile show <name>` (secrets redacted), the workspace's `data.yml`, `locations.yml`, and `workspace.yml`, and `~/.coa/config` if the CLI output is not enough.
+1. Read what is there: `coa profile list -d <dir>`, `coa profile show <name>` (secrets redacted), the workspace's `data.yml`, `locations.yml`, and `workspace.yml`, and `~/.coa/config` if the CLI output is not enough (never quote its values).
 2. Run `coa doctor -d <dir>` if you may use the network and the user has not ruled it out. Read each check; `Issues found — see above` prints for any warning and doctor exits 0 either way.
 3. Report each defect with the file or profile field it lives in, what is wrong with it, and the fix, and say what you could not verify.
 4. Honor the user's limits exactly. If they say not to run a command, do not run it, including to "just check". Do not edit `~/.coa/config` or run `coa init` / `coa doctor --fix` on your own initiative. Never print a secret.
@@ -36,11 +36,8 @@ Precedence: `--profile`, then the workspace binding (`profile:` in `workspace.ym
 
 Bindings are per workspace directory, which lets workspaces on different platforms coexist. `coa profile use` and `coa init` refuse a profile whose platform disagrees with `data.yml` (no `platformKind` counts as Snowflake; no `data.yml` is unconstrained).
 
-## Credentials
+## Credentials and approval
 
-Platform credentials, `token`, `domain`, and `environmentID` live in `~/.coa/config`. Snowflake (Basic, KeyPair, OAuth), Databricks (Token, OAuthM2M), and BigQuery (ServiceAccount, ApplicationDefault) are supported, with a CLI flag for every field on `coa init` and `coa profile create`. Snowflake OAuth tokens come from `coa auth warehouse login -d <dir>`, a browser flow. `workspace.yml` holds a profile name and local mappings, never credentials. Never put secrets in repo files.
+Credentials live in `~/.coa/config`, never in repo files; `workspace.yml` holds only a profile name and local mappings. Auth types, per-field flags, and failure modes are in the coa-cli reference.
 
-## Approval gates
-
-- Without asking: `coa validate`, `coa describe`, `--dry-run`, `coa install`, `coa doctor` without `--fix`, `coa profile list` / `show`.
-- Ask first: `coa init`, `coa doctor --fix`, `coa profile create` / `set-cloud` / `delete` / `rename` / `use` / `unset`, edits to `data.yml` / `locations.yml` / `workspace.yml`, every Cloud Operations command, and any push. `delete` and `rename` repair only the binding in `-d <dir>`; other workspaces bound to that profile break.
+Ask before `coa init`, `coa doctor --fix`, and any `coa profile` subcommand other than `list` and `show`. `profile delete` and `rename` repair only the binding in `-d <dir>`; other workspaces bound to that profile break.

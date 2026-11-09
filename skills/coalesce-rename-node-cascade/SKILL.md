@@ -37,7 +37,7 @@ Renaming a node means renaming its file and updating every reference to it. Refe
    - Rewrite exact name tokens: `{ <OLD_NAME> }` and `{ name: "<OLD_NAME>" }`.
    - A `steps` entry that is a node id needs no change, because the id did not change.
    - If a twin exists, a name-only token matches both nodes. Leave it unchanged so it keeps matching the twin, and report it in step 8 for the user to decide. Rewriting it would silently drop the twin.
-   - A job in the legacy `steps: [{ selector }]` shape has no `includeSelector` to edit. Do not invent one; report the stale shape.
+   - A job in the legacy `steps: [{ selector }]` shape has no `includeSelector` to edit. Do not invent one; report the stale shape. A subgraph in the legacy `nodes:` shape lists names: update the name and report the stale shape.
 
 6. **Sweep for leftovers.** `coa validate` passes even when a selector names a node that no longer exists, so search for the bare old name in both file contents and file names:
 

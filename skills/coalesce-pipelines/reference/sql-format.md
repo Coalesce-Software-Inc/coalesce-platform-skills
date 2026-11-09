@@ -2,12 +2,7 @@
 
 # Node SQL Format: V2 (.sql) nodes
 
-`coa describe sql-format` and `coa describe concepts` are the source of truth. Which format to author, and how to find a node type, are in the coalesce-pipelines skill. V1 `.yml` nodes are covered by coalesce-v1-yaml-nodes.
-
-## What each format is for
-
-- **V2 `.sql`**: the node's value is its SQL (transforms, joins, metrics, business logic). Columns and data types are inferred from the SELECT.
-- **V1 `.yml`**: the node's value is its configuration. Source nodes, config-driven patterns such as SCD2 Dimensions, and any node whose type has no `fileVersion: 2` definition.
+`coa describe sql-format` and `coa describe concepts` are the source of truth. Which format to author, and how to find a node type, are in the coalesce-pipelines skill. V1 `.yml` nodes are covered by the [V1 nodes reference](v1-nodes.md).
 
 ## File naming
 

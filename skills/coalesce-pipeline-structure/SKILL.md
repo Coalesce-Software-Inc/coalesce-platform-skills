@@ -11,21 +11,19 @@ description: Use when creating, deleting, renaming, or rewiring Coalesce nodes, 
 
 Scope: creating, deleting, renaming, and rewiring nodes, and the job and subgraph files that select them. When unsure of a shape, run `coa describe <topic>` or `coa describe schema <type>`. References: [sql-format](../coalesce-pipelines/reference/sql-format.md), [yaml-spec](../coalesce-pipelines/reference/yaml-spec.md).
 
-In scope without asking: the nodes the user named, and read-only commands. Ask before touching other nodes, node types, jobs, subgraphs, or any other shared config.
-
 ## Impact analysis
 
 - Dependents of NODE: `coa create -d <dir> --include "{ NODE }+" --dry-run`
 - Upstream of NODE: `--include "+{ NODE }"`
 
-Lineage selectors follow `ref()` edges only. Jobs and subgraphs can also name a node, so search for the name as well: `grep -rn "<NAME>" nodes jobs subgraphs`.
+Lineage selectors follow graph edges only, so they miss `ref_no_link` uses, jobs, and subgraphs. Search for those too: `grep -rn "<NAME>" nodes jobs subgraphs`, and `grep -rn "<node id>" subgraphs` (steps are usually node ids).
 
 ## Create a node
 
 1. Pick the node type (coalesce-pipelines, "Node types") and with it the format.
 2. Confirm the name is free: neither `nodes/<LOCATION>-<NAME>.sql` nor `.yml` exists. If one does, stop and tell the user; do not overwrite it or create a variant.
 3. **V2 `.sql`** (a `fileVersion: 2` type exists): the first two lines are a bare `@id("<fresh UUID>")` and `@nodeType("<id from definition.yml>")`, followed by a SELECT that lists its columns explicitly and reads from `{{ ref("LOC", "NAME") }}`. Full format and annotations: sql-format reference. For a 1:1 stage, use coalesce-create-stage-node.
-4. **V1 `.yml`** (no V2 type for what you need, or a config-driven type such as an SCD2 Dimension): follow "Authoring a new V1 node" in coalesce-v1-yaml-nodes. Source nodes come from `coa sources add`, never by hand.
+4. **V1 `.yml`** (no V2 type for what you need, or a config-driven type such as an SCD2 Dimension): follow "Authoring a new V1 node" in the [V1 nodes reference](../coalesce-pipelines/reference/v1-nodes.md). Source nodes come from `coa sources add`, never by hand.
 5. Run the core loop. `coa create --dry-run --verbose --include "{ NODE }"` must show the node with its columns; `coa validate` alone stays green for a node that was silently dropped.
 
 ## Delete a node
@@ -47,9 +45,4 @@ Use coalesce-rename-node-cascade.
 
 ## Jobs and subgraphs
 
-Both are shared config; ask first unless the user requested the change.
-
-- A job is `{ id (integer string), type: Job, fileVersion: 1, name, includeSelector, excludeSelector }`. It has no `steps` array. Recipe: coalesce-create-job.
-- A subgraph is `{ id, type: Subgraph, fileVersion: 1, name, steps }`. It has no `nodes` array. Each step is a node id (a `.yml` node's `id:` or a `.sql` node's `@id`). The serve UI silently drops a step that is not a live node id.
-
-Exact schemas and legacy shapes: yaml-spec reference.
+Both are shared config; ask first unless the user requested the change. Job recipe: coalesce-create-job. Subgraph `steps` are node ids, not names, and the serve UI silently drops a step that is not one. Shapes and legacy forms: yaml-spec reference.

@@ -14,7 +14,7 @@ Scope: the SELECT body of existing `nodes/<LOCATION>-<NAME>.sql` files. Column e
 ## Out of scope here
 
 - Creating or deleting node files (coalesce-pipeline-structure).
-- `.yml` nodes (coalesce-v1-yaml-nodes), jobs, subgraphs, locations, macros.
+- `.yml` nodes ([V1 nodes reference](../coalesce-pipelines/reference/v1-nodes.md)), jobs, subgraphs, locations, macros.
 - Changing `@nodeType`, bumping a type's `fileVersion`, or anything under `nodeTypes/`. If the node's type turns out to be V1 (columns silently empty), stop and ask.
 - Nodes the user did not name.
 

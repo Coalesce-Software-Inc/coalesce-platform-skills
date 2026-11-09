@@ -2,7 +2,15 @@
 
 # Workspace YAML Artifacts
 
-Confirm every shape with `coa describe schema <type>` before editing. All of these files are shared config: ask the user before changing any of them.
+## Editing shared config
+
+Every file here is used by many nodes, so explain the impact and get the user's go-ahead before editing one, or a node type that nodes already use. Then:
+
+1. Check the shape with `coa describe schema <type>` and make the edit.
+2. `coa validate -d <dir>`.
+3. `coa doctor -d <dir> [--profile <p>]` to check the project files, auth, and warehouse connectivity. `--fix` is itself a shared-config change.
+
+Never put secrets in these files.
 
 ## Repository layout
 
@@ -35,7 +43,7 @@ A location name must match everywhere it appears: the node filename prefix, `loc
 `{ profile: <name>, locations: { <NAME>: { database, schema } }, parameters: { <name>: <json-value> } }`.
 
 - `locations` is the local mapping `coa create` / `coa run` use. The validate graph scanners need it to resolve refs.
-- `profile` is the name of a `~/.coa/config` section, never credentials. Write it with `coa profile use <name> -d <dir>` or `coa init --profile <name>`, clear it with `coa profile unset`; do not hand-write it.
+- `profile` is the name of a `~/.coa/config` section, never credentials. Write it with `coa profile use <name> -d <dir>` or `coa init --profile <name>`, clear it with `coa profile unset`; do not hand-write it. `coa profile use` leaves `locations` and `parameters` untouched. Changing the binding repoints every local command in the directory at other credentials, so ask first.
 - `coa doctor --fix` can bootstrap a missing file (ask first).
 
 ## environments/<NAME>.yml
@@ -82,7 +90,7 @@ The serve UI resolves membership as `steps ∩ live-node-ids` and silently drops
 
 ## Node types (nodeTypes/<DisplayName>-<ID>/)
 
-Base node types are not authored here. They ship in the base node types package, declared in `packages/base-node-types.yml` by `coa init` and materialized by `coa install` under `.coa/cache/packages/` (`.coa/cache/packages.json` is the machine cache that tree mirrors). How to find and choose a type is in the coalesce-pipelines skill.
+Base node types are not authored here. They ship in the base node types package, declared in `packages/base-node-types.yml` by `coa init` and materialized by `coa install` under `.coa/cache/packages/` (`.coa/cache/packages.json` is the machine cache that tree mirrors). How to find and choose a type is in the coalesce-pipelines skill. `packages/` shows which packages the workspace expects; if you are unsure which the org uses, ask.
 
 A node type folder holds:
 
@@ -121,7 +129,7 @@ SELECT
 {% endfor %}
 ```
 
-Never write a V2 body as `{{ node.sql }}` or `SELECT *`; either renders a zero-column table. V1 types use explicit-column DDL (`{{ col.name }} {{ col.dataType }}`).
+Never write a V2 body as `{{ node.sql }}` or `SELECT *`; either renders a zero-column table. V1 types use explicit-column DDL (`{{ col.name }} {{ col.dataType }}`). Current `coa` infers `col.dataType` for V2 nodes too, so explicit-column DDL also works there; older builds surfaced `UNKNOWN`, which is why the CTAS pattern is the conservative choice. Prove a type with `coa create --dry-run --verbose` before authoring nodes against it.
 
 After any template edit, run both dry-runs for the affected nodes: `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --verbose` and the same with `coa run`. Config gating lives in `run.sql.j2`, so the create dry-run alone proves nothing about whether data would load.
 

@@ -1,11 +1,4 @@
----
-name: coalesce-v1-yaml-nodes
-description: Use when reading, explaining, editing, or authoring Coalesce V1 YAML nodes (nodes/<LOCATION>-<NAME>.yml) — the node format the UI/API also generates. Covers the file shape, the id-based column lineage graph, safe edits, and the checklist for authoring a new V1 node by hand (Source nodes, config-driven types, or when no fileVersion 2 node type exists).
----
-
 <!-- coalesce-node-managed: true -->
-
-> **Prerequisite:** load `coalesce-pipelines` first if it is not already loaded in this session. This skill assumes its rules, its "Node types" section, and its core loop.
 
 # V1 YAML nodes
 
@@ -29,7 +22,7 @@ Five required top-level keys, nothing else allowed:
 
 `operation.type` selects one of two shapes:
 
-- **`sourceInput`**: a Source node. `sqlType: Source`, `metadata` holds only `columns`, plus a `metadata.join.joinCondition` of the form `FROM {{ ref('SRC', 'TABLE') }}`. Required: `locationName`, `name`, `sqlType`, `type`, `metadata`.
+- **`sourceInput`**: a Source node. `sqlType: Source`, `metadata` holds `columns` and `join.joinCondition` (`FROM {{ ref('SRC', 'TABLE') }}`), and no `sourceMapping`. Required: `locationName`, `name`, `sqlType`, `type`, `metadata`.
 - **`sql`**: every transformation node. Required: `locationName`, `name`, `type`, `isMultisource`, `metadata` (with `columns` and `sourceMapping`), `materializationType` (`table` or `view`).
 
 Other `operation` fields: `database` / `schema` (usually `""`, resolved from mappings), `description`, `deployEnabled`, `config`, `overrideSQL`, `version: 1`.
@@ -98,7 +91,7 @@ Do not:
 
 Removing columns or restructuring `sourceMapping` means cross-wiring ids by hand. Follow the id rules above, and prefer the Coalesce UI when one is at hand.
 
-After any edit run `coa validate` and both dry-runs. The scanners that police V1 nodes: Column Sources / Source Mappings / Dependencies / References (the id graph resolves; a rename shows as `sourceMapping dependency does not resolve: LOC.NAME`), Column Data Types (warning), Column Names, Duplicate Node IDs and Names, Circular Dependencies, Node Type Validity, Storage Locations.
+After any edit run `coa validate` and both dry-runs. The scanners that police V1 nodes: Column Sources / Source Mappings / Dependencies / References (the id graph resolves; a rename shows as `sourceMapping dependency does not resolve: LOC.NAME`), Column Data Types (warning: `dataType` differs from the upstream column's), Column Names, Duplicate Node IDs and Names, Circular Dependencies, Node Type Validity, Storage Locations (`locationName` is listed in `locations.yml` and mapped in `workspace.yml`).
 
 ## Authoring a new V1 node
 

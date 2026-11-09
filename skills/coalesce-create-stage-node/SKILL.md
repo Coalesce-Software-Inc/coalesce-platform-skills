@@ -17,7 +17,7 @@ Follow "Node types" in coalesce-pipelines: list `nodeTypes/` and `.coa/cache/pac
 
 - **It has `fileVersion: 2`:** write a `.sql` node (step 4). Note the type's `id`.
 - **None on disk:** run `coa install -d <dir>` and look again.
-- **Only a V1 staging type exists:** write the node as V1 `.yml` using "Authoring a new V1 node" in coalesce-v1-yaml-nodes, then go to step 5. Do not stop, do not upgrade the type, and never point a `.sql` node at it (the columns would be silently empty).
+- **Only a V1 staging type exists:** write the node as V1 `.yml` using "Authoring a new V1 node" in the [V1 nodes reference](../coalesce-pipelines/reference/v1-nodes.md), then go to step 5. Do not stop, do not upgrade the type, and never point a `.sql` node at it (the columns would be silently empty).
 
 ## 2. Read the source
 
@@ -50,7 +50,7 @@ FROM {{ ref("SRC", "CUSTOMER") }} CUSTOMER
 ## 5. Verify
 
 1. `coa validate -d <dir>`: 0 errors and 0 warnings. If an error points at existing shared config you were not asked to touch, report it; do not edit shared config to make validate pass.
-2. `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the DDL lists every column. An empty column list means the type is V1; go back to step 1.
+2. `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the DDL lists every column. An empty column list means the type is V1 or the SELECT is not explicit; go back to step 1.
 3. `coa run -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the DML is non-empty. Empty run SQL means the node's `config` lacks the type's defaults; fix it against the type's `nodeMetadataSpec`.
 
 Stop after the dry-runs unless the user wants the table materialized.

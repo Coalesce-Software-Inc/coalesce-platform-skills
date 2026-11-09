@@ -7,7 +7,7 @@ description: Use for Git operations in a Coalesce workspace — branching, stagi
 
 # Git Publication
 
-Committing and pushing a branch is how work reaches the Coalesce cloud, where plan and deploy happen as a separate step (coalesce-deploy). `coa create` and `coa run` are local development and publish nothing. A push does not touch the warehouse.
+Committing and pushing a branch is how work reaches the Coalesce cloud; plan and deploy are a separate step (coalesce-deploy). `coa create` and `coa run` publish nothing, and a push does not touch the warehouse.
 
 ## Workflow
 
@@ -15,7 +15,7 @@ Committing and pushing a branch is how work reaches the Coalesce cloud, where pl
 2. `git status`, then create or switch to a task branch. Suggested name: `agent/<task-slug>-<timestamp>`. Never commit to or push `main`/`master` directly.
 3. Stage the intended files by explicit path, not `git add -A`. Work the user already staged stays staged.
 4. Commit with a message that says what changed and why.
-5. **Stop before pushing.** Tell the user the branch and remote and ask them to confirm, even if the original request said to push. A push publishes to a shared remote, so it needs its own yes. Push once they confirm.
+5. Push only when the user asked for it or has approved it. If the request did not mention pushing, stop after the commit, tell the user the branch and remote, and ask.
 6. Report the commit hash, branch, and changed files, and whether the push happened or is waiting on their confirmation. After a push, the next step is plan/deploy, only if the user asks for it.
 
 ## Constraints
