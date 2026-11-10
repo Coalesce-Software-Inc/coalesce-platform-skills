@@ -46,9 +46,7 @@ allow-forms allow-popups"` on the app's own origin. In practice:
 
 - **No access to Coalesce.** `window.parent` is cross-origin: the app cannot
   read Coalesce's DOM, theme, storage, auth, selection, or the watch API from
-  the browser. Older apps that reached into the parent (to follow the selected
-  node or the theme) stopped working when apps moved to their own origin. Do
-  not build on that.
+  the browser.
 - **Blocked:** `alert`, `confirm`, `prompt` (no `allow-modals`; they return
   immediately without showing), file downloads (no `allow-downloads`; save
   output into the workspace instead), and navigating the top window.
