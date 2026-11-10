@@ -106,3 +106,4 @@ Shared config is used by many nodes, and an edit there can silently break unrela
 - **coalesce-deploy**: environments, `coa plan`, `deploy`, `refresh`, run results. All ask first.
 - **coalesce-review-risk**: read-only review of changes.
 - Recipes: **coalesce-create-stage-node**, **coalesce-add-column**, **coalesce-rename-node-cascade**, **coalesce-create-job**, **coalesce-install-package**.
+- **coalesce-create-app**: build a workspace app in `apps/<id>/` that Coalesce Desktop or `coa serve` opens as a tab.

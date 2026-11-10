@@ -27,6 +27,7 @@ References: [coa-cli](../coalesce-pipelines/reference/coa-cli.md) for selectors,
 - Deleted or renamed nodes that still have dependents or stale `ref()`s.
 - One-argument `ref()`, hardcoded `db.schema.table`, or column annotations that are neither native (`@isBusinessKey`, `@isChangeTracking`, `@id`, `@description`) nor declared by the node type.
 - Edits to shared config: `nodeTypes/`, locations, workspace, environments, jobs, macros, `data.yml`, `fileVersion` bumps, template swaps. A new `nodeTypes/` folder counts; ask whether the user requested a custom type.
+- Any change under `apps/`: this is code, not config. A workspace app runs with the user's permissions as soon as anyone opens it in Coalesce. Read the changed files and flag network calls to outside hosts, writes outside the app's data folder, `exec` or `shell: true`, `innerHTML` with workspace values, reads of `~/.coa/config` or other credentials, committed secrets, CORS headers, and a removed `Host` or write check. Rules: [coalesce-create-app](../coalesce-create-app/SKILL.md).
 
 ## Report
 

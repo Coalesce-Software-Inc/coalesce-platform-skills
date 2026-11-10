@@ -31,7 +31,9 @@ enforced by whatever harness runs the agent, using its own permission model.
 - Task recipes: `coalesce-create-stage-node`, `coalesce-add-column`,
   `coalesce-rename-node-cascade`, `coalesce-create-job`,
   `coalesce-install-package` (add a Marketplace package: registry lookup,
-  `packages/<alias>.yml`, `coa install`).
+  `packages/<alias>.yml`, `coa install`), `coalesce-create-app` (build a
+  workspace app in `apps/<id>/` that Coalesce opens as a tab; starter app in
+  its `reference/template.md`).
 - Data quality (`coalesce-quality-*`): `coalesce-quality-test-authoring`
   (decide which data tests an asset needs and write them in the project's
   existing test format).

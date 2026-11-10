@@ -8,6 +8,7 @@ plugin changed rather than what the model can do.
 |---|---|---|
 | `01-live-bootstrap-plan-deploy` | `live` | The full workflow against real infrastructure: bootstrap an empty workspace, build `REGION` and `STG_REGION`, push a branch, create a cloud Environment, then plan, deploy and refresh into it. 24 graders. |
 | `02-neg-plain-snowflake-sql` | — | Negative case. A plain Snowflake question must not load the Coalesce skills. |
+| `03-create-app` | `offline` | Build a workspace app over the `medallion-greenfield` sample (nodes by location, column counts, search), then start it the way Coalesce does. Checks the runtime contract, the port guard, and the node list it serves. Touches no cloud, warehouse or git. 17 graders. |
 | `00-sandbox-probe` | `probe` | Scratch case for sandbox network access and credential passing. Excluded from default runs. |
 
 The live case talks to a real Coalesce cloud and a real Snowflake account. A
@@ -46,6 +47,7 @@ never reaches the case.
 ```sh
 evals/run.sh                    # the live case, one run per arm
 evals/run.sh --case '02-*'      # a different case
+evals/run.sh --case '03-*'      # the offline workspace app case
 evals/run.sh --runs 3           # three runs per arm
 evals/run.sh --print            # assemble the command and show it, run nothing
 ```
