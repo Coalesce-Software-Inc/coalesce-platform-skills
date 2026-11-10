@@ -99,7 +99,7 @@ function readJson(req) {
   });
 }
 
-// App-owned data lives in the workspace, outside apps/: a marketplace update replaces apps/<id>/.
+// App-owned data lives in the workspace, outside apps/, so replacing the app folder never loses it.
 const SETTINGS_FILE = () => wsPath(".my-app/settings.json");
 
 // The app's port is open to any web page in the user's browser, not only to Coalesce. Two checks
