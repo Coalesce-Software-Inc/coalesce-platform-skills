@@ -33,7 +33,7 @@ fails to start or never appears.
 | **Start script** | `scripts.start` must be exactly `node <file> [args]`. It is not run by npm or a shell, so no `npm`, `npx`, `vite`, `&&`, pipes, quotes, `$VARS`, globs, or `~`. Anything else fails with "Unsupported start script". |
 | **No install step** | Nothing runs `npm install`, and `node_modules/` is not consulted for you. Use Node built-ins, or bundle dependencies into one committed file (see [Dependencies](#dependencies)). |
 | **Runtime** | Coalesce's own Node: Electron's Node (v24 at the time of writing) in Desktop, or whatever Node runs `coa` under `coa serve`. Write for Node 20+ and use only built-ins (`http`, `fs`, `path`, `child_process`, `crypto`, global `fetch`). No native `.node` addons. |
-| **Environment** | `PORT`: listen on it. `WORKSPACE_DIR`: absolute workspace root. The rest of the parent environment is inherited; in Desktop `PATH` can be the bare system one (`/usr/bin:/bin:...`). Working directory is the app folder. |
+| **Environment** | Always read `PORT` (the port to listen on) and `WORKSPACE_DIR` (absolute workspace root). Don't hardcode a port or work out the workspace from the app's own path. The rest of the parent environment is inherited; in Desktop `PATH` can be the bare system one (`/usr/bin:/bin:...`). Working directory is the app folder. |
 | **Readiness** | Coalesce polls `GET http://localhost:$PORT/` every 0.5 s for 15 s; any HTTP response counts. Listen at once and do slow work (scans, warehouse calls) after listening or per request. |
 | **Lifetime** | Started on first open, kept running across tab switches, stopped when Coalesce or `coa serve` exits. A crashed app restarts on its next request. Editing `server.js` does not restart a running app (see [Test it](#step-4--test-it)). |
 | **Logs** | stdout and stderr go to the Coalesce log as `[App:<appId>]`. If the app exits before it is ready, the tail of stderr is shown in the tab. |
@@ -155,7 +155,7 @@ function coaCommand() {
 function runCoa(args) {
   const { cmd, pre, env } = coaCommand();
   return new Promise((resolve) =>
-    execFile(cmd, [...pre, ...args, "-d", WORKSPACE], { env, maxBuffer: 20 << 20 }, (err, stdout, stderr) =>
+    execFile(cmd, [...pre, ...args, "-d", process.env.WORKSPACE_DIR], { env, maxBuffer: 20 << 20 }, (err, stdout, stderr) =>
       resolve({ ok: !err, stdout, stderr })));
 }
 // e.g. await runCoa(["--json", "validate"]); stdout holds the JSON even when ok is false

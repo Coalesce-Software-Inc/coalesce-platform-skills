@@ -27,8 +27,13 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const PORT = Number(process.env.PORT || 4310);
-const WORKSPACE = path.resolve(process.env.WORKSPACE_DIR || path.join(__dirname, "../.."));
+// Coalesce sets both. No fallbacks: a hardcoded port or a guessed workspace hides a bad launch.
+if (!process.env.PORT || !process.env.WORKSPACE_DIR) {
+  console.error("PORT and WORKSPACE_DIR must be set (Coalesce sets them when it starts the app).");
+  process.exit(1);
+}
+const PORT = Number(process.env.PORT);
+const WORKSPACE = path.resolve(process.env.WORKSPACE_DIR);
 const MAX_BODY_BYTES = 5 * 1024 * 1024;
 
 // Static files the server will send, by URL path. Anything not listed is a 404.
