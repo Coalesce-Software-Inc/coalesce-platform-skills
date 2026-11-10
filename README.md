@@ -30,7 +30,9 @@ enforced by whatever harness runs the agent, using its own permission model.
 - Task recipes: `coalesce-create-stage-node`, `coalesce-add-column`,
   `coalesce-rename-node-cascade`, `coalesce-create-job`,
   `coalesce-install-package` (add a Marketplace package: registry lookup,
-  `packages/<alias>.yml`, `coa install`).
+  `packages/<alias>.yml`, `coa install`), `coalesce-create-app` (build a
+  workspace app in `apps/<id>/` that Coalesce opens as a tab, with a starter
+  template).
 - `templates/workspace-CLAUDE.md` — the small per-workspace instruction file
   (see below).
 

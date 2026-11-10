@@ -185,4 +185,6 @@ why. See coalesce-workspace-config.
 - Task recipes: **coalesce-create-stage-node**, **coalesce-add-column**,
   **coalesce-rename-node-cascade**, **coalesce-create-job**,
   **coalesce-install-package** (add, upgrade, or remove a Marketplace
-  package such as `@coalesce/snowflake/cortex`).
+  package such as `@coalesce/snowflake/cortex`), **coalesce-create-app**
+  (build or publish a workspace app in `apps/<id>/` that Coalesce Desktop or
+  `coa serve` opens as a tab).

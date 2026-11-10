@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My App</title>
+<style>
+  /* The app can't read Coalesce's theme setting (different origin), so it follows the system. */
+  :root { --bg: #ffffff; --fg: #1f2329; --muted: #6b7280; --border: #e5e7eb; --accent: #3b5bdb; --error: #c92a2a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1e1f22; --fg: #e8e9eb; --muted: #9aa0a6; --border: #34363b; --accent: #748ffc; --error: #ff8787; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; background: var(--bg); color: var(--fg); font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 14px; margin: 0; flex: 1; }
+  main { flex: 1; overflow: auto; padding: 12px; }
+  button { font: inherit; padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--fg); cursor: pointer; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  #status { color: var(--muted); }
+  #status.error { color: var(--error); }
+</style>
+</head>
+<body>
+<header>
+  <h1>My App</h1>
+  <span id="status"></span>
+  <button id="refresh">Refresh</button>
+</header>
+<main>
+  <table>
+    <thead><tr><th>Location</th><th>Name</th><th>Format</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  // There are no alert/confirm dialogs in the sandboxed tab: report status inline.
+  function status(text, isError = false) {
+    $("status").textContent = text;
+    $("status").className = isError ? "error" : "";
+  }
+
+  async function api(path, options) {
+    const res = await fetch(path, options);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `${res.status} ${res.statusText}`);
+    return body;
+  }
+
+  async function load() {
+    status("Loading…");
+    try {
+      const { nodes } = await api("/api/nodes");
+      $("rows").replaceChildren(
+        ...nodes.map((n) => {
+          const tr = document.createElement("tr");
+          for (const v of [n.location, n.name, n.format]) tr.appendChild(document.createElement("td")).textContent = v;
+          return tr;
+        }),
+      );
+      status(`${nodes.length} nodes`);
+    } catch (e) {
+      status(e.message, true);
+    }
+  }
+
+  $("refresh").addEventListener("click", load);
+  load();
+</script>
+</body>
+</html>
