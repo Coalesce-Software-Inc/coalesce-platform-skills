@@ -18,14 +18,15 @@ enforced by whatever harness runs the agent, using its own permission model.
 
 ## What's inside
 
-- `skills/coalesce-pipelines/` — the umbrella skill: repo layout, the core
-  validate → dry-run → create → run loop, format rules, guardrails, and
-  routing to the other skills. Shared reference docs live in its `reference/`
-  subdirectory (coa CLI, SQL format, YAML schemas).
-- Specialist skills: `coalesce-sql-transformation`,
-  `coalesce-v1-yaml-nodes`, `coalesce-pipeline-structure`, `coalesce-workspace-config`,
-  `coalesce-cloud-api`, `coalesce-git-publication`, `coalesce-deploy` (plan,
-  deploy, refresh a cloud Environment), `coalesce-review-risk`,
+- `skills/coalesce-pipelines/` — the umbrella skill: repo layout, the format
+  and node-type rules, the validate → dry-run → create → run loop, guardrails,
+  and routing to the other skills. How the product works lives in its
+  `reference/` subdirectory, read on demand: the coa CLI, the V2 SQL node
+  format, V1 YAML nodes, and the workspace YAML files.
+- Workflow skills: `coalesce-sql-transformation`,
+  `coalesce-pipeline-structure`, `coalesce-cloud-api` (bootstrap and diagnose
+  a workspace), `coalesce-git-publication`, `coalesce-deploy` (plan, deploy,
+  refresh a cloud Environment), `coalesce-review-risk`,
   `coalesce-transform-mcp-install`.
 - Task recipes: `coalesce-create-stage-node`, `coalesce-add-column`,
   `coalesce-rename-node-cascade`, `coalesce-create-job`,
@@ -33,6 +34,9 @@ enforced by whatever harness runs the agent, using its own permission model.
   `packages/<alias>.yml`, `coa install`), `coalesce-create-app` (build a
   workspace app in `apps/<id>/` that Coalesce opens as a tab; starter app in
   its `reference/template.md`).
+- Data quality (`coalesce-quality-*`): `coalesce-quality-test-authoring`
+  (decide which data tests an asset needs and write them in the project's
+  existing test format).
 - `templates/workspace-CLAUDE.md` — the small per-workspace instruction file
   (see below).
 
@@ -123,3 +127,10 @@ Dynamic workspace state (node inventory, diagnostics) is NOT in these files —
 if a harness generates `.claude/workspace-context.json` per invocation, the
 skills tell agents to read it when present and fall back to `coa describe`
 when not.
+
+## Evals
+
+Changes to the skills are measured with a `claude plugin eval` suite that runs
+each case with and without the plugin loaded. See [EVALS.md](EVALS.md) for how
+to run it, how to point it at an open pull request, and how to read the
+results.

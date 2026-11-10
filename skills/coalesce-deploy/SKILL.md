@@ -137,7 +137,7 @@ mappingDefinitions:             # one entry per name in locations.yml
 - Keys under `mappingDefinitions` must match `locations.yml` names exactly;
   every location a node uses needs one. Copy the values from `environments get
   … | jq .currentMappings` so the App and the CLI agree.
-- This is shared config under `environments/` (coalesce-workspace-config):
+- This is shared config under `environments/`:
   writing it for the Environment the user asked you to deploy to is implied by
   the request; changing an existing Environment's mappings is ASK FIRST.
 - Run `coa validate -d <dir>` (it schema-checks the file), then commit and

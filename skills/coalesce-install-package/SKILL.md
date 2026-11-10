@@ -234,4 +234,4 @@ deletion.
   editing `config`, committing (per coalesce-git-publication) or pushing.
 - NEVER: print the token, put it in a file, or hand-edit `.coa/cache/`;
   author node types to stand in for a package that will not hydrate (fall back
-  to V1 `.yml` nodes instead — see coalesce-pipelines Rule 4).
+  to V1 `.yml` nodes instead — see coalesce-pipelines, "Node types").
