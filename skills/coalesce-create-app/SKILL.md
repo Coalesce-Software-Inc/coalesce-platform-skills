@@ -65,28 +65,21 @@ allow-forms allow-popups"` on the app's own origin. In practice:
 
 ### Guard the app's own port
 
-Any web page open in the user's browser can send requests to
-`localhost:$PORT`. Without checks, a page can make the app write files with a
-forged `POST` (a `text/plain` or form body goes out without a CORS
-preflight), or read the app's responses by DNS rebinding. Every app server
-must:
+The app's port (`localhost:$PORT`) is reachable from any page in the user's
+browser, not just from Coalesce. The template includes three checks so only
+the app's own page can use it; keep them:
 
-1. **Check `Host` on every request.** Accept only `localhost`, `127.0.0.1`,
-   `[::1]`, or a name ending in `.localhost`, on any port, and answer 403
-   otherwise. Coalesce's proxy keeps the original `Host`, so requests through
-   Coalesce pass.
-2. **Check every request that changes something** (anything but `GET`/`HEAD`).
-   Accept it only when `Sec-Fetch-Site` is `same-origin` or absent (absent
-   means a non-browser client such as `curl`) and `Content-Type` is
-   `application/json`. Never change state on a `GET`. The UI must send
-   `content-type: application/json` on its writes.
-3. **Never send CORS headers.** No `Access-Control-Allow-Origin`, and certainly
-   not `*`.
+1. **`Host` is a loopback name** (`localhost`, `127.0.0.1`, `[::1]`, or
+   `*.localhost`), which rules out DNS rebinding. Requests through Coalesce
+   keep their `<label>.localhost` host, so they pass.
+2. **Writes are same-origin JSON.** Anything other than `GET`/`HEAD` needs
+   `Content-Type: application/json` and a `Sec-Fetch-Site` of `same-origin` or
+   none (`curl` sends none). Have the UI set the content type on writes, and
+   don't change state on a `GET`.
+3. **No CORS headers.**
 
-The template does all three (`isLoopbackHost`, `isTrustedWrite`). These checks
-stop web pages. They do not stop other programs on the machine, which can set
-any header and can read the workspace directly anyway; that is outside what
-an app can defend against.
+These checks cover browser pages. Other programs on the machine aren't in
+scope, since they can already read the workspace directly.
 
 ### Treat workspace content as untrusted
 
