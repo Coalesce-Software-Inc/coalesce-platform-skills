@@ -6,6 +6,7 @@ Run with `claude plugin eval`, ablated with/without the plugin. Cases:
 |---|---|---|
 | `01-live-bootstrap-plan-deploy` | `live` | Bootstrap an empty workspace, build `REGION` → `STG_REGION`, push a branch, create a cloud Environment, plan → deploy → refresh into it. 23 graders. |
 | `02-neg-plain-snowflake-sql` | — | Negative: a plain Snowflake question must not pull the Coalesce skills in. |
+| `03-create-app` | `offline` | Build a workspace app over the `medallion-greenfield` sample (nodes by location, column counts, search), then start it the way Coalesce does. Checks the runtime contract, the port guard, and the node list it serves. No cloud, warehouse or git. |
 | `00-sandbox-probe` | `probe` | Scratch case for sandbox egress and credential passing. Delete once the harness settles. |
 
 ## Configuration
