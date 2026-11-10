@@ -74,6 +74,13 @@ Format rules being checked:
   types normally arrive via the installed base node types package, so a
   hand-authored one in a diff is a shared-config change to surface — ask whether
   the user actually requested a custom type.
+- Any change under `apps/` → this is CODE, not config: a workspace app runs
+  with the user's full permissions as soon as anyone opens it in Coalesce.
+  Read the changed files and flag network calls to outside hosts, writes
+  outside the app's data folder, `exec`/`shell: true`, `innerHTML` with
+  workspace values, reads of `~/.coa/config` or other credentials, secrets
+  committed in the app or its data, CORS headers, and a removed `Host` or
+  write check. Rules: coalesce-create-app.
 
 ## Constraints
 

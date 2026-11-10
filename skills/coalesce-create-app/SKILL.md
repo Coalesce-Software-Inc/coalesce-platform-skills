@@ -88,10 +88,55 @@ stop web pages. They do not stop other programs on the machine, which can set
 any header and can read the workspace directly anyway; that is outside what
 an app can defend against.
 
+### Treat workspace content as untrusted
+
+Node names, descriptions, SQL and YAML come from git, so anyone with commit
+access can write them. The write checks above trust the app's own page, so
+anything that runs as script on that page can write files and run `coa`
+through the app.
+
+- **Put workspace text on the page as text.** Use `textContent` (or
+  `createTextNode`, or a framework's default escaping), never `innerHTML`,
+  `insertAdjacentHTML`, `document.write`, or HTML built in a template string
+  from workspace values. The template's table does this.
+- **Never execute workspace content.** No `eval`, `new Function`, or
+  `require`/`import` of files from the workspace.
+
+### Run commands without a shell
+
+Start processes with `execFile` or `spawn` and an argument array, as the
+[coa snippet](#running-coa-from-an-app) does. Never use `exec`, `execSync`, or
+`shell: true`. Any value from a request or the workspace that becomes an
+argument (a node name, a selector, a location) must first match a strict
+pattern, such as `^[A-Za-z0-9_]+$` for a location or node name. Reject
+anything else with a 400, and never pass a selector string through from the
+browser unchecked.
+
+### Keep secrets out of the workspace and the page
+
+- **No secrets in the workspace.** Everything an app writes there is committed
+  to git. An API key or token the app needs (for example for an AI service)
+  comes from an environment variable or a file outside the workspace, such as
+  `~/.config/<appId>/`. Environment variables reach the app only when
+  `coa serve` is started from a shell that has them; Coalesce Desktop opened
+  from the Dock or Finder doesn't see shell profile variables, so a file is
+  more reliable there.
+- **Secrets stay on the server.** Never return a key to the browser, put it
+  in a page, or log it. Never read `~/.coa/config`.
+- **Say what leaves the machine.** An app that sends workspace contents (SQL,
+  column names, descriptions, sample data) to an outside service must say in
+  its README and UI which service and what is sent, and send it only on a
+  user action. Ask the user before building an app that does this.
+
 ## Step 0 — Orient
 
 1. Find the workspace root (`data.yml`) and `ls apps/` to see existing apps
-   and avoid an id or label collision.
+   and avoid an id or label collision. Every app is code that runs with the
+   user's full permissions as soon as someone opens it, and an `apps/` folder
+   can arrive with a `git pull` or a copied folder. Read an app you didn't
+   write in this session before starting it, including from `node server.js`,
+   and tell the user if it does anything beyond what it says: network calls,
+   writes outside its data folder, shell commands, or reading credentials.
 2. Read `~/.coalesce/desktop/agent.json` if it exists: `serving.workspaceDir`
    says whether Desktop is showing this workspace, and `serving.port` is the
    port apps are served on. Otherwise the user is on `coa serve` (port from its
@@ -196,7 +241,10 @@ commands, push to git, or touch credentials.
 - Plain HTML, CSS and JS served by the app is enough for most apps. If you use
   a framework, build it to static files, commit the output, and serve it; the
   build step never runs inside Coalesce.
-- Use `fetch("/api/...")`. Show errors inline; there are no dialogs.
+- Use `fetch("/api/...")`, with `content-type: application/json` on writes.
+  Show errors inline; there are no dialogs.
+- Render workspace values with `textContent`, never `innerHTML` (see
+  [Treat workspace content as untrusted](#treat-workspace-content-as-untrusted)).
 - Keep unsaved state client-side and save explicitly (a Save button, Cmd/Ctrl+S),
   or save each change atomically on the server. Tabs stay mounted, so state
   survives switching tabs but not a reload.
@@ -285,7 +333,10 @@ before promising they can install from it.
 - ASK FIRST: an app that writes to `nodes/`, `jobs/`, `subgraphs/`,
   `nodeTypes/` or other shared config; changing or deleting another app's
   folder; adding dependencies; committing; pushing; creating the GitHub repo,
-  topics, or tags.
+  topics, or tags; an app that sends workspace contents to an outside
+  service; starting an app you didn't write before you've read it.
 - NEVER: have an app run deploy, refresh, init or profile commands, read or
   return credentials from `~/.coa/config`, listen on a non-loopback interface,
-  or try to reach into the Coalesce page from the iframe.
+  or try to reach into the Coalesce page from the iframe; insert workspace
+  values with `innerHTML` or execute them; run commands through a shell;
+  write a secret into the workspace or send one to the browser.
