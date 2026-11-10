@@ -16,7 +16,7 @@ A stage node is the first hop out of a Source: it selects the source's columns u
 Follow "Node types" in coalesce-pipelines: list `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`, read each `definition.yml`, and find the staging-layer type. Do not assume it is called `Stage`; in the base packages it is `Work`. Then:
 
 - **It has `fileVersion: 2`:** write a `.sql` node (step 4). Note the type's `id`.
-- **None on disk:** run `coa install -d <dir>` and look again.
+- **None on disk:** run `coa install -d <dir>` and look again. If there is still no staging type of either version (for example, install printed "No packages to install."), the base package isn't declared: stop and ask before running `coa init`.
 - **Only a V1 staging type exists:** write the node as V1 `.yml` using "Authoring a new V1 node" in the [V1 nodes reference](../coalesce-pipelines/reference/v1-nodes.md), then go to step 5. Do not stop, do not upgrade the type, and never point a `.sql` node at it (the columns would be silently empty).
 
 ## 2. Read the source

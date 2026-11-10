@@ -1,6 +1,6 @@
 ---
 name: coalesce-pipelines
-description: Use when working in a Coalesce Transform repository (data.yml + nodes/ with <LOCATION>-<NAME>.sql/.yml files) — building, editing, validating, or running data transformation pipelines with the coa CLI. Start here; it routes to the more specific coalesce-* skills.
+description: Use when working in a Coalesce Transform repository (data.yml + nodes/ with <LOCATION>-<NAME>.sql/.yml files) — building, editing, validating, or running data transformation pipelines with the coa CLI, including editing V1 .yml nodes and shared config (data.yml, locations, environments, jobs, node types). Start here; it routes to the more specific coalesce-* skills.
 ---
 
 <!-- coalesce-node-managed: true -->
@@ -46,17 +46,19 @@ In each `definition.yml`, `name`, `description`, and `nodeMetadataSpec` tell you
 If no suitable type is on disk:
 
 1. Run `coa install -d <dir>` and look again. It is safe without asking. It hydrates only packages already declared under `packages/`; "No packages to install." means none are declared, and the fix for a missing base package is `coa init` (ask first). To add another Marketplace package, use coalesce-install-package.
-2. If there is still no `fileVersion: 2` type, author the node as V1 `.yml` and continue. The base package exists only in the production registry, so a lower environment may never have one.
+2. If there is still no `fileVersion: 2` type but a suitable V1 type is on disk, author the node as V1 `.yml` and continue. If there is no suitable type at all, stop and ask before running `coa init`. The base package exists only in the production registry, so a lower environment may never have one.
 
 Say which path you took. Create, modify, or upgrade a node type only when the user explicitly asks, and ask first even then; `coa describe node-types` and the yaml-spec reference cover the format. Do not fix a `.sql` node's empty columns by bumping its type's `fileVersion`: that changes the DDL/DML of every node using the type.
 
-## Core loop (every change, one node at a time)
+## Core loop (one node at a time)
 
 1. Edit the node.
 2. `coa validate -d <repo>`
 3. `coa create -d <repo> --include "{ NODE }" --dry-run --verbose`
 4. `coa run -d <repo> --include "{ NODE }" --dry-run --verbose`
-5. `coa create`, then `coa run`, then verify and move to the next node.
+5. When the user wants it materialized: `coa create`, then `coa run`, then verify. Otherwise stop after the dry-runs.
+
+Move to the next node once this one is clean.
 
 Both dry-runs are required. The create dry-run proves only that the DDL renders. Run templates gate their DML on `config`, so a node missing its type's config defaults renders zero run SQL and would load no data.
 
@@ -82,6 +84,7 @@ Ask before:
 
 - editing nodes outside the request;
 - touching shared config: `data.yml`, locations, `workspace.yml`, environments, jobs, subgraphs, macros, `packages/`, or anything under `nodeTypes/` (including a `fileVersion` bump or template swap);
+- running `coa create` or `coa run` without `--dry-run`, unless the request asked for materialized tables;
 - running `coa init` or `coa doctor --fix`;
 - pushing to a remote, unless the request asked for the push.
 

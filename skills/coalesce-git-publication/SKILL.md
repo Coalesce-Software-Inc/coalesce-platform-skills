@@ -1,6 +1,6 @@
 ---
 name: coalesce-git-publication
-description: Use for Git operations in a Coalesce workspace — branching, staging, committing, and pushing validated pipeline work so it can be planned and deployed from the Coalesce cloud. Push only with explicit user approval.
+description: Use for Git operations in a Coalesce workspace — branching, staging, committing, and pushing validated pipeline work so it can be planned and deployed from the Coalesce cloud. Push only when the user asked for it or approved it.
 ---
 
 <!-- coalesce-node-managed: true -->

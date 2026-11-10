@@ -1,6 +1,6 @@
 ---
 name: coalesce-add-column
-description: Add a column to an existing Coalesce V2 (.sql) transformation node, placing any column annotation after the alias and before the comma, then verifying with coa.
+description: Add a column to an existing Coalesce transformation node (V2 .sql or V1 .yml), placing any column annotation after the alias and before the comma, then verifying with coa.
 ---
 
 <!-- coalesce-node-managed: true -->
