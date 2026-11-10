@@ -1,9 +1,0 @@
-{
-  "name": "my-app",
-  "description": "One line shown under the app's name in Coalesce's Apps menu.",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "start": "node server.js"
-  }
-}

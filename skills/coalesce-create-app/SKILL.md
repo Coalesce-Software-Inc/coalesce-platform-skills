@@ -85,16 +85,11 @@ allow-forms allow-popups"` on the app's own origin. In practice:
 
 ## Step 1 — Scaffold
 
-Copy the starter from this skill's `template/` folder:
-
-```sh
-APP=my-app   # lowercase letters, digits, dashes
-mkdir -p "$WORKSPACE/apps/$APP"
-cp <this-skill>/template/{package.json,server.js,index.html} "$WORKSPACE/apps/$APP/"
-```
-
-Then set `name` (same as the folder) and `description` in `package.json`.
-The template is a zero-dependency server with:
+Pick an app id (lowercase letters, digits, dashes) and write the three files
+in [reference/template.md](reference/template.md) into `apps/<appId>/`
+verbatim, then set `name` (same as the folder) and `description` in
+`package.json`. Start from the template rather than writing the server from
+scratch. It is a zero-dependency server with:
 
 - loopback-only listening on both `127.0.0.1` and `::1` (Coalesce reaches the
   app at `localhost`, which may resolve to either);
