@@ -1,188 +1,108 @@
 ---
 name: coalesce-pipelines
-description: Use when working in a Coalesce Transform repository (data.yml + nodes/ with <LOCATION>-<NAME>.sql/.yml files) — building, editing, validating, or running data transformation pipelines with the coa CLI. Start here; it routes to the more specific coalesce-* skills.
+description: Use when working in a Coalesce Transform repository (data.yml + nodes/ with <LOCATION>-<NAME>.sql/.yml files) — building, editing, validating, or running data transformation pipelines with the coa CLI, including editing V1 .yml nodes and shared config (data.yml, locations, environments, jobs, node types). Start here; it routes to the more specific coalesce-* skills.
 ---
+
 <!-- coalesce-node-managed: true -->
 
 # Coalesce Pipelines
 
-A Coalesce Transform repository is a Git-backed representation of a data
-transformation DAG. Nodes are authored as SQL files with lightweight
-annotations (`nodes/<LOCATION>-<NAME>.sql`, the V2 format) or YAML
-(`nodes/<LOCATION>-<NAME>.yml`, the V1 format); workspace metadata (locations,
-environments, jobs, subgraphs, node types, macros) is YAML. The `coa` CLI
-validates the repo and executes SQL against the warehouse for local
-development.
+A Coalesce Transform repository is a Git-backed data transformation DAG. Nodes live in a flat `nodes/` directory as `<LOCATION>-<NAME>.sql` (V2) or `<LOCATION>-<NAME>.yml` (V1). Locations, environments, jobs, subgraphs, node types, and macros are YAML. The `coa` CLI validates the repo and runs SQL against the warehouse for local development.
 
-**Format rule:** Source nodes are always V1 `.yml`. For every other node,
-author a V2 `.sql` node when a `fileVersion: 2` node type exists for the target
-node type; otherwise author a V1 `.yml` node. The `fileVersion` in
-`nodeTypes/<ID>/definition.yml` decides this, never the platform. Both formats
-are supported, and V1 is not a workaround.
+`coa describe <topic>` and `coa describe schema <type>` are the source of truth for every format. The bundled example-repository fails `coa validate`, so never copy its shapes.
 
-## Glossary and authoring policy
-
-"Author" applies to two different artifacts with two different policies —
-always be explicit about which one you mean:
-
-| Term | Artifact | Files | Authoring policy |
-|------|----------|-------|------------------|
-| **Node (V2)** | A transformation instance | `nodes/<LOC>-<NAME>.sql` | **Author freely** — files + CLI or the Coalesce UI, whichever fits. |
-| **Node (V1)** | A transformation instance | `nodes/<LOC>-<NAME>.yml` | **Author freely** — same policy. The UI generates this format natively; authoring it by hand is supported but intricate (see coalesce-v1-yaml-nodes). |
-| **Node type** | The reusable template contract | `nodeTypes/<Name>-<ID>/` (definition.yml + create.sql.j2 + run.sql.j2) | **Search first, never author on your own.** Prefer existing packaged node types — they are official (`coa install`, then check `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`). If no `fileVersion: 2` type fits, author the node as V1 `.yml` instead. A custom node type is created or extended ONLY on the user's explicit request — ASK FIRST (see coalesce-workspace-config). |
-
-Disambiguation traps: `fileVersion: 1/2` appears on both node files and node
-type definitions (a V2 `.sql` node requires a `fileVersion: 2` node type);
-`@nodeType` (V2 annotation) and `operation.sqlType` (V1 field) name the same
-concept.
+The other coalesce-\* skills assume everything on this page.
 
 ## Orient first
 
-1. If `.claude/workspace-context.json` exists in the repo, READ IT FIRST — it
-   carries the current node inventory, edges, jobs, subgraphs, environments,
-   and diagnostics, and tells you what exists and where.
-2. If it does not exist (running outside the Coalesce Node app), orient with
-   `coa describe structure`, `coa create -d <repo> --list-nodes`, and file
-   inspection.
-3. In a COLD workspace — no `nodes/` directory, or `--list-nodes` empty — the
-   entry points are the warehouse, not the graph: `coa sources list` shows the
-   tables available per location, and `coa sources add` scaffolds Source nodes
-   from them. Start there, then build downstream nodes on top.
-4. Also list the node types you actually have before naming one: read
-   `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/` (see Rules 4 and 6).
+1. If `.claude/workspace-context.json` exists, read it first. It holds the node inventory, edges, jobs, subgraphs, environments, and diagnostics.
+2. Otherwise use `coa describe structure`, `coa create -d <repo> --list-nodes`, and the files themselves.
+3. In a cold workspace (no `nodes/`, or `--list-nodes` is empty), start from the warehouse: `coa sources list` shows the tables per location and `coa sources add` scaffolds Source nodes. Never hand-write Source YAML.
+4. List the node types you have before naming one (see "Node types").
 
-## Reference (read as needed)
+## Which format to author
 
-- [coa CLI](reference/coa-cli.md) — describe topics, the core loop, selectors,
-  init/doctor/install, approval gates, local-vs-deploy.
-- [SQL format](reference/sql-format.md) — V2 vs V1 nodes, `@id`/`@nodeType`,
-  `ref()` macros, the complete column annotation set, naming.
-- [YAML spec](reference/yaml-spec.md) — data.yml, locations, workspace,
-  environments, job/subgraph schemas, where node types come from.
+- Source nodes are always V1 `.yml`.
+- Every other node is V2 `.sql` when a `fileVersion: 2` node type exists for the type you need, and V1 `.yml` otherwise. The `fileVersion` in the type's `definition.yml` decides, never the platform or the layer.
+- Both formats are supported and freely authorable. V1 is not a workaround.
+- When a type has both a V1 and a V2 definition, use V2 if the node's value is its SQL and V1 if it is configuration (an SCD2 Dimension). `@isBusinessKey` and `@isChangeTracking` work in both.
+- A `.sql` node pointed at a V1 type (`fileVersion: 1` or absent) still loads, but its columns are silently empty and the DDL/DML is broken, with no error.
+- `@nodeType` (V2 annotation) and `operation.sqlType` (V1 field) name the same thing.
 
-## Core loop (every change)
+## Node types: find one, never author one
 
-Define → `coa validate -d <repo>` → `coa create --dry-run --include "{ NODE }"`
-(add `--verbose` for SQL) → `coa run --dry-run --verbose --include "{ NODE }"`
-→ `coa create` → `coa run` → verify → iterate, one node at a time. Both
-dry-runs are mandatory: `create --dry-run` only proves the DDL renders, while a
-node whose `config` is missing its node-type defaults renders ZERO run SQL and
-would silently load no data (see coalesce-pipeline-structure).
-`coa create`/`coa run` without `--dry-run` execute SQL DIRECTLY against the
-warehouse — that is LOCAL development, NOT deploy. Work reaches the cloud only
-via git push, then plan/deploy in the Coalesce web UI or CI.
+Type names vary by workspace, so read them off disk before you name one:
+
+- `nodeTypes/<DisplayName>-<ID>/definition.yml` holds workspace-local types.
+- `.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/definition.yml` holds package types, a read-only tree that `coa install` regenerates.
+
+In each `definition.yml`, `name`, `description`, and `nodeMetadataSpec` tell you the layer, `fileVersion` tells you the format, and the `id` field is the value for `@nodeType()` (`<alias>:::<id>` for a package type). Never parse the id from the folder name (names and ids can both contain dashes).
+
+- The base packages ship no `Stage` type. Their staging type is typically `Work` (`base-node-types:::204`).
+- The built-in names (`Stage`, `View`, `Dimension`, `Fact`, `persistentStage`) are V1 and resolve only when those types exist in `nodeTypes/`; `coa init` writes them there when the base package is unavailable.
+- A guessed name fails with `error[missingNodeType]: node type "X" is not available`.
+- Use the right type for the layer (staging, persistent staging, fact/dimension, view), not the staging type for everything.
+
+If no suitable type is on disk:
+
+1. Run `coa install -d <dir>` and look again. It is safe without asking. It hydrates only packages already declared under `packages/`; "No packages to install." means none are declared, and the fix for a missing base package is `coa init` (ask first). To add another Marketplace package, use coalesce-install-package.
+2. If there is still no `fileVersion: 2` type but a suitable V1 type is on disk, author the node as V1 `.yml` and continue. If there is no suitable type at all, stop and ask before running `coa init`. The base package exists only in the production registry, so a lower environment may never have one.
+
+Say which path you took. Create, modify, or upgrade a node type only when the user explicitly asks, and ask first even then; `coa describe node-types` and the yaml-spec reference cover the format. Do not fix a `.sql` node's empty columns by bumping its type's `fileVersion`: that changes the DDL/DML of every node using the type.
+
+## Core loop (one node at a time)
+
+1. Edit the node.
+2. `coa validate -d <repo>`
+3. `coa create -d <repo> --include "{ NODE }" --dry-run --verbose`
+4. `coa run -d <repo> --include "{ NODE }" --dry-run --verbose`
+5. When the user wants it materialized: `coa create`, then `coa run`, then verify. Otherwise stop after the dry-runs.
+
+Move to the next node once this one is clean.
+
+Both dry-runs are required. The create dry-run proves only that the DDL renders. Run templates gate their DML on `config`, so a node missing its type's config defaults renders zero run SQL and would load no data.
+
+Clean means 0 errors and 0 warnings. `coa validate` exits 0 with warnings standing, and a warning is a real defect. The common one is `warning[namedDependencyUnresolved]: "LOC"."NAME" is not a node`: a `ref()` names a location where that node file does not exist. Fix the location argument to where `nodes/LOC-NAME.*` actually lives (a `STG_*` node lives in its own location, such as `TARGET`, not in `SRC`). Never delete the ref or leave the warning.
+
+`coa create` and `coa run` without `--dry-run` execute SQL directly against the warehouse. That is local development, not deploy. Work reaches the cloud only through git push, then plan and deploy (coalesce-deploy).
+
+Before any warehouse command, run `coa profile list -d <dir>`. If the workspace is bound to a profile, omit `--profile`, because the flag overrides the binding. If nothing is bound, pass `--profile <name>` for the workspace's platform on `sources`, `create`, `run`, `install`, and `doctor`. `coa validate` takes no profile.
 
 ## Rules
 
-1. NEVER modify or reuse an existing `@id` (node or column). New `@id` values
-   are fresh UUIDs. In a `.sql` node, `@id` and `@nodeType` are BARE first
-   lines — never prefixed with `--` or wrapped in `/* */`. A commented-out
-   annotation is invisible to `coa`: the node is silently dropped from the
-   graph (validate still shows 0 errors, but the node is never built). See
-   reference/sql-format.md → "Write the annotations BARE".
-2. NEVER delete a node without checking downstream dependents
-   (`--include "{ NODE }+"` or a ref search).
-3. When renaming a node, update ALL downstream `{{ ref(...) }}` calls (see the
-   coalesce-rename-node-cascade skill).
-4. Choose node format by the node type's `fileVersion` (format rule above), not
-   by layer: Source nodes are always V1 `.yml`; every other node is V2 `.sql`
-   when a `fileVersion: 2` node type exists for its target type, otherwise V1
-   `.yml`. Both formats are freely authorable; neither is "legacy". A V2
-   `.sql` node works only against a `fileVersion: 2` node type; otherwise
-   columns are silently empty (see reference/sql-format.md).
-   V2 types come from the installed base node types package — `coa install`
-   materializes them under `.coa/cache/packages/<alias>/nodeTypes/`, and each
-   materialized definition.yml carries the resolvable `<alias>:::<id>` id to
-   use in `@nodeType()`. Node types are SEARCH-FIRST: if none are present, run
-   `coa install -d <dir>` and re-check the file system; never author one (see
-   coalesce-workspace-config). `coa install` hydrates only packages already
-   declared under `packages/` and prints "No packages to install." otherwise —
-   `coa init` writes the base package's declaration, so if `packages/` is
-   absent the fix is to re-run `coa init` (ask the user first). To add any
-   OTHER Marketplace package, follow coalesce-install-package; never improvise
-   the declaration. When no `fileVersion: 2` type exists for the target node
-   type (the package may be unavailable), author V1 `.yml` instead; that is
-   supported, not a workaround.
-5. Reference upstream nodes with `{{ ref("LOC", "NAME") }}` (both args).
-   Never hardcode `db.schema.table`.
-6. Use the correct node type per layer (staging → persistent staging →
-   fact/dimension → view); don't use the staging type for everything. NODE
-   TYPE NAMES VARY BY WORKSPACE — never assume a type called `Stage` exists.
-   In the base node types packages the staging-layer type is typically named
-   `Work` (e.g. `base-node-types:::204`). Discover the real names before
-   naming one: list `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/` and
-   read each `definition.yml` (`name`, `description`, `nodeMetadataSpec`).
-   Plain built-in names (`Stage`, `View`, `Dimension`, `Fact`,
-   `persistentStage`) resolve ONLY when those built-in V1 types are present in
-   `nodeTypes/` — `coa init` writes them there when the base package is
-   unavailable. Guessing a name yields
-   `error[missingNodeType]: node type "X" is not available`.
-7. Keep changes minimal — modify only what the task requires.
-8. After editing, run `coa validate`, then `coa create --dry-run` AND
-   `coa run --dry-run --verbose`, before executing anything. Settle the profile
-   FIRST with `coa profile list -d <dir>`: it names the profiles available and
-   which one that workspace resolves to. If the workspace is bound (`profile:`
-   in `workspace.yml`), run local commands without `--profile` — the flag
-   outranks the binding and would override the user's choice. If nothing is
-   bound, pass `--profile <name>` matching the workspace platform on every
-   command that accepts one (`sources`, `create`, `run`, `install`, `doctor`);
-   `coa validate` has no `--profile` flag.
-   Clean means **0 errors AND 0 warnings**. `coa validate` exits 0 and prints
-   "0 errors" even when it emits warnings, and a warning is a real defect.
-   The one you will meet most:
-   `warning[namedDependencyUnresolved]: "LOC"."NAME" is not a node` — a
-   `{{ ref("LOC", "NAME") }}` points at a location where that node does not
-   exist (there is no `nodes/LOC-NAME.sql|.yml`). Fix the LOCATION arg to
-   where the file actually lives (a `STG_*`/transform node lives in its own
-   location, e.g. `TARGET`, not in a `SRC` location); never delete the ref or
-   move on with the warning standing.
-9. Treat `coa describe` as the source of truth. The bundled example-repository
-   FAILS `coa validate` — never copy its shapes.
+1. Never modify or reuse an existing `@id` (node or column). New ids are fresh UUIDs.
+2. In a `.sql` node, `@id` and `@nodeType` are the first lines and are written bare, never behind `--` or inside `/* */`. `coa` cannot read a commented annotation: the node is silently dropped from the graph while validate still reports 0 errors.
+3. Reference upstream nodes with `{{ ref("LOC", "NAME") }}`, both arguments. Never hardcode `db.schema.table`.
+4. Before deleting a node, check its dependents with `--include "{ NODE }+"` or a ref search. When renaming, update every reference (coalesce-rename-node-cascade).
+5. Change only what the task requires.
 
-## Guardrail — ask before editing shared config
+## Ask first
 
-In scope without asking: create/edit the specific nodes the user requested,
-and read-only commands (`coa validate`, `coa describe`, any `--dry-run`).
+You may, without asking: create or edit the nodes the user named, and run read-only commands (`coa validate`, `coa describe`, any `--dry-run`, `coa install`).
 
-ASK FIRST: editing nodes NOT in the request; creating, modifying, or removing
-ANY node type (incl. bumping its `fileVersion` or swapping its template
-pattern); changing locations, workspace/environments, jobs, macros, or
-`data.yml`; `coa init` / `coa doctor --fix`. These are shared across many nodes
-and can silently break unrelated ones — stop and surface the choice.
+Ask before:
 
-Node types are search-first, and the search ends in a package, never in a
-file you write. Never author a node type to satisfy a `.sql` node. Base types
-come from the installed base node types package; if none are present, run
-`coa install -d <dir>` (safe without asking — but it is a no-op unless
-`packages/` already declares a package; adding a Marketplace package is the
-coalesce-install-package recipe), re-check `nodeTypes/` and
-`.coa/cache/packages/*/nodeTypes/`, and, failing that, author the node as V1
-`.yml` and continue. A custom net-new type is authored only when the user
-explicitly asks — and even then, ASK FIRST. Report which path you took and
-why. See coalesce-workspace-config.
+- editing nodes outside the request;
+- touching shared config: `data.yml`, locations, `workspace.yml`, environments, jobs, subgraphs, macros, `packages/`, or anything under `nodeTypes/` (including a `fileVersion` bump or template swap);
+- running `coa create` or `coa run` without `--dry-run`, unless the request asked for materialized tables;
+- running `coa init` or `coa doctor --fix`;
+- pushing to a remote, unless the request asked for the push.
 
-## When to use the other coalesce-* skills
+Shared config is used by many nodes, and an edit there can silently break unrelated ones.
 
-- **coalesce-sql-transformation** — editing SQL inside existing V2 nodes
-  (columns, joins, annotations, refs).
-- **coalesce-v1-yaml-nodes** — reading/explaining V1 `.yml` nodes (the
-  UI/API-generated format): file shape, the id-based column graph, and what is
-  safe to edit. Use it whenever a task touches a `nodes/*.yml` file.
-- **coalesce-pipeline-structure** — creating/deleting/renaming/rewiring nodes,
-  jobs, subgraphs (DAG topology).
-- **coalesce-workspace-config** — data.yml, locations, workspace,
-  environments, node type definitions/templates.
-- **coalesce-cloud-api** — coa init/doctor/install, credentials, cloud
-  bootstrap and diagnostics.
-- **coalesce-git-publication** — branches, commits, pushing work so it can be
-  planned/deployed.
-- **coalesce-deploy** — promoting pushed work to a cloud Environment with the
-  Cloud Operations commands: `coa environments`, the committed
-  `environments/<NAME>.yml` mapping file, `coa plan` → review → `coa deploy`
-  → `coa refresh`, run results, `rerun`/`cancel`. All ASK FIRST.
-- **coalesce-review-risk** — read-only review of changes: validation evidence,
-  blast radius, risk flags.
-- Task recipes: **coalesce-create-stage-node**, **coalesce-add-column**,
-  **coalesce-rename-node-cascade**, **coalesce-create-job**,
-  **coalesce-install-package** (add, upgrade, or remove a Marketplace
-  package such as `@coalesce/snowflake/cortex`).
+## Reference
+
+- [coa CLI](reference/coa-cli.md): describe topics, selectors, init, doctor, install, profiles, approval gates.
+- [SQL format](reference/sql-format.md): V2 node files, annotations, refs, naming.
+- [YAML spec](reference/yaml-spec.md): data.yml, locations, workspace, environments, job and subgraph schemas, node type folders, and what to check when editing shared config.
+- [V1 nodes](reference/v1-nodes.md): read before touching any `nodes/*.yml`. File shape, the id-based column graph, safe edits, and the template for authoring one.
+
+## Other coalesce-\* skills
+
+- **coalesce-sql-transformation**: edit SQL inside existing V2 nodes.
+- **coalesce-pipeline-structure**: create, delete, rename, or rewire nodes, jobs, subgraphs.
+- **coalesce-cloud-api**: `coa init`, `doctor`, `install`, profiles, credentials.
+- **coalesce-git-publication**: branch, commit, push.
+- **coalesce-deploy**: environments, `coa plan`, `deploy`, `refresh`, run results. All ask first.
+- **coalesce-review-risk**: read-only review of changes.
+- Recipes: **coalesce-create-stage-node**, **coalesce-add-column**, **coalesce-rename-node-cascade**, **coalesce-create-job**, **coalesce-install-package**.

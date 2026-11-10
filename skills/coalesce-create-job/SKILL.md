@@ -2,50 +2,39 @@
 name: coalesce-create-job
 description: Create a Coalesce job that selects nodes to create/run, using the correct coa job schema (includeSelector/excludeSelector strings, integer-string id — not a steps array).
 ---
+
 <!-- coalesce-node-managed: true -->
 
-> **Prerequisite — load `coalesce-pipelines` first.** If you have not already
-> loaded the `coalesce-pipelines` skill in this session, load it now, read its
-> "Orient first" step, core `coa` loop, and Rules, then return here. This skill
-> assumes those invariants (bare `@id`/`@nodeType` first lines, `fileVersion: 2`
-> node types, one-node-at-a-time validate → dry-run → create loop) are already
-> in context.
+> **Prerequisite:** load `coalesce-pipelines` first if it is not already loaded in this session. This skill assumes its rules and core loop.
 
-A **job** is a named orchestration definition that selects which nodes to operate on
-via selector strings. It is **not** a list of steps. Treat `coa describe schema job`
-as the source of truth.
+# Create a job
 
-> GUARDRAIL: Jobs live in shared workspace config (`jobs/`), like locations,
-> workspaces, environments, macros, and `data.yml`. Creating or editing a job is
-> **ASK FIRST**, not free-to-edit. If the user did not explicitly ask for a job,
-> confirm before writing one. (`coa describe workflow` → "Ask before doing".)
+A job is a named selection of nodes, expressed as selector strings. It is not a list of steps. `coa describe schema job` and `coa describe selectors` are the source of truth; read both before writing. If the request describes a different shape (a `steps` array, a UUID id), write the schema's shape and tell the user why.
 
-## Job schema (`coa describe schema job`)
-View job defintion via `coa describe`. Which nodes are included in a job are defined 
-by selectors, so view those rules as well with `coa describe selectors`
+Jobs are shared config under `jobs/`. A user asking for the job is the approval to create it; otherwise ask first.
+
+## The shape
+
+```yaml
+id: "1" # integer string, unique among jobs; not a UUID
+type: Job
+fileVersion: 1
+name: BUILD_TARGET
+includeSelector: '{ location: "TARGET" }+'
+excludeSelector: '{ name: "TEST_*" }'
+```
 
 ## Procedure
 
-1. Decide the selector(s). Confirm what they resolve to with read-only coa commands:
+1. Write the selectors and check what they match:
    ```bash
-   coa create -d <dir> --list-nodes                                 # list available nodes/IDs
-   coa create -d <dir> --include "<selector>" --dry-run             # preview matched nodes
-   coa create -d <dir> --include "<selector>" --dry-run --verbose   # also show generated SQL
-   coa run    -d <dir> --include "<selector>" --dry-run --verbose   # confirm the DML renders too
+   coa create -d <dir> --list-nodes
+   coa create -d <dir> --include "<include>" --exclude "<exclude>" --dry-run
+   coa run    -d <dir> --include "<include>" --exclude "<exclude>" --dry-run --verbose
    ```
-   Check the run dry-run, not just the create one: a node whose `config` lacks
-   its node type's defaults renders ZERO run SQL, so a job can select it and
-   still load no data.
-2. Pick the next free integer `id` (string form, e.g. `"2"`) — do not reuse an
-   existing job id and do not use a UUID.
-3. Write `jobs/<JOB_NAME>.yml` with the fields above.
-4. Validate the schema and scan for problems:
-   ```bash
-   coa validate -d <dir>
-   coa validate -d <dir> --json     # machine-readable
-   ```
-   Fix any reported errors and re-validate.
+   The matched set should be exactly the nodes the user described. The run dry-run matters: a selected node with empty run SQL would load no data.
+2. Pick the next free integer `id` by reading the existing `jobs/*.yml`.
+3. Write `jobs/<JOB_NAME>.yml`.
+4. `coa validate -d <dir>` until it is clean.
 
-A job only **selects** nodes; running it locally is just `coa create` / `coa run`
-with the job's selector against the warehouse (local development, not a deploy).
-Cloud plan/deploy is a separate process (git push → Coalesce web UI / CI).
+A job only selects nodes. Running it locally is `coa create` / `coa run` with its selectors, which is local development, not a deploy.
