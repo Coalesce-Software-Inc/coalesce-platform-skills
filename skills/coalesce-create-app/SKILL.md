@@ -113,7 +113,6 @@ selectors) against a simple pattern such as `^[A-Za-z0-9_]+$`, and return a
 2. If `~/.coalesce/desktop/agent.json` exists, `serving.port` is the port apps
    are served on. Otherwise use the port `coa serve` printed.
 3. Decide where the app writes:
-   - Its own data goes in a folder outside `apps/`, such as `.<appId>/`.
    - `nodes/`, `jobs/` and `subgraphs/` follow `coalesce-pipelines` and need
      the user's OK.
    - Never `data.yml`, `workspace.yml`, `environments/`, `.coa/` or
@@ -124,8 +123,7 @@ selectors) against a simple pattern such as `^[A-Za-z0-9_]+$`, and return a
 Write the three files in [reference/template.md](reference/template.md) into
 `apps/<appId>/` verbatim, and set `name` (same as the folder) and
 `description` in `package.json`. The template already handles loopback
-listening, the port checks, workspace path checks (`wsPath()`) and
-write-only-on-change (`writeIfChanged()`).
+listening, the port checks and workspace path checks (`wsPath()`).
 
 ## Step 2 — Build the server
 
@@ -192,7 +190,7 @@ npx esbuild server.src.js --bundle --platform=node --target=node20 --outfile=dis
 
 ## Step 5 — Commit
 
-Stage the app folder and its data folder per `coalesce-git-publication`.
+Stage the app folder per `coalesce-git-publication`.
 Commit and push only with the user's approval.
 
 ## Approval gates

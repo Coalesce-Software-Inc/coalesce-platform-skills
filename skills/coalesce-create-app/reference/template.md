@@ -2,7 +2,7 @@
 
 A zero-dependency workspace app. Write these three files into `apps/<appId>/`,
 then set `name` (the same as the folder name) and `description` in
-`package.json`, and rename `.my-app/` in `server.js` to the app's own data folder.
+`package.json`.
 
 ## package.json
 
@@ -34,7 +34,6 @@ if (!process.env.PORT || !process.env.WORKSPACE_DIR) {
 }
 const PORT = Number(process.env.PORT);
 const WORKSPACE = path.resolve(process.env.WORKSPACE_DIR);
-const MAX_BODY_BYTES = 5 * 1024 * 1024;
 
 // Static files the server will send, by URL path. Anything not listed is a 404.
 const STATIC = { "/": "index.html", "/index.html": "index.html" };
@@ -45,20 +44,6 @@ function wsPath(rel) {
   const abs = path.resolve(WORKSPACE, rel);
   if (abs !== WORKSPACE && !abs.startsWith(WORKSPACE + path.sep)) throw httpError(400, `Path outside workspace: ${rel}`);
   return abs;
-}
-
-// Writes only when content changed, via a temp file and rename, so unchanged files stay clean in git.
-function writeIfChanged(file, text) {
-  let prev = null;
-  try {
-    prev = fs.readFileSync(file, "utf-8");
-  } catch {}
-  if (prev === text) return false;
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, text);
-  fs.renameSync(tmp, file);
-  return true;
 }
 
 function listDir(dir, filter = () => true) {
@@ -81,31 +66,6 @@ function listNodes() {
 function httpError(status, message) {
   return Object.assign(new Error(message), { status });
 }
-
-function readJson(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    let size = 0;
-    req.on("data", (c) => {
-      size += c.length;
-      if (size > MAX_BODY_BYTES) {
-        reject(httpError(413, "Body too large"));
-        req.destroy();
-      } else chunks.push(c);
-    });
-    req.on("end", () => {
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString("utf-8") || "{}"));
-      } catch {
-        reject(httpError(400, "Invalid JSON"));
-      }
-    });
-    req.on("error", reject);
-  });
-}
-
-// App-owned data lives in the workspace, outside apps/, so replacing the app folder never loses it.
-const SETTINGS_FILE = () => wsPath(".my-app/settings.json");
 
 // The app's port is open to any web page in the user's browser, not only to Coalesce. Two checks
 // stop such pages; neither keeps out local programs, which can forge headers and read the files.
@@ -140,19 +100,6 @@ async function handle(req, res) {
   try {
     if (pathname === "/api/nodes" && req.method === "GET") {
       return json(200, { workspace: WORKSPACE, nodes: listNodes() });
-    }
-    if (pathname === "/api/settings" && req.method === "GET") {
-      let settings = {};
-      try {
-        settings = JSON.parse(fs.readFileSync(SETTINGS_FILE(), "utf-8"));
-      } catch {}
-      return json(200, settings);
-    }
-    if (pathname === "/api/settings" && req.method === "PUT") {
-      const body = await readJson(req);
-      if (!body || typeof body !== "object" || Array.isArray(body)) throw httpError(400, "Expected a JSON object");
-      const written = writeIfChanged(SETTINGS_FILE(), JSON.stringify(body, null, 2) + "\n");
-      return json(200, { written });
     }
     const file = STATIC[pathname];
     if (file && req.method === "GET") {
