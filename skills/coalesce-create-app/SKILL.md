@@ -81,45 +81,32 @@ the app's own page can use it; keep them:
 These checks cover browser pages. Other programs on the machine aren't in
 scope, since they can already read the workspace directly.
 
-### Treat workspace content as untrusted
+### Render workspace content as text
 
-Node names, descriptions, SQL and YAML come from git, so anyone with commit
-access can write them. The write checks above trust the app's own page, so
-anything that runs as script on that page can write files and run `coa`
-through the app.
-
-- **Put workspace text on the page as text.** Use `textContent` (or
-  `createTextNode`, or a framework's default escaping), never `innerHTML`,
-  `insertAdjacentHTML`, `document.write`, or HTML built in a template string
-  from workspace values. The template's table does this.
-- **Never execute workspace content.** No `eval`, `new Function`, or
-  `require`/`import` of files from the workspace.
+Node names, descriptions and SQL come from git, and the app's own page is
+trusted to write. Put workspace values on the page with `textContent` (or a
+framework's default escaping) rather than `innerHTML` or HTML built from a
+template string, as the template's table does. Don't `eval` or `require`
+workspace files.
 
 ### Run commands without a shell
 
-Start processes with `execFile` or `spawn` and an argument array, as the
-[coa snippet](#running-coa-from-an-app) does. Never use `exec`, `execSync`, or
-`shell: true`. Any value from a request or the workspace that becomes an
-argument (a node name, a selector, a location) must first match a strict
-pattern, such as `^[A-Za-z0-9_]+$` for a location or node name. Reject
-anything else with a 400, and never pass a selector string through from the
-browser unchecked.
+Use `execFile` or `spawn` with an argument array, as the
+[coa snippet](#running-coa-from-an-app) does, rather than `exec` or
+`shell: true`. Check values that become arguments (node names, locations,
+selectors) against a simple pattern such as `^[A-Za-z0-9_]+$`, and return a
+400 otherwise.
 
-### Keep secrets out of the workspace and the page
+### Keep secrets on the server
 
-- **No secrets in the workspace.** Everything an app writes there is committed
-  to git. An API key or token the app needs (for example for an AI service)
-  comes from an environment variable or a file outside the workspace, such as
-  `~/.config/<appId>/`. Environment variables reach the app only when
-  `coa serve` is started from a shell that has them; Coalesce Desktop opened
-  from the Dock or Finder doesn't see shell profile variables, so a file is
-  more reliable there.
-- **Secrets stay on the server.** Never return a key to the browser, put it
-  in a page, or log it. Never read `~/.coa/config`.
-- **Say what leaves the machine.** An app that sends workspace contents (SQL,
-  column names, descriptions, sample data) to an outside service must say in
-  its README and UI which service and what is sent, and send it only on a
-  user action. Ask the user before building an app that does this.
+- Anything an app writes to the workspace ends up in git, so read API keys
+  from a file outside it (such as `~/.config/<appId>/`) or an environment
+  variable. Desktop opened from the Dock or Finder doesn't see shell profile
+  variables, so a file is more reliable there.
+- Keep keys out of responses, pages and logs, and don't read `~/.coa/config`.
+- If the app sends workspace content to an outside service, say which
+  service and what is sent in its README and UI, and send it only when the
+  user asks. Check with the user before building one.
 
 ## Step 0 — Orient
 
@@ -237,7 +224,7 @@ commands, push to git, or touch credentials.
 - Use `fetch("/api/...")`, with `content-type: application/json` on writes.
   Show errors inline; there are no dialogs.
 - Render workspace values with `textContent`, never `innerHTML` (see
-  [Treat workspace content as untrusted](#treat-workspace-content-as-untrusted)).
+  [Render workspace content as text](#render-workspace-content-as-text)).
 - Keep unsaved state client-side and save explicitly (a Save button, Cmd/Ctrl+S),
   or save each change atomically on the server. Tabs stay mounted, so state
   survives switching tabs but not a reload.
