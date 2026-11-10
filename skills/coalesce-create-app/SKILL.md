@@ -59,8 +59,34 @@ allow-forms allow-popups"` on the app's own origin. In practice:
 - **Paths:** the app is served at `/` of its own origin. Root-relative
   (`/api/...`) and relative URLs both work; no `<base>` tricks or `/proxy`
   prefixes are needed (those were for the old path-prefixed proxy).
-- Requests to an app host from any other website are refused with 403, so
-  only Coalesce (and a URL typed into the browser) can reach the app.
+- Coalesce refuses requests to `<label>.localhost` from other websites, but
+  the app also listens directly on `localhost:$PORT`, and that port has no
+  guard. See the next section.
+
+### Guard the app's own port
+
+Any web page open in the user's browser can send requests to
+`localhost:$PORT`. Without checks, a page can make the app write files with a
+forged `POST` (a `text/plain` or form body goes out without a CORS
+preflight), or read the app's responses by DNS rebinding. Every app server
+must:
+
+1. **Check `Host` on every request.** Accept only `localhost`, `127.0.0.1`,
+   `[::1]`, or a name ending in `.localhost`, on any port, and answer 403
+   otherwise. Coalesce's proxy keeps the original `Host`, so requests through
+   Coalesce pass.
+2. **Check every request that changes something** (anything but `GET`/`HEAD`).
+   Accept it only when `Sec-Fetch-Site` is `same-origin` or absent (absent
+   means a non-browser client such as `curl`) and `Content-Type` is
+   `application/json`. Never change state on a `GET`. The UI must send
+   `content-type: application/json` on its writes.
+3. **Never send CORS headers.** No `Access-Control-Allow-Origin`, and certainly
+   not `*`.
+
+The template does all three (`isLoopbackHost`, `isTrustedWrite`). These checks
+stop web pages. They do not stop other programs on the machine, which can set
+any header and can read the workspace directly anyway; that is outside what
+an app can defend against.
 
 ## Step 0 — Orient
 
@@ -124,6 +150,8 @@ apps/<appId>/
   `nodes/<LOCATION>-<NAME>.sql` (V2) or `.yml` (V1); node types are under
   `nodeTypes/` and `.coa/cache/packages/<alias>/nodeTypes/`, plus the built-in
   `Source`. `coalesce-pipelines` and its `reference/` docs describe each shape.
+- Keep the `Host` and write checks from the template on every route (see
+  [Guard the app's own port](#guard-the-apps-own-port)).
 - Validate every input that turns into a path (`wsPath()`), cap request body
   sizes, and return JSON errors (`{ "error": "..." }`) with a 4xx status.
 - Log to stdout/stderr; the user finds the logs in Coalesce's log.

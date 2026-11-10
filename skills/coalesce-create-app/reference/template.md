@@ -102,12 +102,35 @@ function readJson(req) {
 // App-owned data lives in the workspace, outside apps/: a marketplace update replaces apps/<id>/.
 const SETTINGS_FILE = () => wsPath(".my-app/settings.json");
 
+// The app's port is open to any web page in the user's browser, not only to Coalesce. Two checks
+// stop such pages; neither keeps out local programs, which can forge headers and read the files.
+// 1. Host must be a loopback name. A DNS-rebinding page arrives as its own domain.
+//    Coalesce's proxy keeps the original Host, "<label>.localhost:<port>".
+function isLoopbackHost(host) {
+  const hostname = (host || "").replace(/:\d+$/, "").toLowerCase();
+  return ["localhost", "127.0.0.1", "[::1]"].includes(hostname) || hostname.endsWith(".localhost");
+}
+// 2. Writes must come from the app's own page (or a non-browser client, which sends no
+//    Sec-Fetch-Site) and be JSON, so a cross-site form or text/plain POST can't trigger them.
+function isTrustedWrite(req) {
+  const site = req.headers["sec-fetch-site"];
+  const type = (req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
+  return (site === undefined || site === "same-origin") && type === "application/json";
+}
+const SAFE_METHODS = new Set(["GET", "HEAD"]);
+
 async function handle(req, res) {
   const { pathname } = new URL(req.url, "http://localhost");
+  // Never add CORS headers (Access-Control-Allow-Origin): the app is for its own page only.
   const json = (status, data) => {
     res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
     res.end(JSON.stringify(data));
   };
+
+  if (!isLoopbackHost(req.headers.host)) return json(403, { error: "Forbidden host" });
+  if (!SAFE_METHODS.has(req.method) && !isTrustedWrite(req)) {
+    return json(403, { error: "Writes must be same-origin JSON requests" });
+  }
 
   try {
     if (pathname === "/api/nodes" && req.method === "GET") {
