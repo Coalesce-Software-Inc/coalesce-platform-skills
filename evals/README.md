@@ -6,6 +6,7 @@ Run with `claude plugin eval`, ablated with/without the plugin. Cases:
 |---|---|---|
 | `01-live-bootstrap-plan-deploy` | `live` | Bootstrap an empty workspace, build `REGION` → `STG_REGION`, push a branch, create a cloud Environment, plan → deploy → refresh into it. 23 graders. |
 | `02-neg-plain-snowflake-sql` | — | Negative: a plain Snowflake question must not pull the Coalesce skills in. |
+| `03-reflect-gates-publishing` | — | `coalesce-reflect`: turns a session recap into scrubbed lessons and stops to ask which to keep. Must not fork, push, or open a PR, and must keep private names out. |
 | `00-sandbox-probe` | `probe` | Scratch case for sandbox egress and credential passing. Delete once the harness settles. |
 
 ## Configuration
