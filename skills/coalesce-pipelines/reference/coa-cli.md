@@ -15,7 +15,7 @@ These are static manuals, not listings. `coa describe node-types` documents the 
 
 ## The loop commands
 
-- `coa validate -d <repo>` (`--json` for machine output). Schema checks on every YAML file plus 15 offline graph scanners (broken refs, missing types, duplicate names, bad storage locations). No warehouse and no profile needed. `--include` scopes the scanners only; schema validation always covers all files. The scanners need a `workspace.yml` to map locations. Without one they report "setup failed" and you get schema validation only; `coa doctor --fix` bootstraps the file (ask first).
+- `coa validate -d <repo>` (`--json` for machine output). Schema checks on every YAML file plus 15 offline graph scanners (broken refs, missing types, duplicate names, bad storage locations). No warehouse and no profile needed. `--include` scopes the scanners only; schema validation always covers all files. The scanners need a `workspace.yml` to map locations. Without one they report "setup failed" and you get schema validation only; `coa doctor --fix` bootstraps the file (ask first). Validate never runs SQL, so it cannot catch a misspelled or wrong-case column or a function the warehouse does not have.
 - `coa create -d <repo> --include "{ NODE }" --dry-run --verbose` renders the DDL. Check the column list is populated.
 - `coa run -d <repo> --include "{ NODE }" --dry-run --verbose` renders the DML. Empty output means the node's `config` is missing its type's defaults.
 - `coa create -d <repo> --list-nodes` (or `coa run ... --list-nodes`) lists nodes and ids.
@@ -35,7 +35,9 @@ Case-insensitive, with minimatch globs. Quote the selector and escape inner quot
 
 ## init: bootstrap a workspace (ask first)
 
-`coa init -d <dir>` writes `~/.coa/config` (token, environmentID, warehouse credentials), scaffolds `data.yml`, `locations.yml`, `workspace.yml`, and `.gitignore`, declares the base node types package, optionally hydrates packages, and verifies with doctor. Phases already satisfied are skipped silently. Always pass `--non-interactive` plus per-field flags (`--token`, `--environmentID`, `--snowflakeAccount`, …) so it fails fast instead of prompting. `--skip-install`, `--skip-doctor`, and `--force` exist.
+`coa init -d <dir>` writes `~/.coa/config` (token, environmentID, warehouse credentials), scaffolds `data.yml`, `locations.yml`, `workspace.yml`, and `.gitignore`, declares the base node types package, optionally hydrates packages, and verifies with doctor. Phases already satisfied are skipped silently. Always pass `--non-interactive` plus per-field flags (`--token`, `--environmentID`, `--snowflakeAccount`, …) so it fails fast instead of prompting. `--skip-install`, `--skip-doctor`, and `--force` exist. `--srcDatabase` / `--srcSchema` / `--targetDatabase` / `--targetSchema` set the location mappings it writes to `workspace.yml`.
+
+By default init also creates or links a cloud project and records it as `projectID` in `data.yml`. `--project-id <id>` links an existing project; `--no-project` skips the cloud step. Init does not check that the target database or schema exists.
 
 Without `--profile`, init writes into the profile the workspace already resolves to. With `--profile <name>` it writes that section and binds the workspace to it. The binding is written after the credential phases, so a failed init leaves no new binding, but it can leave a half-written profile (the token is stored before the warehouse is tested). `coa init --profile <name>` is also how you rewrite an existing profile's credentials, because `coa profile create` refuses an existing name.
 
@@ -43,7 +45,7 @@ Without `--profile`, init writes into the profile the workspace already resolves
 
 `coa doctor -d <dir> [--profile <p>]` checks the project files, cloud auth, connection credentials, and live warehouse connectivity (`--json` available). It changes nothing but does call the cloud and warehouse with your token. `--fix` bootstraps a missing `workspace.yml` and updates `.gitignore`; that is a shared-config change, so ask first.
 
-The header line reports the profile in force and what selected it: `coa <version> | platform: snowflake | profile: prod (workspace.yml)`. `Issues found — see above` prints for any warning, including a missing gitignore entry, and doctor exits 0 either way. Read the individual checks.
+The header line reports both platforms and the profile in force with what selected it: `coa <version> | workspace platform: snowflake | profile platform: snowflake | profile: prod (workspace.yml)`. `Issues found — see above` prints for any warning, including a missing gitignore entry, and doctor exits 0 either way. Read the individual checks.
 
 ## install: hydrate packages
 
@@ -69,6 +71,9 @@ coa profile create dbx --non-interactive --platformKind Databricks \
   --databricksHost <h> --databricksPath <p> --databricksToken <t>
 coa profile create bq --non-interactive --platformKind BigQuery \
   --bigQueryServiceAccountKey ./key.json
+coa profile create ch --non-interactive --platformKind tdbc-clickhouse \
+  --platformAuthType user-password --platformHost <h> --platformPort 8443 \
+  --platformUsername <u> --platformPassword <p>
 coa profile set-cloud dbx --non-interactive --token <t> --environmentID 42
 coa profile use dbx -d ./my-workspace
 ```
@@ -89,14 +94,14 @@ Only commands that act on a workspace directory read the binding: `run`, `create
 `coa profile use` and `coa init` refuse a profile whose platform disagrees with the workspace:
 
 - No `data.yml`: any platform.
-- `data.yml` with no recognized `platformKind`: counts as Snowflake.
+- `data.yml` with no recognized `platformKind`: counts as Snowflake. The recognized kinds are `snowflake`, `databricks`, `bigquery`, `fabric`, and the `tdbc-*` kinds (`tdbc-clickhouse`, `tdbc-fabric`); an unregistered `tdbc-*` name is an error, not Snowflake.
 - `data.yml` naming a platform: that platform only.
 
-A profile's platform is its `platformKind`, else the one implied by its `snowflakeAuthType` / `databricksAuthType` / `bigQueryAuthType` field, read from the effective profile. Only those three fields count: a section holding just `snowflakeAccount` has no platform. `coa init` never rewrites a platform already recorded in `data.yml`. The error reads `Profile "dbx" is for databricks, but this is a snowflake workspace.` It appears at bind time from `use`/`init` and at load time from `run`/`create`. Binding a profile with no warehouse credentials succeeds with a warning; local execution fails until they exist.
+A profile's platform is its `platformKind`, else the one implied by its `snowflakeAuthType` / `databricksAuthType` / `bigQueryAuthType` field, read from the effective profile. Only those three fields count: a section holding just `snowflakeAccount` has no platform. A `tdbc-*` profile always names its platform in `platformKind`. `coa init` never rewrites a platform already recorded in `data.yml`. The error reads `Profile "dbx" is for databricks, but this is a snowflake workspace.` It appears at bind time from `use`/`init` and at load time from `run`/`create`. Binding a profile with no warehouse credentials succeeds with a warning; local execution fails until they exist.
 
 ### Credentials
 
-Supported: Snowflake (`Basic`, `KeyPair`, `OAuth`), Databricks (`Token`, `OAuthM2M`), BigQuery (`ServiceAccount`, `ApplicationDefault`). `coa init` and `coa profile create` share one set of per-field flags: `--platformKind <Snowflake|Databricks|BigQuery>` plus that platform's flags. Snowflake OAuth stores only the auth type in the profile (plus the optional `--snowflakeOAuthClientID` / `--snowflakeOAuthClientSecret` / `--snowflakeOAuthRedirectUri`); the tokens come from `coa auth warehouse login -d <dir>`, a browser flow that caches them outside the config and refuses a profile whose auth type is not `OAuth`.
+Supported: Snowflake (`Basic`, `KeyPair`, `OAuth`), Databricks (`Token`, `OAuthM2M`), BigQuery (`ServiceAccount`, `ApplicationDefault`), ClickHouse (`user-password`). `coa init` and `coa profile create` share one set of per-field flags: `--platformKind <Snowflake|Databricks|BigQuery>` plus that platform's flags. The `tdbc-*` platforms use the exact kind (`--platformKind tdbc-clickhouse`; `ClickHouse` is rejected) and the generic `--platformAuthType`, `--platformHost`, `--platformPort`, `--platformUsername`, `--platformPassword` flags. See the platform reference for its fields. Snowflake OAuth stores only the auth type in the profile (plus the optional `--snowflakeOAuthClientID` / `--snowflakeOAuthClientSecret` / `--snowflakeOAuthRedirectUri`); the tokens come from `coa auth warehouse login -d <dir>`, a browser flow that caches them outside the config and refuses a profile whose auth type is not `OAuth`.
 
 `workspace.yml` holds the profile binding, local location mappings, and runtime parameters, never credentials. Never put secrets in repo files.
 

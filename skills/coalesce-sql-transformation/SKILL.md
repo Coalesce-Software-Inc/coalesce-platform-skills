@@ -22,7 +22,7 @@ Scope: the SELECT body of existing `nodes/<LOCATION>-<NAME>.sql` files. Column e
 
 1. Read `.claude/workspace-context.json` if present, then the target file and the upstream nodes it reads from. Confirm every column you plan to use exists upstream.
 2. Check that each `{{ ref("LOC", "NAME") }}` in the file points at a real `nodes/LOC-NAME.sql` or `.yml`. A ref with the wrong location is a latent bug in the node you were asked to edit: fix the location argument and say that you did.
-3. Make the edit. Keep `@id` and `@nodeType` untouched on the first lines, keep the file's alias and quote style, and give every new ref both arguments in double quotes.
+3. Make the edit. Keep `@id` and `@nodeType` untouched on the first lines, keep the file's alias and quote style, and give every new ref both arguments in double quotes. Write SQL in the workspace platform's dialect and each upstream column exactly as the upstream node spells it. On ClickHouse (`platformKind: tdbc-clickhouse`) read the [ClickHouse reference](../coalesce-pipelines/reference/platforms/clickhouse.md) first: names are case-sensitive, there is no `MERGE`, and an unmatched `LEFT JOIN` gives `0` or `''`, not NULL.
 4. Verify:
    - `coa validate -d <dir>`
    - `coa create -d <dir> --include "{ NODE }" --dry-run --verbose`

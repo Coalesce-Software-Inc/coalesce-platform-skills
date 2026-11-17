@@ -111,12 +111,13 @@ operation:
     insertStrategy: INSERT
     truncateBefore: true
     testsEnabled: false
+    # plus any platform keys the type defines, e.g. ClickHouse: tableEngine: MergeTree, orderBy: tuple()
   metadata:
     columns:
       - name: <COLUMN>
         dataType: <TYPE> # copy from the upstream column
         description: "" # required by validate
-        nullable: true
+        nullable: true # copy from the upstream column
         columnReference:
           stepCounter: <this node's id>
           columnCounter: <fresh UUID v4>
@@ -138,8 +139,8 @@ operation:
           customSQL: ""
 ```
 
-1. Copy the column list (names, types, `columnCounter` values) from the upstream node file. Never invent it.
-2. Set `sqlType` to a type that exists on disk and `config` to that type's defaults.
+1. Copy the column list (names, types, `nullable`, `columnCounter` values) from the upstream node file. Never invent it. When the upstream is a `.sql` node, it has no `columnCounter` values: use the upstream column's name as `columnCounter` (uppercased for an unquoted alias, exactly as written for a quoted one) and the `.sql` node's `@id` as `stepCounter`.
+2. Set `sqlType` to a type that exists on disk and `config` to that type's defaults, including any platform-specific keys its `nodeMetadataSpec` lists.
 3. `transform` is what `get_source_transform(col)` emits; put the aliased expression there (`"CUSTOMER"."C_CUSTKEY"`) or leave `""` for pass-through.
-4. For an SCD2 Dimension: `isBusinessKey: true` on the key column, `isChangeTracking: true` on tracked columns, and the system columns the type's `systemColumns` spec names (surrogate key with `isSurrogateKey: true`, `SYSTEM_VERSION`, `SYSTEM_CURRENT_FLAG`, and the start/end/create/ update dates with their `isSystem*` flags and transforms).
+4. For an SCD2 Dimension: `isBusinessKey: true` on the key column, `isChangeTracking: true` on tracked columns, and the system columns the type's `systemColumns` spec names (surrogate key with `isSurrogateKey: true`, `SYSTEM_VERSION`, `SYSTEM_CURRENT_FLAG`, and the start/end/create/ update dates with their `isSystem*` flags and transforms). If the type's `nodeMetadataSpec` has no `systemColumns` and its run template has no merge, it cannot keep history: these flags are ignored and every run appends a copy. That is true of every ClickHouse built-in type; see the [ClickHouse reference](platforms/clickhouse.md).
 5. Verify: `coa validate -d <dir>`, then `coa create` and `coa run`, each with `--include "{ <NAME> }" --dry-run --verbose`. The DDL must list the columns. Empty run SQL ("Template rendered zero SQL stages") means `config` is missing defaults. Show the user the rendered SQL before anything executes.

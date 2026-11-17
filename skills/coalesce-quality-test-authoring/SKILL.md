@@ -47,7 +47,11 @@ project you are working in.
    - Load pattern: full refresh, incremental or append-only, and the refresh schedule.
      This decides freshness and the time windows.
    - Immediate lineage: which upstream tables its foreign keys point to.
-   - SQL dialect of the warehouse.
+   - SQL dialect of the warehouse. In a Coalesce workspace it is `platformKind` in
+     `data.yml`; for `tdbc-clickhouse`, read the
+     [ClickHouse reference](../coalesce-pipelines/reference/platforms/clickhouse.md)
+     (case-sensitive names, NULL handling, and the column tests its SQL node types
+     package declares).
 3. **Collect existing coverage.** Gather existing tests, monitors and constraints for the
    asset, plus any pending suggestions. Drop any candidate that duplicates or closely
    resembles one of them, or whose concern they already cover.

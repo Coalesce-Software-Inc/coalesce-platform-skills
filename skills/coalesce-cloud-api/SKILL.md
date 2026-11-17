@@ -11,7 +11,7 @@ Scope: bootstrapping a workspace, diagnosing config, auth, and warehouse connect
 
 ## The commands
 
-- **`coa init -d <dir>`** writes `~/.coa/config` and scaffolds `data.yml`, `locations.yml`, `workspace.yml`, `.gitignore`, and the base package declaration. Always pass `--non-interactive` plus per-field flags. Writes credentials and shared config: ask first.
+- **`coa init -d <dir>`** writes `~/.coa/config` and scaffolds `data.yml`, `locations.yml`, `workspace.yml`, `.gitignore`, and the base package declaration. Always pass `--non-interactive` plus per-field flags. Writes credentials and shared config: ask first. By default it also creates or links a cloud project (`--project-id <id>` to link one, `--no-project` to skip). It does not check that the target database or schema exists. On a platform without a base package (ClickHouse) it writes built-in types to `nodeTypes/` instead of a declaration; the ClickHouse flags and setup are in the [ClickHouse reference](../coalesce-pipelines/reference/platforms/clickhouse.md).
 - **`coa doctor -d <dir> [--profile <p>]`** checks project files, cloud auth, credentials, and live warehouse connectivity. It changes nothing but calls the cloud and warehouse with your token. `--fix` changes shared config: ask first.
 - **`coa install -d <dir> [--profile <p>]`** downloads the packages declared under `packages/` so their node types can render. Safe without asking. "No packages to install." means nothing is declared; the base package's declaration comes from `coa init`, and other packages from coalesce-install-package.
 - **`coa profile ...`** is the only supported way to manage `~/.coa/config`. Never hand-edit the ini.
@@ -21,7 +21,7 @@ Scope: bootstrapping a workspace, diagnosing config, auth, and warehouse connect
 When asked what is wrong with a config or connection, diagnose and report; do not repair unless asked.
 
 1. Read what is there: `coa profile list -d <dir>`, `coa profile show <name>` (secrets redacted), the workspace's `data.yml`, `locations.yml`, and `workspace.yml`, and `~/.coa/config` if the CLI output is not enough (never quote its values).
-2. Run `coa doctor -d <dir>` if you may use the network and the user has not ruled it out. Read each check; `Issues found — see above` prints for any warning and doctor exits 0 either way.
+2. Run `coa doctor -d <dir>` if you may use the network and the user has not ruled it out. Read each check; `Issues found — see above` prints for any warning and doctor exits 0 either way. On ClickHouse Cloud, a connection timeout on the first call often means the service was idle and is waking up; retry once before calling it a credentials or network fault.
 3. Report each defect with the file or profile field it lives in, what is wrong with it, and the fix, and say what you could not verify.
 4. Honor the user's limits exactly. If they say not to run a command, do not run it, including to "just check". Do not edit `~/.coa/config` or run `coa init` / `coa doctor --fix` on your own initiative. Never print a secret.
 
@@ -34,7 +34,7 @@ Precedence: `--profile`, then the workspace binding (`profile:` in `workspace.ym
 - Only workspace commands read the binding. Cloud Operations commands resolve from flags alone.
 - `coa validate` takes no profile and needs no warehouse.
 
-Bindings are per workspace directory, which lets workspaces on different platforms coexist. `coa profile use` and `coa init` refuse a profile whose platform disagrees with `data.yml` (no `platformKind` counts as Snowflake; no `data.yml` is unconstrained).
+Bindings are per workspace directory, which lets workspaces on different platforms coexist. `coa profile use` and `coa init` refuse a profile whose platform disagrees with `data.yml` (no `platformKind` counts as Snowflake; no `data.yml` is unconstrained). The `tdbc-*` kinds such as `tdbc-clickhouse` are platforms in their own right and must match exactly.
 
 ## Credentials and approval
 
