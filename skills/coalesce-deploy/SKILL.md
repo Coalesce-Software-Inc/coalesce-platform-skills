@@ -142,11 +142,12 @@ On ClickHouse each mapping is `database: ""` with the ClickHouse database as
 
 Coalesce Desktop keeps these files in sync with the cloud: when it opens the
 workspace it writes one file per Environment in the project, named
-`<Environment name without spaces or parentheses>-<id>.yml` (`QA CH Env`,
-id 777, becomes `QACHEnv-777.yml`), and deletes a differently named file
-for the same `id`. Before writing one, look in `environments/` for a file whose
-`id` already matches and edit that; if you create one, use Desktop's naming so
-it is not replaced. Files for Environments you are not deploying can appear
+`<name>-<id>.yml` with every character other than letters, digits, `_`, and
+`-` removed (`QA CH Env`, id 777, becomes `QACHEnv-777.yml`; `Dev: ClickHouse`,
+id 12, becomes `DevClickHouse-12.yml`). A file for the same `id` under any
+other name is renamed to that, keeping its contents. Before writing one, look
+in `environments/` for a file whose `id` already matches and edit that; if you
+create one, use Desktop's naming so it does not show up as a rename in git. Files for Environments you are not deploying can appear
 too, and an incomplete one shows as a problem in Desktop.
 
 - Keys under `mappingDefinitions` must match `locations.yml` names exactly;
@@ -305,7 +306,8 @@ Deploys are not rerun: fix, re-plan, re-deploy.
   `coa doctor` without `--fix`, `coa validate`, reading `coa-plan.json` and
   result files.
 - **Implied by "plan/deploy X to Environment Y":** `coa plan` against Y,
-  writing `environments/<Y>.yml` for Y if it is missing, appending the plan and
+  writing the `environments/` file for Y (Desktop's `<name>-<id>.yml` naming,
+  Step 2) if it is missing, appending the plan and
   result artifacts to `.gitignore`.
 - **ASK FIRST, each time, with the specifics:** `coa deploy` (show the
   add/alter/delete summary), `coa refresh`/`rerun` (say which nodes, into
@@ -333,6 +335,6 @@ Deploys are not rerun: fix, re-plan, re-deploy.
 | Environment stuck in `Failed Deploy`; `refresh` refuses | Last deploy failed. | Fix and re-deploy; `--forceIgnoreEnvironmentStatus` only with approval. |
 | Deploy shows `deletedTable` entries you did not expect | A node file was removed, renamed, or got `deployEnabled: false`. | Stop and confirm with the user — those are DROPs. |
 | `Platform 'tdbc-clickhouse' requires the 'enableTdbcPlatform' feature flag, which is not enabled for this organization` | ClickHouse cloud deploys are not turned on for the Coalesce organization. | Nothing to fix locally. Tell the user to ask Coalesce to enable it. |
-| Your `environments/<NAME>.yml` disappeared and a `<Name>-<id>.yml` appeared | Coalesce Desktop synced the Environment files from the cloud. | Use Desktop's file (same `id`); see Step 2. |
+| Your `environments/<NAME>.yml` was renamed to `<Name>-<id>.yml` | Coalesce Desktop synced the Environment files and renamed yours to its naming; the contents are kept. | Use the renamed file (same `id`); see Step 2. |
 | Deploy shows `Warning: Table Recreated (<reason>)` (ClickHouse) | A sort key, partition, primary key, or key column changed; the table was recreated empty. | Expected for that change, but it loses the table's data and history. Flag such changes before planning. |
 | `Deployment completed` but the App shows no Workspace | CLI deploys need no Workspace; the App only *browses* via one. | Connect the repo to the Project and attach the pushed branch to a Workspace in the App (setup guide, Step 5). |

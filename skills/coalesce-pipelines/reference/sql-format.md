@@ -54,7 +54,7 @@ Read by the type's templates, so they act only on types that use them:
 - `@isBusinessKey`: the MERGE/SCD key. Required on Persistent Stage and Dimension types that merge. Affects DDL.
 - `@isChangeTracking`: change detection for Persistent Stage and SCD2 Dimension. Affects DML.
 
-On a type whose templates do not read them (every ClickHouse built-in type, for example) they are accepted and ignored.
+On a config-style type with no `annotations:` block whose templates do not read them (every ClickHouse built-in type, for example) they are accepted and ignored, with no warning. On a type that declares an `annotations:` block without them, validate warns `annotationNameUnknown`.
 
 Column `@id`: a `.sql` column's name is its identity, and an `@id` on a column re-keys it, so downstream references by name break. Write a column `@id` only when the node type requires one (the ClickHouse SQL node types package's Dimension and Fact do).
 
