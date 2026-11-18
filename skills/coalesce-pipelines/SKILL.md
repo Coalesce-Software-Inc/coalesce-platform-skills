@@ -48,7 +48,7 @@ Type names vary by workspace, so read them off disk before you name one:
 
 In each `definition.yml`, `name`, `description`, and `nodeMetadataSpec` tell you the layer, `fileVersion` tells you the format, and the `id` field is the value for `@nodeType()` (`<alias>:::<id>` for a package type). Never parse the id from the folder name (names and ids can both contain dashes).
 
-- The Snowflake, Databricks, and BigQuery base packages ship no `Stage` type. Their staging type is typically `Work` (`base-node-types:::204`).
+- The Snowflake, Databricks, and BigQuery base packages ship no `Stage` type. Their staging type is typically `Work`, and its id differs by platform and release (`base-node-types:::204` on Snowflake, `base-node-types:::159` on BigQuery), so read it off disk. The base package's types can all be V1; SQL (V2) types come from a separate package such as `@coalesce/snowflake/base-node-types-sql` or `@coalesce/bigquery/bigquery-base-node-types-sql`, only when the workspace has it installed.
 - The built-in names (`Stage`, `View`, `Dimension`, `Fact`, `persistentStage`) are V1 and resolve only when those types exist in `nodeTypes/`; `coa init` writes them there when the base package is unavailable. ClickHouse has no base package, and its built-ins also include the V2 `sqlStage` and `sqlView`.
 - A guessed name fails with `error[missingNodeType]: node type "X" is not available`.
 - Use the right type for the layer (staging, persistent staging, fact/dimension, view), not the staging type for everything.

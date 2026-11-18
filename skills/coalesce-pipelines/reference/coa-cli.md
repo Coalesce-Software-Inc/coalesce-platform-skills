@@ -35,7 +35,7 @@ Case-insensitive, with minimatch globs. Quote the selector and escape inner quot
 
 ## init: bootstrap a workspace (ask first)
 
-`coa init -d <dir>` writes `~/.coa/config` (token, environmentID, warehouse credentials), scaffolds `data.yml`, `locations.yml`, `workspace.yml`, and `.gitignore`, declares the base node types package, optionally hydrates packages, and verifies with doctor. Phases already satisfied are skipped silently. Always pass `--non-interactive` plus per-field flags (`--token`, `--environmentID`, `--snowflakeAccount`, …) so it fails fast instead of prompting. `--skip-install`, `--skip-doctor`, and `--force` exist. `--srcDatabase` / `--srcSchema` / `--targetDatabase` / `--targetSchema` set the location mappings it writes to `workspace.yml`.
+`coa init -d <dir>` writes `~/.coa/config` (token, environmentID, warehouse credentials), scaffolds `data.yml`, `locations.yml`, `workspace.yml`, and `.gitignore`, declares the base node types package (on a platform without one, such as ClickHouse, it writes the built-in node types to `nodeTypes/` instead), optionally hydrates packages, and verifies with doctor. Phases already satisfied are skipped silently. Always pass `--non-interactive` plus per-field flags (`--token`, `--environmentID`, `--snowflakeAccount`, …) so it fails fast instead of prompting. `--skip-install`, `--skip-doctor`, and `--force` exist. `--srcDatabase` / `--srcSchema` / `--targetDatabase` / `--targetSchema` set the location mappings it writes to `workspace.yml`.
 
 By default init also creates or links a cloud project and records it as `projectID` in `data.yml`. `--project-id <id>` links an existing project; `--no-project` skips the cloud step. Init does not check that the target database or schema exists.
 

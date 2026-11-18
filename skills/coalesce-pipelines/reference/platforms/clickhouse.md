@@ -12,13 +12,13 @@ ClickHouse differs from Snowflake at almost every step, and most of the differen
 - ClickHouse has no database/schema split. A location maps to a ClickHouse database, stored in the `schema` field:
   - `workspace.yml`: `locations: { SRC: { schema: tpch }, TARGET: { schema: ANALYTICS } }`, no `database` key.
   - `environments/<NAME>.yml` and `coa environments create --mappings`: `{ "database": "", "schema": "<clickhouse database>" }`.
-- **The target database must already exist.** `coa init` accepts a name that does not exist, and `coa create` then fails with `Database <NAME> does not exist`. `coa` has no command that runs ad-hoc SQL, so do not try to create it through a node. Tell the user to run `CREATE DATABASE <NAME>` (or have an admin do it), then continue.
+- **The target database must already exist, and nothing in `coa` tells you when it doesn't.** `coa init` and `coa doctor` pass and `coa sources list` shows the target with `0` tables, whether the database is empty or missing. The first sign is `coa create` failing with `Database <NAME> does not exist`. So before the first `coa create` into a new target, ask the user to confirm the database exists, and if it doesn't, to run `CREATE DATABASE <NAME>` (or have an admin do it). `coa` has no command that runs ad-hoc SQL, so do not try to create it through a node. The same applies to the database an Environment maps to before a deploy.
 
 ## Connection
 
 - A profile has `platformKind=tdbc-clickhouse`, `platformAuthType=user-password` (the only supported type), `platformHost`, `platformPort` (8443 for ClickHouse Cloud), `platformUsername`, `platformPassword`. Create it with the generic flags: `coa profile create <name> --non-interactive --platformKind tdbc-clickhouse --platformAuthType user-password --platformHost <h> --platformPort 8443 --platformUsername <u> --platformPassword <p>`. `--platformKind ClickHouse` and `clickhouse` are rejected, with an error that lists only Snowflake, Databricks and BigQuery.
 - `coa init` takes the same `--platform*` flags plus `--srcSchema` / `--targetSchema` for the location databases.
-- ClickHouse Cloud services idle out. The first call after a pause can take over a minute while the service wakes, and Coalesce Desktop gives up after 30 s with `no response from <host>:8443 within connectTimeoutMs (30000 ms)`. Retry once before treating it as a credentials or network problem.
+- ClickHouse Cloud services idle out. The first call after a pause can take over a minute while the service wakes, and both `coa` (including `coa init`, `doctor`, `sources`, `create`, `run`) and Coalesce Desktop give up after 30 s with `no response from <host>:8443 within connectTimeoutMs (30000 ms)`. Retry once before treating it as a credentials or network problem. A failed `coa init` writes no credentials, so rerunning it is safe.
 
 ## Names are case-sensitive
 
@@ -35,7 +35,7 @@ Write ClickHouse SQL, not Snowflake SQL. Snowflake-only functions pass validate 
 - `if(cond, a, b)`, not `IFF`. Check any function you are not sure of against the ClickHouse function reference.
 - **There is no `MERGE`.** It is a syntax error. See "Upserts and history" for what to do instead, and explain that to the user rather than writing MERGE.
 - Put `UNION` / `UNION ALL` inside a CTE; at the top level the node parser can misread the clauses after it.
-- `LEFT JOIN` does not produce NULL for unmatched rows by default: ClickHouse returns the type's default (`0`, `''`, `1970-01-01`). Handle it deliberately: the package's `joinUseNulls` runtime parameter or `@joinUseNulls` (views), or `nullIf` / `coalesce` in the SELECT. Say which you chose.
+- `LEFT JOIN` does not produce NULL for unmatched rows by default: ClickHouse returns the type's default (`0`, `''`, `1970-01-01`). Handle it deliberately and say which you chose. On the built-in types (`sqlStage`, `Stage`, and the rest) the only option is the SELECT itself: wrap the joined column in `nullIf(col, '')` / `nullIf(col, 0)` to get NULL, or `coalesce` to pick a value. The `joinUseNulls` runtime parameter and `@joinUseNulls` (views) exist only on the ClickHouse SQL node types package.
 - `FixedString(n)` values are padded with `\0`. Use `toString()` or `trimRight()` before comparing them to other strings or exporting them.
 
 ## Node types
