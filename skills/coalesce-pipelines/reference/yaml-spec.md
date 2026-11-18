@@ -94,7 +94,7 @@ Base node types are not authored here. They ship in the base node types package,
 
 A node type folder holds:
 
-- **definition.yml**: `{ isDisabled, name, id, type: "NodeType", fileVersion, metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML string with required `capitalized`, `short`, `plural`, `tagColor` and optional `config`, `systemColumns`, `annotations`. Its `config` holds the defaults a hand-authored node must copy into `operation.config`: run templates gate their DML on them (Work-204 on `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so `config: {}` renders zero run SQL.
+- **definition.yml**: `{ isDisabled, name, id, type: "NodeType", fileVersion, metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML string with required `capitalized`, `short`, `plural`, `tagColor` and optional `config` (V1 types), `systemColumns`, `annotations` (V2 types). On a V1 type, `config` holds the defaults a hand-authored `.yml` node must copy into `operation.config`: run templates gate their DML on them (Work-204 on `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so `config: {}` renders zero run SQL. None of this applies to a `.sql` node: it has no `config` block, and a V2 type's node options are the annotations it declares.
 - **create.sql.j2** (DDL) and **run.sql.j2** (DML): Jinja templates.
 
 ### Templates for a `fileVersion: 2` type

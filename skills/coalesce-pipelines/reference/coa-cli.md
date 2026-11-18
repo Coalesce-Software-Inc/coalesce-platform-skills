@@ -17,7 +17,7 @@ These are static manuals, not listings. `coa describe node-types` documents the 
 
 - `coa validate -d <repo>` (`--json` for machine output). Schema checks on every YAML file plus 15 offline graph scanners (broken refs, missing types, duplicate names, bad storage locations). No warehouse and no profile needed. `--include` scopes the scanners only; schema validation always covers all files. The scanners need a `workspace.yml` to map locations. Without one they report "setup failed" and you get schema validation only; `coa doctor --fix` bootstraps the file (ask first).
 - `coa create -d <repo> --include "{ NODE }" --dry-run --verbose` renders the DDL. Check the column list is populated.
-- `coa run -d <repo> --include "{ NODE }" --dry-run --verbose` renders the DML. Empty output means the node's `config` is missing its type's defaults.
+- `coa run -d <repo> --include "{ NODE }" --dry-run --verbose` renders the DML. Empty output on a V1 `.yml` node means its `operation.config` is missing the type's defaults. A `.sql` node has no `config` block: check its `@nodeType` and annotations instead.
 - `coa create -d <repo> --list-nodes` (or `coa run ... --list-nodes`) lists nodes and ids.
 - `coa sources list -d <repo>` lists warehouse tables per location; `coa sources add -d <repo>` scaffolds Source nodes from them.
 
