@@ -51,6 +51,8 @@ FROM {{ ref("SRC", "CUSTOMER") }} CUSTOMER
 
 1. `coa validate -d <dir>`: 0 errors and 0 warnings. If an error points at existing shared config you were not asked to touch, report it; do not edit shared config to make validate pass.
 2. `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the DDL lists every column. An empty column list means the type is V1 or the SELECT is not explicit; go back to step 1.
-3. `coa run -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the DML is non-empty. Empty run SQL means the node's `config` lacks the type's defaults; fix it against the type's `nodeMetadataSpec`.
+3. `coa run -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the DML is non-empty. What empty run SQL means depends on the format:
+   - **`.sql` node:** recheck that `@nodeType` is the id of a `fileVersion: 2` type and that the node is not a view (a view has no load). A V2 type has no `config` block, so there are no config defaults to copy. Never add `config` to the type or the node, and never rewrite the node as `.yml` to get one; node options are annotations the type declares (see the [SQL format reference](../coalesce-pipelines/reference/sql-format.md)).
+   - **V1 `.yml` node:** `operation.config` lacks the type's defaults; copy them from the type's `nodeMetadataSpec`.
 
 Stop after the dry-runs unless the user wants the table materialized.

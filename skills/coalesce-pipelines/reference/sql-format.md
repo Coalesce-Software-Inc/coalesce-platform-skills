@@ -28,6 +28,14 @@ FROM {{ ref("STG", "STG_CUSTOMERS") }}
 
 After writing a node, confirm it loaded with `coa create --dry-run --verbose --include "{ NODE }"`. "0 nodes matched" means the annotations were not read. An empty column list means `@nodeType` points at a V1 type.
 
+## Node options: annotations, never a `config` block
+
+The rule starts at the node type. A `fileVersion: 2` type has no `config` block in its `nodeMetadataSpec`: it declares its node options under `annotations:`. `config:` belongs to V1 types only. Never add one to a V2 type, and never carry one over when turning a V1 type into a V2 type; rewrite each item as an annotation declaration. Templates read the values as `config.<name>`, but that is the template's name for them, not a block anyone writes.
+
+The node follows its type. A `.sql` node sets options with the node-level annotations its type declares, written above the leading `WITH` or `SELECT`, and carries no `config` of its own (no YAML header, no `operation.config`, no sidecar `.yml`). Leave an annotation out to get the template's default.
+
+If the option you need is not declared by the type, say so and ask. Do not add a `config:` block to the type to get it.
+
 ## References
 
 Jinja macros with both arguments. There is no name-only form. Never hardcode `db.schema.table`.
