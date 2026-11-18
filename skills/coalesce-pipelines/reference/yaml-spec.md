@@ -94,12 +94,12 @@ Base node types are not authored here. They ship in the base node types package,
 
 A node type folder holds:
 
-- **definition.yml**: `{ isDisabled, name, id, type: "NodeType", fileVersion, metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML string with required `capitalized`, `short`, `plural`, `tagColor` and optional `config` (V1 types), `systemColumns`, `annotations` (V2 types). On a V1 type, `config` holds the defaults a hand-authored `.yml` node must copy into `operation.config`: run templates gate their DML on them (Work-204 on `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so `config: {}` renders zero run SQL. None of this applies to a `.sql` node: it has no `config` block, and a V2 type's node options are the annotations it declares.
+- **definition.yml**: `{ isDisabled, name, id, type: "NodeType", fileVersion, metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML string with required `capitalized`, `short`, `plural`, `tagColor` and optional `config` (V1 types), `systemColumns`, `annotations` (V2 types). On a V1 type, `config` holds the defaults a hand-authored `.yml` node must copy into `operation.config`: run templates gate their DML on them (Work-204 on `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so `config: {}` renders zero run SQL. A `fileVersion: 2` type has no `config` block in its `nodeMetadataSpec`. It declares its node options under `annotations:` instead, and its templates still read them as `config.<name>`. Never write `config:` into a V2 type, and never carry one over when turning a V1 type into a V2 type: rewrite each item the templates use as an annotation declaration. A V2 definition with a `config:` block is a hybrid of the two formats.
 - **create.sql.j2** (DDL) and **run.sql.j2** (DML): Jinja templates.
 
 ### Templates for a `fileVersion: 2` type
 
-Only relevant when the user has asked for a custom type. Build the projection by iterating `sources` then `source.columns`, and guard create with `WHERE 1=0` (the CTAS pattern, which does not depend on `col.dataType`):
+Only relevant when the user has asked for a custom type. Options the templates read as `config.<name>` are declared under `annotations:` in `definition.yml`, never under `config:`. Build the projection by iterating `sources` then `source.columns`, and guard create with `WHERE 1=0` (the CTAS pattern, which does not depend on `col.dataType`):
 
 ```jinja
 CREATE OR REPLACE TABLE {{ ref_no_link(node.location.name, node.name) }} AS

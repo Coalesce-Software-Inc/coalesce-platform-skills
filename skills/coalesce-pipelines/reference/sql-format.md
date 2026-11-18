@@ -30,9 +30,11 @@ After writing a node, confirm it loaded with `coa create --dry-run --verbose --i
 
 ## Node options: annotations, never a `config` block
 
-A `.sql` node is annotations plus SQL and nothing else. It has no `config` block: no YAML header, no `operation.config`, no `{{ config(...) }}` call, no sidecar `.yml`. A V1 `.yml` node sets options in `operation.config`; a `.sql` node sets them with node-level annotations that its type declares under `annotations:`, written above the leading `WITH` or `SELECT`. Leave an annotation out to get the template's default. Templates read these values as `config.<name>`, but that is the template's name for them, not something you write in the node.
+The rule starts at the node type. A `fileVersion: 2` type has no `config` block in its `nodeMetadataSpec`: it declares its node options under `annotations:`. `config:` belongs to V1 types only. Never add one to a V2 type, and never carry one over when turning a V1 type into a V2 type; rewrite each item as an annotation declaration. Templates read the values as `config.<name>`, but that is the template's name for them, not a block anyone writes.
 
-If the option you need is not declared by the type, say so and ask. Do not copy `config` from a V1 node or from the type's `nodeMetadataSpec` into the file.
+The node follows its type. A `.sql` node sets options with the node-level annotations its type declares, written above the leading `WITH` or `SELECT`, and carries no `config` of its own (no YAML header, no `operation.config`, no sidecar `.yml`). Leave an annotation out to get the template's default.
+
+If the option you need is not declared by the type, say so and ask. Do not add a `config:` block to the type to get it.
 
 ## References
 

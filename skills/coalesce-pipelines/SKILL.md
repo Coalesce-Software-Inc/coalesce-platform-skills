@@ -60,7 +60,7 @@ Say which path you took. Create, modify, or upgrade a node type only when the us
 
 Move to the next node once this one is clean.
 
-Both dry-runs are required. The create dry-run proves only that the DDL renders. V1 run templates gate their DML on `operation.config`, so a `.yml` node missing its type's config defaults renders zero run SQL and would load no data. That fix is V1-only: a `.sql` node has no `config` block and takes its options from annotations the type declares, so never add config to one.
+Both dry-runs are required. The create dry-run proves only that the DDL renders. V1 run templates gate their DML on `operation.config`, so a `.yml` node missing its type's config defaults renders zero run SQL and would load no data. That fix is V1-only. A `fileVersion: 2` type has no `config` block: it declares its options under `annotations:` and its `.sql` nodes set them as annotations, so never add `config` to a V2 type or to a `.sql` node.
 
 Clean means 0 errors and 0 warnings. `coa validate` exits 0 with warnings standing, and a warning is a real defect. The common one is `warning[namedDependencyUnresolved]: "LOC"."NAME" is not a node`: a `ref()` names a location where that node file does not exist. Fix the location argument to where `nodes/LOC-NAME.*` actually lives (a `STG_*` node lives in its own location, such as `TARGET`, not in `SRC`). Never delete the ref or leave the warning.
 
