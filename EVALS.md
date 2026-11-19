@@ -9,7 +9,6 @@ plugin changed rather than what the model can do.
 | `01-live-bootstrap-plan-deploy` | `live` | The full workflow against real infrastructure: bootstrap an empty workspace, build `REGION` and `STG_REGION`, push a branch, create a cloud Environment, then plan, deploy and refresh into it. 24 graders. |
 | `02-neg-plain-snowflake-sql` | — | Negative case. A plain Snowflake question must not load the Coalesce skills. |
 | `03-create-app` | `offline` | Build a workspace app over the `medallion-greenfield` sample (nodes by location, column counts, search), then start it the way Coalesce does. Checks the runtime contract, the port guard, and the node list it serves. Touches no cloud, warehouse or git. 17 graders. |
-| `04-live-clickhouse-build` | `live` | Build a pipeline in a new ClickHouse workspace against a real ClickHouse service: two sources, a 1:1 stage, a LEFT JOIN that must give NULL for customers without orders, and a request for SCD Type 2 history that the built-in node types cannot honor. Local only. 13 graders. Run with `--case '04-*'`; it needs the ClickHouse variables in `evals/README.md`. |
 | `00-sandbox-probe` | `probe` | Scratch case for sandbox network access and credential passing. Excluded from default runs. |
 
 The live case talks to a real Coalesce cloud and a real Snowflake account. A
@@ -130,7 +129,5 @@ read calls it repeatedly to work out the CLI's schema.
 
 ## After a run
 
-Every run of the live Snowflake case creates a cloud Environment and does not
-delete it, and every run of the ClickHouse case creates a target database
-(`<EVAL_CH_TARGET_DB_PREFIX>_<timestamp>_<random>`) and does not drop it. There
-is no teardown step yet, so delete them by hand or they accumulate.
+Every live run creates a cloud Environment and does not delete it. There is no
+teardown step yet, so delete them by hand or they accumulate.
