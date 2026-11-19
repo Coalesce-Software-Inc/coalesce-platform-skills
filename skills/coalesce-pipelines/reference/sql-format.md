@@ -8,7 +8,7 @@
 
 - `nodes/<LOCATION>-<NAME>.sql`. The filename sets location and name; an `@location` annotation is ignored. `nodes/` has no subdirectories.
 - Filenames are case-sensitive. `<LOC>-<NAME>.yml` and `<LOC>-<NAME>.sql` cannot coexist.
-- Names are `UPPER_SNAKE_CASE` by convention. Match the repo: typically `SRC-<TABLE>` for sources, `TARGET-STG_<NAME>` for stages.
+- Names are `UPPER_SNAKE_CASE` by convention. Match the repo: typically `SRC-<TABLE>` for sources, `TARGET-STG_<NAME>` for stages. Source nodes keep the warehouse's spelling, so on a case-sensitive platform such as ClickHouse they are often lowercase (`SRC-customer.yml`).
 
 ## The two required annotations
 
@@ -38,26 +38,33 @@ Jinja macros with both arguments. There is no name-only form. Never hardcode `db
 
 LOCATION must be the location the node file lives in. A wrong location still validates with exit 0 and shows only as `warning[namedDependencyUnresolved]`; treat that warning as an error.
 
-Use double quotes for new or edited refs. Existing single-quoted refs resolve the same way (matching is case-insensitive); leave them alone.
+Use double quotes for new or edited refs. Existing single-quoted refs resolve the same way; leave them alone. Write NODE_NAME exactly as the node file spells it: on ClickHouse, `ref("SRC", "CUSTOMER")` does not resolve to `nodes/SRC-customer.yml` and shows as `namedDependencyUnresolved`.
 
 ## Column annotations
 
 Placed after the alias and before the comma: `CREATED_AT @isChangeTracking,`.
 
-Native, always available:
+Reserved, available on every SQL node type:
 
-- `@isBusinessKey`: the MERGE/SCD key. Required on Persistent Stage and Dimension. Affects DDL.
-- `@isChangeTracking`: Persistent Stage change detection. Affects DML.
-- `@id("col-id")`: column lineage. Metadata only.
-- `@description("text")`: docs. Metadata only.
+- Column: `@description("text")` (docs), `@notNull` (DDL: the column is created NOT NULL), `@defaultValue("expr")` (DDL default; quote for the type, `"0"` or `"'NA'"`).
+- Node, above the SELECT: `@description("text")`, `@materializationType("table" | "view")`, `@deployDisabled`.
 
-Declared: a node type's `nodeMetadataSpec` may carry an `annotations:` block declaring more node- and column-level annotations (for example a data quality test library). That block is the only list of what the type's templates act on. Values reach the template as `true` for a bare annotation, `{parameters: [...]}` for a parameterized one, and an ordered array for one declared `allowsMultiple`. Node-level values land on `config.<name>`, column-level ones on `col.<name>`.
+Read by the type's templates, so they act only on types that use them:
 
-Do not invent annotations. `@isSurrogateKey`, `@pii`, and `@synqMonitor` are not in the spec (`isSurrogateKey` is a V1 `.yml` column field, not a `.sql` annotation).
+- `@isBusinessKey`: the MERGE/SCD key. Required on Persistent Stage and Dimension types that merge. Affects DDL.
+- `@isChangeTracking`: change detection for Persistent Stage and SCD2 Dimension. Affects DML.
+
+On a config-style type with no `annotations:` block whose templates do not read them (every ClickHouse built-in type, for example) they are accepted and ignored, with no warning. On a type that declares an `annotations:` block without them, validate warns `annotationNameUnknown`.
+
+Column `@id`: a `.sql` column's name is its identity, and an `@id` on a column re-keys it, so downstream references by name break. Write a column `@id` only when the node type requires one (the ClickHouse SQL node types package's Dimension and Fact do).
+
+Declared: a node type's `nodeMetadataSpec` may carry an `annotations:` block declaring more node- and column-level annotations (for example a data quality test library). That block is the only list of what the type's templates act on. Values reach the template as `true` for a bare annotation, `{parameters: [...]}` for a parameterized one, and an ordered array for one declared `allowsMultiple`. Node-level values land on `config.<name>`, column-level ones on `col.<name>`. A node-level annotation also lands on `config.<name>` on a type with no `annotations:` block, which is how a V2 node sets a template config value such as ClickHouse's `@orderBy("c_custkey")`.
+
+Do not invent annotations. `@pii` and `@synqMonitor` are not in the spec. `@isSurrogateKey` is a V1 `.yml` column field, not a `.sql` annotation, except on types that declare it (the ClickHouse SQL node types package does).
 
 Hazards (verified on coa 7.42.5):
 
-- An undeclared or misspelled annotation is accepted and does nothing, with no warning. Declared names are case-sensitive; check spelling against the type's `annotations:` block first.
+- An undeclared or misspelled annotation is accepted, often with no warning, and does nothing unless a template happens to read that exact `config.<name>` / `col.<name>`. Names are case-sensitive; check spelling against the type's `annotations:` block, or for a type without one, against the config names its templates read.
 - For multiple values, repeat the annotation. `@accepted_values("'A'") @accepted_values("'B'")` renders `NOT IN ('A', 'B')`; `@accepted_values("'A'", "'B'")` renders only the first value (TRA-2486). The same holds for `@rejected_values`, `@preSQL`, `@postSQL`, `@tests`, `@inHash`.
 - An annotation named after a SQL keyword fails to parse, which is why the packaged test is `@uniqueness`, not `@unique`.
 - A declared `default` is documentation only. Omit the annotation to get the template's fallback.
@@ -65,7 +72,7 @@ Hazards (verified on coa 7.42.5):
 
 ## SQL conventions
 
-- Snowflake dialect unless `data.yml` says otherwise.
-- Aliases are bare UPPER_SNAKE_CASE (`SUM(QUANTITY * UNIT_PRICE) AS LINE_TOTAL`). The source expression may quote the underlying column (`T."COL"`). Some existing nodes use double-quoted aliases; match the file you are editing.
+- Write the dialect of the platform in `data.yml`: Snowflake when `platformKind` is absent or `snowflake`, Databricks SQL, BigQuery GoogleSQL, and for ClickHouse its own dialect (see the [ClickHouse reference](platforms/clickhouse.md); there is no `MERGE`). A function the platform lacks passes validate and both dry-runs and fails only at execution.
+- Aliases are bare UPPER_SNAKE_CASE (`SUM(QUANTITY * UNIT_PRICE) AS LINE_TOTAL`). The source expression may quote the underlying column (`T."COL"`). Some existing nodes use double-quoted aliases; match the file you are editing. Write each source column exactly as the upstream node spells it: on a case-sensitive platform (ClickHouse), `"C_CUSTKEY"` and `c_custkey` are different columns.
 - Keep the existing column order.
 - List columns explicitly, never `SELECT *`. A V2 type infers its columns by parsing the SELECT, so `SELECT *` renders a zero-column table while validate stays green. To stage every column 1:1, read the source's columns and list each one.

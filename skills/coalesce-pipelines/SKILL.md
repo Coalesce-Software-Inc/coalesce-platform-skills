@@ -13,6 +13,16 @@ A Coalesce Transform repository is a Git-backed data transformation DAG. Nodes l
 
 The other coalesce-\* skills assume everything on this page.
 
+## Platforms
+
+Read `platformKind` in `data.yml` before anything else (absent means `snowflake`). The skills are written for Snowflake, and most of it carries over to Databricks and BigQuery. Some platforms differ enough to have their own reference, which overrides the defaults on this page and in every other coalesce-\* skill:
+
+| `platformKind` | Read first |
+| --- | --- |
+| `tdbc-clickhouse` | [ClickHouse](reference/platforms/clickhouse.md) |
+
+Read a platform reference only for its own platform; its rules do not apply anywhere else.
+
 ## Orient first
 
 1. If `.claude/workspace-context.json` exists, read it first. It holds the node inventory, edges, jobs, subgraphs, environments, and diagnostics.
@@ -25,7 +35,7 @@ The other coalesce-\* skills assume everything on this page.
 - Source nodes are always V1 `.yml`.
 - Every other node is V2 `.sql` when a `fileVersion: 2` node type exists for the type you need, and V1 `.yml` otherwise. The `fileVersion` in the type's `definition.yml` decides, never the platform or the layer.
 - Both formats are supported and freely authorable. V1 is not a workaround.
-- When a type has both a V1 and a V2 definition, use V2 if the node's value is its SQL and V1 if it is configuration (an SCD2 Dimension). `@isBusinessKey` and `@isChangeTracking` work in both.
+- When a type has both a V1 and a V2 definition, use V2 if the node's value is its SQL and V1 if it is configuration (an SCD2 Dimension). `@isBusinessKey` and `@isChangeTracking` work in both, on types whose templates read them. On ClickHouse the built-in V1 Dimension has no SCD logic at all; see its platform reference.
 - A `.sql` node pointed at a V1 type (`fileVersion: 1` or absent) still loads, but its columns are silently empty and the DDL/DML is broken, with no error.
 - `@nodeType` (V2 annotation) and `operation.sqlType` (V1 field) name the same thing.
 
@@ -38,14 +48,14 @@ Type names vary by workspace, so read them off disk before you name one:
 
 In each `definition.yml`, `name`, `description`, and `nodeMetadataSpec` tell you the layer, `fileVersion` tells you the format, and the `id` field is the value for `@nodeType()` (`<alias>:::<id>` for a package type). Never parse the id from the folder name (names and ids can both contain dashes).
 
-- The base packages ship no `Stage` type. Their staging type is typically `Work` (`base-node-types:::204`).
-- The built-in names (`Stage`, `View`, `Dimension`, `Fact`, `persistentStage`) are V1 and resolve only when those types exist in `nodeTypes/`; `coa init` writes them there when the base package is unavailable.
+- The Snowflake, Databricks, and BigQuery base packages ship no `Stage` type. Their staging type is typically `Work`, and its id differs by platform and release (`base-node-types:::204` on Snowflake, `base-node-types:::159` on BigQuery), so read it off disk. The base package's types can all be V1; SQL (V2) types come from a separate package such as `@coalesce/snowflake/base-node-types-sql` or `@coalesce/bigquery/bigquery-base-node-types-sql`, only when the workspace has it installed.
+- The built-in names (`Stage`, `View`, `Dimension`, `Fact`, `persistentStage`) are V1 and resolve only when those types exist in `nodeTypes/`; `coa init` writes them there when the base package is unavailable. ClickHouse has no base package, and its built-ins also include the V2 `sqlStage` and `sqlView`.
 - A guessed name fails with `error[missingNodeType]: node type "X" is not available`.
 - Use the right type for the layer (staging, persistent staging, fact/dimension, view), not the staging type for everything.
 
 If no suitable type is on disk:
 
-1. Run `coa install -d <dir>` and look again. It is safe without asking. It hydrates only packages already declared under `packages/`; "No packages to install." means none are declared, and the fix for a missing base package is `coa init` (ask first). To add another Marketplace package, use coalesce-install-package.
+1. Run `coa install -d <dir>` and look again. It is safe without asking. It hydrates only packages already declared under `packages/`; "No packages to install." means none are declared, and the fix for a missing base package is `coa init` (ask first). On ClickHouse there is no base package, so "No packages to install." is normal and `coa init` will not add one. To add another Marketplace package, use coalesce-install-package.
 2. If there is still no `fileVersion: 2` type but a suitable V1 type is on disk, author the node as V1 `.yml` and continue. If there is no suitable type at all, stop and ask before running `coa init`. The base package exists only in the production registry, so a lower environment may never have one.
 
 Say which path you took. Create, modify, or upgrade a node type only when the user explicitly asks, and ask first even then; `coa describe node-types` and the yaml-spec reference cover the format. Do not fix a `.sql` node's empty columns by bumping its type's `fileVersion`: that changes the DDL/DML of every node using the type.
@@ -66,6 +76,10 @@ Clean means 0 errors and 0 warnings. `coa validate` exits 0 with warnings standi
 
 `coa create` and `coa run` without `--dry-run` execute SQL directly against the warehouse. That is local development, not deploy. Work reaches the cloud only through git push, then plan and deploy (coalesce-deploy).
 
+`coa create` replaces the table (`CREATE OR REPLACE`), so it comes back empty. Before running it on a table that may already hold data, ask the user, even when the request asked for materialized tables.
+
+Validate and the dry-runs render SQL; they do not run it against the warehouse. Column names, functions, and dialect errors surface only when `coa create` or `coa run` executes. On a platform with its own reference, check its rules before calling a node clean.
+
 Before any warehouse command, run `coa profile list -d <dir>`. If the workspace is bound to a profile, omit `--profile`, because the flag overrides the binding. If nothing is bound, pass `--profile <name>` for the workspace's platform on `sources`, `create`, `run`, `install`, and `doctor`. `coa validate` takes no profile.
 
 ## Rules
@@ -84,7 +98,7 @@ Ask before:
 
 - editing nodes outside the request;
 - touching shared config: `data.yml`, locations, `workspace.yml`, environments, jobs, subgraphs, macros, `packages/`, or anything under `nodeTypes/` (including a `fileVersion` bump or template swap);
-- running `coa create` or `coa run` without `--dry-run`, unless the request asked for materialized tables;
+- running `coa create` or `coa run` without `--dry-run`, unless the request asked for materialized tables (and even then, `coa create` on a table that may already hold data);
 - running `coa init` or `coa doctor --fix`;
 - pushing to a remote, unless the request asked for the push.
 
@@ -96,6 +110,7 @@ Shared config is used by many nodes, and an edit there can silently break unrela
 - [SQL format](reference/sql-format.md): V2 node files, annotations, refs, naming.
 - [YAML spec](reference/yaml-spec.md): data.yml, locations, workspace, environments, job and subgraph schemas, node type folders, and what to check when editing shared config.
 - [V1 nodes](reference/v1-nodes.md): read before touching any `nodes/*.yml`. File shape, the id-based column graph, safe edits, and the template for authoring one.
+- Platform references, read only for their own `platformKind`: [ClickHouse](reference/platforms/clickhouse.md).
 
 ## Other coalesce-\* skills
 

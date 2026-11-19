@@ -38,7 +38,8 @@ user's hands before `deploy`.
    skill. `coa profile list -d <dir>` shows what exists. The profile needs
    `domain`, `token`, and — for `plan`/`deploy`/`refresh`/`rerun` and, in
    practice, for the `environments`/`nodes`/`runs` groups too — a complete
-   warehouse credential set (Snowflake KeyPair or Basic; Databricks; BigQuery).
+   warehouse credential set (Snowflake KeyPair or Basic; Databricks; BigQuery;
+   ClickHouse `user-password`).
    Snowflake OAuth profiles fail every cloud command with `Snowflake OAuth
    (browser sign-in) is supported for local workspace commands only`. The
    deploy and refresh run under those warehouse credentials, so that identity
@@ -84,7 +85,9 @@ coa environments create --profile <p> --skipConfirm --format json \
   --description "<why this environment exists>"
 ```
 
-Databricks uses `--accessUrl` instead of `--connectionAccount`. The response is
+Databricks uses `--accessUrl` instead of `--connectionAccount`. ClickHouse uses
+`--connectionAccount https://<host>:8443/` and `"database": ""` in every
+mapping, with the ClickHouse database as `schema`. The response is
 the same record `get` returns — read `.id` from it and report it. Give every
 storage location in `locations.yml` a mapping and make `--defaultStorageMapping`
 one of them. Create/update never accept warehouse passwords or OAuth tokens;
@@ -134,6 +137,19 @@ mappingDefinitions:             # one entry per name in locations.yml
     schema: PUBLIC
 ```
 
+On ClickHouse each mapping is `database: ""` with the ClickHouse database as
+`schema`.
+
+Coalesce Desktop keeps these files in sync with the cloud: when it opens the
+workspace it writes one file per Environment in the project, named
+`<name>-<id>.yml` with every character other than letters, digits, `_`, and
+`-` removed (`QA CH Env`, id 777, becomes `QACHEnv-777.yml`; `Dev: ClickHouse`,
+id 12, becomes `DevClickHouse-12.yml`). A file for the same `id` under any
+other name is renamed to that, keeping its contents. Before writing one, look
+in `environments/` for a file whose `id` already matches and edit that; if you
+create one, use Desktop's naming so it does not show up as a rename in git. Files for Environments you are not deploying can appear
+too, and an incomplete one shows as a problem in Desktop.
+
 - Keys under `mappingDefinitions` must match `locations.yml` names exactly;
   every location a node uses needs one. Copy the values from `environments get
   … | jq .currentMappings` so the App and the CLI agree.
@@ -145,6 +161,12 @@ mappingDefinitions:             # one entry per name in locations.yml
   Environment needs it. The UI writes these files too when a Workspace deploys.
 
 ## Step 3 — Plan
+
+On ClickHouse, first read the "Deploying" and "Rebuilds lose data" sections of
+the [ClickHouse reference](../coalesce-pipelines/reference/platforms/clickhouse.md):
+the organization needs the `enableTdbcPlatform` flag, and nodes on the
+ClickHouse SQL node types package need the `engine`, `readWithFinal`, and
+`joinUseNulls` decisions settled before their first deploy.
 
 ```sh
 coa plan --profile <p> --environmentID <id> -d <dir> --out ./coa-plan.json \
@@ -284,7 +306,8 @@ Deploys are not rerun: fix, re-plan, re-deploy.
   `coa doctor` without `--fix`, `coa validate`, reading `coa-plan.json` and
   result files.
 - **Implied by "plan/deploy X to Environment Y":** `coa plan` against Y,
-  writing `environments/<Y>.yml` for Y if it is missing, appending the plan and
+  writing the `environments/` file for Y (Desktop's `<name>-<id>.yml` naming,
+  Step 2) if it is missing, appending the plan and
   result artifacts to `.gitignore`.
 - **ASK FIRST, each time, with the specifics:** `coa deploy` (show the
   add/alter/delete summary), `coa refresh`/`rerun` (say which nodes, into
@@ -311,4 +334,7 @@ Deploys are not rerun: fix, re-plan, re-deploy.
 | `Snowflake OAuth (browser sign-in) is supported for local workspace commands only` | OAuth profile on a cloud command. | `--profile` with KeyPair or Basic. |
 | Environment stuck in `Failed Deploy`; `refresh` refuses | Last deploy failed. | Fix and re-deploy; `--forceIgnoreEnvironmentStatus` only with approval. |
 | Deploy shows `deletedTable` entries you did not expect | A node file was removed, renamed, or got `deployEnabled: false`. | Stop and confirm with the user — those are DROPs. |
+| `Platform 'tdbc-clickhouse' requires the 'enableTdbcPlatform' feature flag, which is not enabled for this organization` | ClickHouse cloud deploys are not turned on for the Coalesce organization. | Nothing to fix locally. Tell the user to ask Coalesce to enable it. |
+| Your `environments/<NAME>.yml` was renamed to `<Name>-<id>.yml` | Coalesce Desktop synced the Environment files and renamed yours to its naming; the contents are kept. | Use the renamed file (same `id`); see Step 2. |
+| Deploy shows `Warning: Table Recreated (<reason>)` (ClickHouse) | A sort key, partition, primary key, or key column changed; the table was recreated empty. | Expected for that change, but it loses the table's data and history. Flag such changes before planning. |
 | `Deployment completed` but the App shows no Workspace | CLI deploys need no Workspace; the App only *browses* via one. | Connect the repo to the Project and attach the pushed branch to a Workspace in the App (setup guide, Step 5). |

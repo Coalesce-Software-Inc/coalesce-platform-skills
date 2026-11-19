@@ -29,8 +29,12 @@ Three identifiers, easy to confuse:
 ## Step 0 — Orient
 
 1. Confirm the workspace platform: `platformKind` in `data.yml` (absent means
-   `snowflake`). Only install packages whose `platformKind` matches; the
-   platform is also the middle segment of a V2 Package ID.
+   `snowflake`). Only install packages whose `platformKind` matches. The
+   middle segment of a V2 Package ID is the same platform without any
+   `tdbc-` prefix: a `tdbc-clickhouse` workspace takes `@coalesce/clickhouse/...`
+   packages, whose registry `platformKind` is still `tdbc-clickhouse`.
+   On ClickHouse, read the [ClickHouse reference](../coalesce-pipelines/reference/platforms/clickhouse.md)
+   first: its SQL node types package is not in the Marketplace yet.
 2. `ls packages/` — see what is already declared. Each file is one package,
    named after its alias. If the package is already declared, this is an
    upgrade (see below), not an install.
@@ -86,18 +90,27 @@ registry (lower environments do not mirror production). Fall back to 1b.
 certified Coalesce-published V2 packages for the workspace platform:
 
 ```sh
-PK=snowflake   # from data.yml
+PK=snowflake            # platformKind from data.yml, e.g. tdbc-clickhouse
+SEG=${PK#tdbc-}         # Package ID segment: snowflake, clickhouse, ...
 curl -sf -H "Authorization: Bearer $COA_TOKEN" "$COA_DOMAIN/api/v1/packageRegistry/all" \
-  | jq -r --arg q "cortex" --arg pk "$PK" '
+  | jq -r --arg q "cortex" --arg pk "$PK" --arg seg "$SEG" '
       .[] | select(.platformKind==$pk and .certified==true
-                   and (.packageID|startswith("@coalesce/"+$pk+"/"))
+                   and (.packageID|startswith("@coalesce/"+$seg+"/"))
                    and ((.name+" "+.description+" "+(.tags|join(" ")))|ascii_downcase|contains($q|ascii_downcase)))
           | [.packageID,.name,.latestRelease] | @tsv'
 ```
 
+`coa packages list --profile <p>` prints the same Marketplace listing as a
+table, which is quicker to scan by eye.
+
 Loosen the filters only if that returns nothing (the registry also holds
 older two-segment IDs like `@coalesce/cortex` and copies such as `cortex-dev`;
-prefer the certified three-segment ID for the platform). If more than one
+prefer the certified three-segment ID for the platform). If nothing matches
+the platform at all, the package is not published for it in this
+environment's registry (lower environments do not mirror production, and a
+newer platform may have no packages yet). Tell the user what you searched
+for and stop; do not substitute a package for another platform or copy node
+types into the workspace by hand. If more than one
 plausible package matches, show the candidates (Package ID, name, one-line
 description) and let the user pick — do not guess between, say,
 `base-node-types` and `base-node-types-sql`.

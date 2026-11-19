@@ -28,7 +28,8 @@ Open `nodes/<LOCATION>-<NAME>.sql`. If the name is ambiguous, run `coa create -d
 - Append it before `FROM` unless the user gave a position. Match the existing indentation.
 - Write `<expression> AS ALIAS` with a bare UPPER_SNAKE_CASE alias, or follow the alias style the file already uses. A bare column needs no alias.
 - A column annotation goes after the alias and before the comma: `CUSTOMER_ID AS CUSTOMER_KEY @isBusinessKey,`
-- Use only the native annotations (`@isBusinessKey`, `@isChangeTracking`, `@id("col-id")`, `@description("text")`) or ones the node type declares. Never add or change the node's top-level `@id`.
+- Use only the reserved annotations (`@description("text")`, `@notNull`, `@defaultValue("expr")`), `@isBusinessKey` / `@isChangeTracking` where the type's templates use them, or ones the node type declares. Add a column `@id` only if the node type requires one. Never add or change the node's top-level `@id`.
+- Reference an upstream column exactly as the upstream file spells it; on ClickHouse the case matters.
 
 ## 4. Verify
 
@@ -36,4 +37,4 @@ Open `nodes/<LOCATION>-<NAME>.sql`. If the name is ambiguous, run `coa create -d
 2. `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the new column appears in the DDL.
 3. `coa run -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the new column appears in the DML.
 
-Fix and repeat until clean. Do not run `coa create` or `coa run` without `--dry-run` unless the user asks. Report anything you could not resolve within scope.
+Fix and repeat until clean. Do not run `coa create` or `coa run` without `--dry-run` unless the user asks. A new column reaches the table only through `coa create`, which replaces the table and empties it; if the table may hold data, say so and get the user's go-ahead first, then `coa run` to reload it. On ClickHouse, adding a `@notNull` column without `@defaultValue` to a loaded table fills existing rows with `0` or `''`. Report anything you could not resolve within scope.

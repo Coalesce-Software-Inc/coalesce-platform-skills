@@ -22,7 +22,9 @@ enforced by whatever harness runs the agent, using its own permission model.
   and node-type rules, the validate → dry-run → create → run loop, guardrails,
   and routing to the other skills. How the product works lives in its
   `reference/` subdirectory, read on demand: the coa CLI, the V2 SQL node
-  format, V1 YAML nodes, and the workspace YAML files.
+  format, V1 YAML nodes, and the workspace YAML files. Platforms that differ
+  from the Snowflake defaults get their own file under `reference/platforms/`
+  (today: ClickHouse), read only when `data.yml` names that platform.
 - Workflow skills: `coalesce-sql-transformation`,
   `coalesce-pipeline-structure`, `coalesce-cloud-api` (bootstrap and diagnose
   a workspace), `coalesce-git-publication`, `coalesce-deploy` (plan, deploy,

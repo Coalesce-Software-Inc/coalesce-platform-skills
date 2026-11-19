@@ -30,7 +30,7 @@ Never put secrets in these files.
 
 ## data.yml (required)
 
-`{ fileVersion, platformKind?: snowflake|databricks|fabric|bigquery, defaultStorageMapping? }`. Only `fileVersion` is required. No other keys are allowed.
+`{ fileVersion, platformKind?: snowflake|databricks|fabric|bigquery|tdbc-<name>, defaultStorageMapping?, projectID? }`. Only `fileVersion` is required (an integer; current `coa init` writes `3`). No other keys are allowed. The shipped `tdbc-*` kinds are `tdbc-clickhouse` and `tdbc-fabric`. `projectID` is the linked cloud project, written by `coa init`.
 
 ## locations.yml (required)
 
@@ -42,13 +42,13 @@ A location name must match everywhere it appears: the node filename prefix, `loc
 
 `{ profile: <name>, locations: { <NAME>: { database, schema } }, parameters: { <name>: <json-value> } }`.
 
-- `locations` is the local mapping `coa create` / `coa run` use. The validate graph scanners need it to resolve refs.
+- `locations` is the local mapping `coa create` / `coa run` use. The validate graph scanners need it to resolve refs. A two-level platform (ClickHouse) maps a location by `schema` alone, with no `database` key; the schema is a ClickHouse database.
 - `profile` is the name of a `~/.coa/config` section, never credentials. Write it with `coa profile use <name> -d <dir>` or `coa init --profile <name>`, clear it with `coa profile unset`; do not hand-write it. `coa profile use` leaves `locations` and `parameters` untouched. Changing the binding repoints every local command in the directory at other credentials, so ask first.
 - `coa doctor --fix` can bootstrap a missing file (ask first).
 
 ## environments/<NAME>.yml
 
-`{ name, id, type: "Environment", fileVersion, mappingDefinitions: { <LOC>: { database, schema } } }`. All fields required.
+`{ name, id, type: "Environment", fileVersion, mappingDefinitions: { <LOC>: { database, schema } } }`. All fields required. On ClickHouse, `database` is `""` and `schema` is the ClickHouse database.
 
 ## Job (jobs/<NAME>.yml)
 
@@ -90,11 +90,11 @@ The serve UI resolves membership as `steps ∩ live-node-ids` and silently drops
 
 ## Node types (nodeTypes/<DisplayName>-<ID>/)
 
-Base node types are not authored here. They ship in the base node types package, declared in `packages/base-node-types.yml` by `coa init` and materialized by `coa install` under `.coa/cache/packages/` (`.coa/cache/packages.json` is the machine cache that tree mirrors). How to find and choose a type is in the coalesce-pipelines skill. `packages/` shows which packages the workspace expects; if you are unsure which the org uses, ask.
+Base node types are not authored here. They ship in the base node types package, declared in `packages/base-node-types.yml` by `coa init` and materialized by `coa install` under `.coa/cache/packages/` (`.coa/cache/packages.json` is the machine cache that tree mirrors). How to find and choose a type is in the coalesce-pipelines skill. `packages/` shows which packages the workspace expects; if you are unsure which the org uses, ask. A platform without a base package (ClickHouse) gets the built-in types written to `nodeTypes/` instead, and `packages/` may not exist.
 
 A node type folder holds:
 
-- **definition.yml**: `{ isDisabled, name, id, type: "NodeType", fileVersion, metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML string with required `capitalized`, `short`, `plural`, `tagColor` and optional `config`, `systemColumns`, `annotations`. Its `config` holds the defaults a hand-authored node must copy into `operation.config`: run templates gate their DML on them (Work-204 on `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so `config: {}` renders zero run SQL.
+- **definition.yml**: `{ isDisabled, name, id, type: "NodeType", fileVersion, metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML string with required `capitalized`, `short`, `plural`, `tagColor` and optional `config`, `systemColumns`, `annotations`. Its `config` holds the defaults a hand-authored node must copy into `operation.config`: run templates gate their DML on them (Work-204 on `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so `config: {}` renders zero run SQL. Platform types can add their own keys; ClickHouse types carry `tableEngine`, `orderBy`, and `partitionBy`.
 - **create.sql.j2** (DDL) and **run.sql.j2** (DML): Jinja templates.
 
 ### Templates for a `fileVersion: 2` type

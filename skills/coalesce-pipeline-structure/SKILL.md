@@ -23,7 +23,7 @@ Lineage selectors follow graph edges only, so they miss `ref_no_link` uses, jobs
 1. Pick the node type (coalesce-pipelines, "Node types") and with it the format.
 2. Confirm the name is free: neither `nodes/<LOCATION>-<NAME>.sql` nor `.yml` exists. If one does, stop and tell the user; do not overwrite it or create a variant.
 3. **V2 `.sql`** (a `fileVersion: 2` type exists): the first two lines are a bare `@id("<fresh UUID>")` and `@nodeType("<id from definition.yml>")`, followed by a SELECT that lists its columns explicitly and reads from `{{ ref("LOC", "NAME") }}`. Full format and annotations: sql-format reference. For a 1:1 stage, use coalesce-create-stage-node.
-4. **V1 `.yml`** (no V2 type for what you need, or a config-driven type such as an SCD2 Dimension): follow "Authoring a new V1 node" in the [V1 nodes reference](../coalesce-pipelines/reference/v1-nodes.md). Source nodes come from `coa sources add`, never by hand.
+4. **V1 `.yml`** (no V2 type for what you need, or a config-driven type such as an SCD2 Dimension): follow "Authoring a new V1 node" in the [V1 nodes reference](../coalesce-pipelines/reference/v1-nodes.md). Source nodes come from `coa sources add`, never by hand. On ClickHouse, no built-in type keeps history or upserts, V1 or V2; an SCD2 Dimension needs the ClickHouse SQL node types package (see the [ClickHouse reference](../coalesce-pipelines/reference/platforms/clickhouse.md)).
 5. Run the core loop. `coa create --dry-run --verbose --include "{ NODE }"` must show the node with its columns; `coa validate` alone stays green for a node that was silently dropped.
 
 ## Delete a node
