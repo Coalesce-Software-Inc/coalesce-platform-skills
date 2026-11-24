@@ -22,7 +22,12 @@ does not permit copying or modification for any other purpose.
     {%- endif %}
 
     {# == Truncate data before data insertion  == #}
-    {%- if config.truncateBefore %}
+    {#- writeMode defaults to truncateInsert; declared annotation defaults are not applied, so the fallback lives here -#}
+    {%- set writeMode = 'truncateInsert' %}
+    {%- if config.writeMode is defined and config.writeMode.parameters is defined and config.writeMode.parameters | length > 0 %}
+        {%- set writeMode = config.writeMode.parameters[0] | trim %}
+    {%- endif %}
+    {%- if writeMode != 'append' %}
         {{ stage('Truncate ' + node.materializationType ) }}
         TRUNCATE IF EXISTS {{ ref_no_link(node.location.name, node.name) }}
     {%- endif %}

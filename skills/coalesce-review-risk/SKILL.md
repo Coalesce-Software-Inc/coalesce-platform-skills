@@ -23,6 +23,7 @@ References: [coa-cli](../coalesce-pipelines/reference/coa-cli.md) for selectors,
 ## Risks to flag
 
 - A `.sql` node whose `@nodeType` is not a `fileVersion: 2` type: columns are silently empty.
+- A `fileVersion: 2` node type whose `nodeMetadataSpec` has a `config:` block: a hybrid of the two formats. V2 types declare node options under `annotations:` only. The same goes for a `.sql` node carrying `config` (YAML header, `operation.config`) or a `.yml` node whose `sqlType` is a `fileVersion: 2` type.
 - A hand-authored `.yml` node with empty or partial `operation.config`: it passes validate and the create dry-run but renders zero run SQL.
 - Deleted or renamed nodes that still have dependents or stale `ref()`s.
 - One-argument `ref()`, hardcoded `db.schema.table`, or column annotations that are neither native (`@isBusinessKey`, `@isChangeTracking`, `@id`, `@description`) nor declared by the node type.
