@@ -1,0 +1,275 @@
+# Run the `claude plugin eval` suite against an open pull request and post the
+# result as a comment on it. Manual only: a live run costs roughly $8 to $12 and
+# leaves a cloud Environment behind (see EVALS.md).
+#
+#   gh workflow run plugin-eval.yml -f pr=34
+#   gh workflow run plugin-eval.yml -f pr=34 -f case='02-*'    # cheap smoke test
+#
+# This does what EVALS.md describes by hand: merge the PR into develop, run
+# evals/run.sh from that tree, read the results. Inference goes through Vertex AI.
+#
+# One-time setup, all in the `plugin-evals` environment (Settings > Environments):
+#   secrets    EVAL_COA_CLOUD, EVAL_GH_CRED, EVAL_SNOWFLAKE_PRIVATE_KEY (the .p8 contents)
+#   variables  GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT,
+#              ANTHROPIC_VERTEX_PROJECT_ID, CLOUD_ML_REGION,
+#              and the non-secret EVAL_* values listed in evals/README.md
+name: Plugin eval
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Pull request number to evaluate"
+        required: true
+        type: string
+      case:
+        description: "Case glob (01-* is the live case; 02-* is a cheap negative case)"
+        type: string
+        default: "01-*"
+      runs:
+        description: "Runs per arm"
+        type: string
+        default: "1"
+      max_cost_usd:
+        description: "Abort once the run has spent this much (USD)"
+        type: string
+        default: "30"
+      coa_version:
+        description: "@coalescesoftware/coa version or dist-tag to test with"
+        type: string
+        default: "latest"
+      allow_fork:
+        description: "Allow a PR from a fork (its code runs with the live credentials)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write # Workload Identity Federation to Google Cloud
+
+# Every run deploys into the same cloud project and pushes to the same remote.
+concurrency:
+  group: plugin-eval
+  cancel-in-progress: false
+
+env:
+  CLAUDE_CODE_VERSION: "2.1.295"
+  PR: ${{ inputs.pr }}
+
+jobs:
+  eval:
+    runs-on: ubuntu-24.04
+    environment: plugin-evals
+    timeout-minutes: 240
+    defaults:
+      run:
+        # The plugin lives in a subfolder so files the job writes to the
+        # workspace root (Google's credentials file) are outside the plugin
+        # under test.
+        working-directory: plugin
+    steps:
+      - name: Check inputs
+        working-directory: .
+        env:
+          RUNS: ${{ inputs.runs }}
+          MAX_COST: ${{ inputs.max_cost_usd }}
+        run: |
+          [[ "$PR" =~ ^[0-9]+$ ]] || { echo "::error::pr must be a number, got '$PR'."; exit 1; }
+          [[ "$RUNS" =~ ^[1-9][0-9]*$ ]] || { echo "::error::runs must be a positive integer."; exit 1; }
+          [[ "$MAX_COST" =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "::error::max_cost_usd must be a number."; exit 1; }
+
+      - name: Look up the pull request
+        id: pr
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALLOW_FORK: ${{ inputs.allow_fork }}
+        run: |
+          info=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" \
+            --json state,headRefOid,headRepository,headRepositoryOwner,isCrossRepository)
+          state=$(jq -r .state <<<"$info")
+          [ "$state" = OPEN ] || { echo "::error::PR #$PR is $state, not open."; exit 1; }
+          if [ "$(jq -r .isCrossRepository <<<"$info")" = true ] && [ "$ALLOW_FORK" != true ]; then
+            echo "::error::PR #$PR comes from a fork. Its code would run with the live credentials; re-run with allow_fork if you have reviewed it."
+            exit 1
+          fi
+          echo "head=$(jq -r .headRefOid <<<"$info")" >>"$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: develop
+          path: plugin
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Same as EVALS.md: the suite lives on develop, so test develop plus the PR.
+      # Fetch the exact head commit looked up above, so a push mid-run cannot
+      # change what is evaluated.
+      - name: Merge the pull request into develop
+        id: merge
+        env:
+          HEAD: ${{ steps.pr.outputs.head }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git -c "http.extraheader=AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" \
+            fetch --no-tags origin "pull/$PR/head"
+          [ "$(git rev-parse FETCH_HEAD)" = "$HEAD" ] || { echo "::error::PR #$PR moved while the job started. Re-run."; exit 1; }
+          git -c user.name=plugin-eval -c user.email=plugin-eval@users.noreply.github.com \
+            merge --no-edit "$HEAD" || { echo "::error::PR #$PR does not merge cleanly into develop. Update the branch first."; exit 1; }
+          # claude plugin validate passes with conflict markers left in skill
+          # files, so git status is the check that works (EVALS.md).
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --porcelain
+            echo "::error::Tree is not clean after the merge."
+            exit 1
+          fi
+          echo "base=$(git rev-parse HEAD^1)" >>"$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Install Claude Code, coa, and the sandbox tools
+        env:
+          COA_VERSION: ${{ inputs.coa_version }}
+        run: |
+          # Claude Code's Linux sandbox is bubblewrap plus socat. Ubuntu 24.04
+          # blocks the unprivileged user namespaces bubblewrap needs by default.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap socat
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION" "@coalescesoftware/coa@$COA_VERSION"
+          claude --version
+          coa --version
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Write the Snowflake key and the scaffold's .env
+        env:
+          KEY: ${{ secrets.EVAL_SNOWFLAKE_PRIVATE_KEY }}
+          EVAL_GIT_REMOTE: ${{ vars.EVAL_GIT_REMOTE }}
+        run: |
+          [ -n "$KEY" ] || { echo "::error::The EVAL_SNOWFLAKE_PRIVATE_KEY secret is not set."; exit 1; }
+          umask 077
+          printf '%s\n' "$KEY" >"$RUNNER_TEMP/snowflake_rsa_key.p8"
+          # The live case's setup.sh runs with a filtered environment that drops
+          # every EVAL_* variable, so it reads the two values it needs from .env
+          # at the repository root. Only those two go here, and neither is secret.
+          # .env is gitignored, so the tree stays clean.
+          {
+            printf 'EVAL_SNOWFLAKE_PK_FILE=%q\n' "$RUNNER_TEMP/snowflake_rsa_key.p8"
+            printf 'EVAL_GIT_REMOTE=%q\n' "$EVAL_GIT_REMOTE"
+          } >.env
+
+      - name: Run the eval
+        id: eval
+        env:
+          CLAUDE_CODE_USE_VERTEX: "1"
+          ANTHROPIC_VERTEX_PROJECT_ID: ${{ vars.ANTHROPIC_VERTEX_PROJECT_ID }}
+          CLOUD_ML_REGION: ${{ vars.CLOUD_ML_REGION }}
+          EVAL_COA_DOMAIN: ${{ vars.EVAL_COA_DOMAIN }}
+          EVAL_COA_PROJECT: ${{ vars.EVAL_COA_PROJECT }}
+          EVAL_COA_CONNECTION: ${{ vars.EVAL_COA_CONNECTION }}
+          EVAL_COA_CLOUD: ${{ secrets.EVAL_COA_CLOUD }}
+          EVAL_SNOWFLAKE_ACCOUNT: ${{ vars.EVAL_SNOWFLAKE_ACCOUNT }}
+          EVAL_SNOWFLAKE_USER: ${{ vars.EVAL_SNOWFLAKE_USER }}
+          EVAL_SNOWFLAKE_WAREHOUSE: ${{ vars.EVAL_SNOWFLAKE_WAREHOUSE }}
+          EVAL_SOURCE_DB: ${{ vars.EVAL_SOURCE_DB }}
+          EVAL_SOURCE_SCHEMA: ${{ vars.EVAL_SOURCE_SCHEMA }}
+          EVAL_TARGET_DB: ${{ vars.EVAL_TARGET_DB }}
+          EVAL_TARGET_SCHEMA: ${{ vars.EVAL_TARGET_SCHEMA }}
+          EVAL_GIT_REMOTE: ${{ vars.EVAL_GIT_REMOTE }}
+          EVAL_GH_CRED: ${{ secrets.EVAL_GH_CRED }}
+          CASE: ${{ inputs.case }}
+          RUNS: ${{ inputs.runs }}
+          MAX_COST: ${{ inputs.max_cost_usd }}
+        run: |
+          export EVAL_SNOWFLAKE_PK_FILE="$RUNNER_TEMP/snowflake_rsa_key.p8"
+          out="$RUNNER_TEMP/eval-results"
+          echo "dir=$out" >>"$GITHUB_OUTPUT"
+          # Exit 1 means a case scored below the threshold, which is a result to
+          # report, not a job failure. Whether a result file exists is the test.
+          set +e
+          evals/run.sh --case "$CASE" --runs "$RUNS" --max-cost-usd "$MAX_COST" --output-dir "$out"
+          echo "exit=$?" >>"$GITHUB_OUTPUT"
+          [ -f "$out/aggregate-result.json" ] || { echo "::error::The eval produced no result file."; exit 1; }
+
+      # The effort numbers come from the kept traces, so build the comment in
+      # this job, before the runner goes away.
+      - name: Build the comment
+        id: comment
+        if: always() && steps.eval.outputs.dir != ''
+        env:
+          HEAD: ${{ steps.pr.outputs.head }}
+          BASE: ${{ steps.merge.outputs.base }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RESULTS: ${{ steps.eval.outputs.dir }}
+          EVAL_COA_CLOUD: ${{ secrets.EVAL_COA_CLOUD }}
+          EVAL_GH_CRED: ${{ secrets.EVAL_GH_CRED }}
+          EVAL_SNOWFLAKE_PRIVATE_KEY: ${{ secrets.EVAL_SNOWFLAKE_PRIVATE_KEY }}
+        run: |
+          body="$RUNNER_TEMP/comment.md"
+          if [ -f "$RESULTS/aggregate-result.json" ]; then
+            evals/tools/pr-comment.py "$RESULTS/aggregate-result.json" \
+              --pr "$PR" --head "$HEAD" --base "$BASE" --run-url "$RUN_URL" \
+              --redact-env EVAL_COA_CLOUD EVAL_GH_CRED EVAL_SNOWFLAKE_PRIVATE_KEY >"$body"
+          else
+            printf '<!-- coalesce-plugin-eval -->\n### Plugin eval: PR #%s\n\nThe eval did not produce a result. See the [workflow run](%s).\n' \
+              "$PR" "$RUN_URL" >"$body"
+          fi
+          cat "$body" >>"$GITHUB_STEP_SUMMARY"
+          echo "body=$body" >>"$GITHUB_OUTPUT"
+
+      - name: Comment on the pull request
+        if: always() && steps.comment.outputs.body != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ steps.comment.outputs.body }}
+        run: gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body-file "$BODY"
+
+      # The report quotes prompts and agent output, and this repository is
+      # public, so scrub every secret value before it becomes a download.
+      - name: Scrub the report
+        if: always() && steps.eval.outputs.dir != ''
+        env:
+          RESULTS: ${{ steps.eval.outputs.dir }}
+          EVAL_COA_CLOUD: ${{ secrets.EVAL_COA_CLOUD }}
+          EVAL_GH_CRED: ${{ secrets.EVAL_GH_CRED }}
+          EVAL_SNOWFLAKE_PRIVATE_KEY: ${{ secrets.EVAL_SNOWFLAKE_PRIVATE_KEY }}
+        run: |
+          python3 - <<'EOF'
+          import os, pathlib
+          secrets = [os.environ[v] for v in ("EVAL_COA_CLOUD", "EVAL_GH_CRED", "EVAL_SNOWFLAKE_PRIVATE_KEY")
+                     if len(os.environ.get(v, "")) >= 4]
+          # A PEM key can appear line by line, so mask its body lines too.
+          secrets += [l for s in secrets for l in s.splitlines() if len(l) >= 16 and not l.startswith("-----")]
+          secrets.sort(key=len, reverse=True)
+          root = pathlib.Path(os.environ["RESULTS"])
+          for f in root.rglob("*") if root.exists() else []:
+              if f.is_file():
+                  text = f.read_text(errors="replace")
+                  clean = text
+                  for s in secrets:
+                      clean = clean.replace(s, "***")
+                  if clean != text:
+                      f.write_text(clean)
+          EOF
+
+      - name: Upload the report
+        if: always() && steps.eval.outputs.dir != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: plugin-eval-pr${{ inputs.pr }}-${{ github.run_attempt }}
+          path: ${{ steps.eval.outputs.dir }}
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Remove the Snowflake key
+        if: always()
+        working-directory: .
+        run: rm -f "$RUNNER_TEMP/snowflake_rsa_key.p8"

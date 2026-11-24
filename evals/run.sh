@@ -24,8 +24,10 @@ for a in "$@"; do
   if [ "$a" = "--print" ]; then PRINT_ONLY=1; else ARGS+=("$a"); fi
 done
 
-[ -f .env ] || { echo "run.sh: no .env at $ROOT — see evals/README.md for the variables it must define" >&2; exit 1; }
-set -a; . ./.env; set +a
+# Locally the values come from .env; in CI they are already in the environment
+# (from repository secrets and variables), so .env is optional. The check below
+# catches either source being incomplete.
+if [ -f .env ]; then set -a; . ./.env; set +a; fi
 
 # The sandbox strips variables whose names contain TOKEN, PAT, AUTH, KEY or
 # SECRET, so the secrets are re-exported under EVAL_* names the sandbox keeps.
@@ -43,7 +45,7 @@ for v in EVAL_COA_DOMAIN EVAL_COA_PROJECT EVAL_COA_CONNECTION EVAL_COA_CLOUD \
   [ -n "${!v:-}" ] || missing+=("$v")
 done
 if [ ${#missing[@]} -gt 0 ]; then
-  printf 'run.sh: unset after loading .env: %s\n' "${missing[*]}" >&2
+  printf 'run.sh: unset after loading .env and the environment: %s (see evals/README.md)\n' "${missing[*]}" >&2
   exit 1
 fi
 [ -f "$EVAL_SNOWFLAKE_PK_FILE" ] || { echo "run.sh: EVAL_SNOWFLAKE_PK_FILE does not name a readable file" >&2; exit 1; }
