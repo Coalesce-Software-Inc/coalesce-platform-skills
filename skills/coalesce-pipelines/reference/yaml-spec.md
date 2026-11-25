@@ -21,7 +21,7 @@ Never put secrets in these files.
 ├── workspace.yml     # profile binding + local db/schema mappings (optional, local-only)
 ├── nodes/            # node files: <LOCATION>-<NAME>.sql / .yml (flat)
 ├── nodeTypes/        # workspace-local node types: <DisplayName>-<ID>/
-├── packages/         # package declarations (base node types package)
+├── packages/         # package declarations (base node types, plus any others installed)
 ├── environments/     # environment configs
 ├── subgraphs/        # logical node groupings
 ├── jobs/             # orchestration definitions
@@ -90,14 +90,15 @@ The serve UI resolves membership as `steps ∩ live-node-ids` and silently drops
 
 ## Node types (nodeTypes/<DisplayName>-<ID>/)
 
-Base node types are not authored here. They ship in the base node types package, declared in `packages/base-node-types.yml` by `coa init` and materialized by `coa install` under `.coa/cache/packages/` (`.coa/cache/packages.json` is the machine cache that tree mirrors). How to find and choose a type is in the coalesce-pipelines skill. `packages/` shows which packages the workspace expects; if you are unsure which the org uses, ask.
+Base node types are not authored here. They ship in packages: the YAML base node types package, declared in `packages/base-node-types.yml` by `coa init`, and Base Node Types - SQL, which holds the SQL types and is declared only if someone added it. `coa install` materializes declared packages under `.coa/cache/packages/` (`.coa/cache/packages.json` is the machine cache that tree mirrors). How to find and choose a type is in the coalesce-pipelines skill. `packages/` shows which packages the workspace expects; if you are unsure which the org uses, ask.
 
 A node type folder holds:
 
-- **definition.yml**: `{ isDisabled, name, id, type: "NodeType", fileVersion, metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML string with required `capitalized`, `short`, `plural`, `tagColor` and optional `config` (V1 types), `systemColumns`, `annotations` (V2 types). On a V1 type, `config` holds the defaults a hand-authored `.yml` node must copy into `operation.config`: run templates gate their DML on them (Work-204 on `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so `config: {}` renders zero run SQL. A `fileVersion: 2` type has no `config` block in its `nodeMetadataSpec`. It declares its node options under `annotations:` instead, and its templates still read them as `config.<name>`. Never write `config:` into a V2 type, and never carry one over when turning a V1 type into a V2 type: rewrite each item the templates use as an annotation declaration. A V2 definition with a `config:` block is a hybrid of the two formats.
+- **definition.yml**: `{ isDisabled, name, id, type: "NodeType", fileVersion, metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML string with required `capitalized`, `short`, `plural`, `tagColor` and optional `config` (YAML types), `systemColumns`, `annotations` (SQL types), and `deployStrategy` (`advanced` for types that build their own DDL; on those, `@materializationType` is the type's to declare). `fileVersion: 2` makes it a SQL node type (formerly V2; its nodes are `.sql`); `1` or absent makes it a YAML node type (formerly V1; its nodes are `.yml`). On a YAML type, `config` holds the defaults a hand-authored `.yml` node must copy into `operation.config`: run templates gate their DML on them (the YAML base package's `Work` on `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so `config: {}` renders zero run SQL. A SQL node type has no `config` block in its `nodeMetadataSpec`. It declares its node options under `annotations:` instead, and its templates still read them as `config.<name>`. Never write `config:` into a SQL type, and never carry one over when turning a YAML type into a SQL type: rewrite each item the templates use as an annotation declaration. A SQL type definition with a `config:` block is a hybrid of the two formats.
+- **annotations** (SQL types): `{ node: [...], column: [...] }`, each entry `{ name, description?, allowsMultiple?, isRequired?, parameters?: [{ name, type: string|number|boolean, description?, isRequired?, default?, options?: string[], example? }] }`. `type`, `default`, and `options` belong on a parameter, never on the annotation, and any field outside this shape fails the whole spec when Coalesce plans a deploy, runs, or creates a node of the type.
 - **create.sql.j2** (DDL) and **run.sql.j2** (DML): Jinja templates.
 
-### Templates for a `fileVersion: 2` type
+### Templates for a SQL node type
 
 Only relevant when the user has asked for a custom type. Options the templates read as `config.<name>` are declared under `annotations:` in `definition.yml`, never under `config:`. Build the projection by iterating `sources` then `source.columns`, and guard create with `WHERE 1=0` (the CTAS pattern, which does not depend on `col.dataType`):
 
@@ -129,7 +130,7 @@ SELECT
 {% endfor %}
 ```
 
-Never write a V2 body as `{{ node.sql }}` or `SELECT *`; either renders a zero-column table. V1 types use explicit-column DDL (`{{ col.name }} {{ col.dataType }}`). Current `coa` infers `col.dataType` for V2 nodes too, so explicit-column DDL also works there; older builds surfaced `UNKNOWN`, which is why the CTAS pattern is the conservative choice. Prove a type with `coa create --dry-run --verbose` before authoring nodes against it.
+Never write a SQL type's body as `{{ node.sql }}` or `SELECT *`; either renders a zero-column table. YAML types use explicit-column DDL (`{{ col.name }} {{ col.dataType }}`). Current `coa` infers `col.dataType` for SQL nodes too, so explicit-column DDL also works there; older builds surfaced `UNKNOWN`, which is why the CTAS pattern is the conservative choice. Prove a type with `coa create --dry-run --verbose` before authoring nodes against it.
 
 After any template edit, run both dry-runs for the affected nodes: `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --verbose` and the same with `coa run`. Config gating lives in `run.sql.j2`, so the create dry-run alone proves nothing about whether data would load.
 

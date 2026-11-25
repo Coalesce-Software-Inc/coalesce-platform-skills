@@ -21,8 +21,8 @@ enforced by whatever harness runs the agent, using its own permission model.
 - `skills/coalesce-pipelines/` — the umbrella skill: repo layout, the format
   and node-type rules, the validate → dry-run → create → run loop, guardrails,
   and routing to the other skills. How the product works lives in its
-  `reference/` subdirectory, read on demand: the coa CLI, the V2 SQL node
-  format, V1 YAML nodes, and the workspace YAML files.
+  `reference/` subdirectory, read on demand: the coa CLI, the SQL node
+  format, YAML nodes, and the workspace YAML files.
 - Workflow skills: `coalesce-sql-transformation`,
   `coalesce-pipeline-structure`, `coalesce-cloud-api` (bootstrap and diagnose
   a workspace), `coalesce-git-publication`, `coalesce-deploy` (plan, deploy,

@@ -1,6 +1,6 @@
 ---
 name: coalesce-add-column
-description: Add a column to an existing Coalesce transformation node (V2 .sql or V1 .yml), placing any column annotation after the alias and before the comma, then verifying with coa.
+description: Add a column to an existing Coalesce transformation node (SQL .sql or YAML .yml), placing any column annotation after the alias and before the comma, then verifying with coa.
 ---
 
 <!-- coalesce-node-managed: true -->
@@ -15,8 +15,8 @@ Ask before editing any other node (including an upstream one, to make a column e
 
 Open `nodes/<LOCATION>-<NAME>.sql`. If the name is ambiguous, run `coa create -d <dir> --list-nodes`.
 
-- If the file is a V1 `.yml` node, the edit is still in scope. Follow "Adding a column" in the [V1 nodes reference](../coalesce-pipelines/reference/v1-nodes.md), then verify as in step 4.
-- For a `.sql` node, check that its `@nodeType` resolves to a `fileVersion: 2` type. If it does not, the new column would be silently dropped. Stop and ask rather than upgrading the type.
+- If the file is a YAML `.yml` node, the edit is still in scope. Follow "Adding a column" in the [YAML nodes reference](../coalesce-pipelines/reference/v1-nodes.md), then verify as in step 4.
+- For a `.sql` node, check that its `@nodeType` resolves to a SQL node type (`fileVersion: 2`). If it does not, `coa validate` fails with `extensionVersionMismatch` and the node renders no columns. Stop and ask rather than upgrading the type.
 
 ## 2. Confirm where the column comes from
 
@@ -27,12 +27,12 @@ Open `nodes/<LOCATION>-<NAME>.sql`. If the name is ambiguous, run `coa create -d
 
 - Append it before `FROM` unless the user gave a position. Match the existing indentation.
 - Write `<expression> AS ALIAS` with a bare UPPER_SNAKE_CASE alias, or follow the alias style the file already uses. A bare column needs no alias.
-- A column annotation goes after the alias and before the comma: `CUSTOMER_ID AS CUSTOMER_KEY @isBusinessKey,`
-- Use only the native annotations (`@isBusinessKey`, `@isChangeTracking`, `@id("col-id")`, `@description("text")`) or ones the node type declares. Never add or change the node's top-level `@id`.
+- A column annotation goes after the alias and before the comma: `CUSTOMER_ID AS CUSTOMER_KEY @notNull,`
+- Use only the reserved column annotations (`@description("text")`, `@notNull`, `@defaultValue("...")`, `@id("col-id")`) or ones the node type declares in its `annotations:` block, in the form the declaration's `description` gives. `@isBusinessKey` and `@isChangeTracking` are declared annotations: use them only on a type that declares them, such as a SQL `Dimension`, never on a `Work` node. An undeclared annotation draws `warning[annotationNameUnknown]` and is ignored. Never add or change the node's top-level `@id`.
 
 ## 4. Verify
 
-1. `coa validate -d <dir>`: 0 errors and 0 warnings. V2 columns are inferred from the SELECT, so validate's column scanners do not check them; only the dry-runs prove the column exists.
+1. `coa validate -d <dir>`: 0 errors and 0 warnings. A SQL node's columns are inferred from the SELECT, so validate's column scanners do not check them; only the dry-runs prove the column exists.
 2. `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the new column appears in the DDL.
 3. `coa run -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the new column appears in the DML.
 
