@@ -4,9 +4,12 @@
 # Coalesce Transform Repository
 
 This is a Coalesce Transform workspace: a Git-backed representation of a data
-transformation DAG. Nodes live in `nodes/` as `<LOCATION>-<NAME>.sql` (V2) or
-`.yml` (V1) files — Source nodes are always V1, and every other node is V2
-when a `fileVersion: 2` node type exists for its type, otherwise V1; workspace
+transformation DAG. Nodes live in `nodes/` as `<LOCATION>-<NAME>.sql` (SQL
+nodes, formerly V2) or `.yml` (YAML nodes, formerly V1) files. The node type
+decides which: a SQL node type (`fileVersion: 2` in its definition) takes
+`.sql`, a YAML node type takes `.yml`, and Source nodes are always YAML. The
+file extension is the kind: `operation.type: sql` and `operation.sqlType` on a
+`.yml` node predate SQL nodes and do not make it a SQL node. Workspace
 metadata (locations, environments, jobs, subgraphs, node types, macros) is
 YAML. The `coa` CLI validates the repo and runs SQL against the warehouse for
 local development — `coa describe <topic>` is the source of truth for every

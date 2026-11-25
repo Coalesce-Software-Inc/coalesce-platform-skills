@@ -30,7 +30,8 @@ Three identifiers, easy to confuse:
 
 1. Confirm the workspace platform: `platformKind` in `data.yml` (absent means
    `snowflake`). Only install packages whose `platformKind` matches; the
-   platform is also the middle segment of a V2 Package ID.
+   platform is also the middle segment of a three-segment Package ID
+   (`@coalesce/<platform>/<name>`).
 2. `ls packages/` — see what is already declared. Each file is one package,
    named after its alias. If the package is already declared, this is an
    upgrade (see below), not an install.
@@ -83,7 +84,7 @@ registry (lower environments do not mirror production). Fall back to 1b.
 
 **1b. You only know roughly what the user wants** ("the Cortex package",
 "something for dynamic tables"). Search the full listing, restricted to
-certified Coalesce-published V2 packages for the workspace platform:
+certified Coalesce-published three-segment packages for the workspace platform:
 
 ```sh
 PK=snowflake   # from data.yml
@@ -100,7 +101,8 @@ older two-segment IDs like `@coalesce/cortex` and copies such as `cortex-dev`;
 prefer the certified three-segment ID for the platform). If more than one
 plausible package matches, show the candidates (Package ID, name, one-line
 description) and let the user pick — do not guess between, say,
-`base-node-types` and `base-node-types-sql`.
+`base-node-types` (YAML node types) and `base-node-types-sql` (SQL node
+types).
 
 **1c. Resolve the release.** Use `latestRelease` unless the user asked for a
 specific version; then confirm what it is:
@@ -234,4 +236,4 @@ deletion.
   editing `config`, committing (per coalesce-git-publication) or pushing.
 - NEVER: print the token, put it in a file, or hand-edit `.coa/cache/`;
   author node types to stand in for a package that will not hydrate (fall back
-  to V1 `.yml` nodes instead — see coalesce-pipelines, "Node types").
+  to YAML `.yml` nodes instead — see coalesce-pipelines, "Node types").

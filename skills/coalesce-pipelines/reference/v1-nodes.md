@@ -1,10 +1,10 @@
 <!-- coalesce-node-managed: true -->
 
-# V1 YAML nodes
+# YAML nodes
 
-V1 nodes are the YAML format at `nodes/<LOCATION>-<NAME>.yml`. The Coalesce UI and API produce it natively: a serialized node, including a column lineage graph keyed by ids. Most existing workspaces are mostly V1.
+YAML nodes (formerly V1) are the `.yml` format at `nodes/<LOCATION>-<NAME>.yml`. The Coalesce UI and API produce it natively: a serialized node, including a column lineage graph keyed by ids. Most existing workspaces are mostly YAML nodes.
 
-You may read, edit, and author V1 nodes. Author one by hand when the type is config-driven (an SCD2 Dimension) or has no `fileVersion: 2` definition. Generate Source nodes with `coa sources add` instead.
+You may read, edit, and author YAML nodes. Author one by hand when the type is config-driven (an SCD2 Dimension) or has no SQL (`fileVersion: 2`) definition. Generate Source nodes with `coa sources add` instead.
 
 `coa describe schema node` is the authoritative shape (there is no `coa describe node` topic). Check fields against it, not against a sibling file.
 
@@ -23,13 +23,15 @@ Five required top-level keys, nothing else allowed:
 `operation.type` selects one of two shapes:
 
 - **`sourceInput`**: a Source node. `sqlType: Source`, `metadata` holds `columns` and `join.joinCondition` (`FROM {{ ref('SRC', 'TABLE') }}`), and no `sourceMapping`. Required: `locationName`, `name`, `sqlType`, `type`, `metadata`.
-- **`sql`**: every transformation node. Required: `locationName`, `name`, `type`, `isMultisource`, `metadata` (with `columns` and `sourceMapping`), `materializationType` (`table` or `view`).
+- **`sql`**: every YAML transformation node. Required: `locationName`, `name`, `type`, `isMultisource`, `metadata` (with `columns` and `sourceMapping`), `materializationType` (`table` or `view`).
+
+`type: sql` does not make a node a SQL node. It names the shape of every YAML transformation node, and it predates SQL nodes, as does `sqlType`. A `.yml` file is a YAML node whatever these fields say; SQL nodes are `.sql` files.
 
 Other `operation` fields: `database` / `schema` (usually `""`, resolved from mappings), `description`, `deployEnabled`, `config`, `overrideSQL`, `version: 1`.
 
-**`sqlType` is the node type**, the V1 counterpart of `@nodeType`: a built-in name or the `id` of a type on disk (`sqlType: "41"` resolves to the type whose `definition.yml` has `id: 41`). Find it as coalesce-pipelines "Node types" describes. A V1 node needs a type with `fileVersion: 1` or none.
+**`sqlType` is the node type**, the YAML counterpart of `@nodeType`: a built-in name or the `id` of a type on disk (`sqlType: "41"` resolves to the type whose `definition.yml` has `id: 41`). Find it as coalesce-pipelines "Node types" describes. A YAML node needs a YAML type: `fileVersion: 1` or none.
 
-**`config` is load-bearing.** Run templates gate their DML on it: Work-204 emits its INSERT only when `config.insertStrategy == 'INSERT'` and its truncate only when `config.truncateBefore`. The UI writes these defaults invisibly; a hand-authored node must copy them from the type's `nodeMetadataSpec`. `config: {}` passes validate and the create dry-run and renders zero run SQL.
+**`config` is load-bearing.** Run templates gate their DML on it: the YAML base package's `Work` emits its INSERT only when `config.insertStrategy == 'INSERT'` and its truncate only when `config.truncateBefore`. The UI writes these defaults invisibly; a hand-authored node must copy them from the type's `nodeMetadataSpec`. `config: {}` passes validate and the create dry-run and renders zero run SQL.
 
 **Identity comes from the YAML, not the filename** (the opposite of `.sql` nodes). `coa` reads `name` and `operation.locationName`. Keep the filename, `name`, `operation.name`, and `operation.locationName` in sync anyway.
 
@@ -57,7 +59,7 @@ A list of source groups, each requiring `name`, `join`, `dependencies`:
 
 More than one group makes a multisource node (`isMultisource: true`): each group is a separate insert path, and every column has one `sourceColumnReferences` entry per group, in order.
 
-## Reading a V1 node
+## Reading a YAML node
 
 | Question | Where to look |
 | --- | --- |
@@ -70,7 +72,7 @@ More than one group makes a multisource node (`isMultisource: true`): each group
 | Node type | `operation.sqlType` |
 | Table or view | `operation.materializationType` |
 
-`coa create --include "{ NAME }" --dry-run --verbose` shows the SQL a V1 node actually renders.
+`coa create --include "{ NAME }" --dry-run --verbose` shows the SQL a YAML node actually renders.
 
 ## Editing an existing node
 
@@ -91,9 +93,9 @@ Do not:
 
 Removing columns or restructuring `sourceMapping` means cross-wiring ids by hand. Follow the id rules above, and prefer the Coalesce UI when one is at hand.
 
-After any edit run `coa validate` and both dry-runs. The scanners that police V1 nodes: Column Sources / Source Mappings / Dependencies / References (the id graph resolves; a rename shows as `sourceMapping dependency does not resolve: LOC.NAME`), Column Data Types (warning: `dataType` differs from the upstream column's), Column Names, Duplicate Node IDs and Names, Circular Dependencies, Node Type Validity, Storage Locations (`locationName` is listed in `locations.yml` and mapped in `workspace.yml`).
+After any edit run `coa validate` and both dry-runs. The scanners that police YAML nodes: Column Sources / Source Mappings / Dependencies / References (the id graph resolves; a rename shows as `sourceMapping dependency does not resolve: LOC.NAME`), Column Data Types (warning: `dataType` differs from the upstream column's), Column Names, Duplicate Node IDs and Names, Circular Dependencies, Node Type Validity, Storage Locations (`locationName` is listed in `locations.yml` and mapped in `workspace.yml`).
 
-## Authoring a new V1 node
+## Authoring a new YAML node
 
 ```yaml
 fileVersion: 1
@@ -101,7 +103,7 @@ id: <fresh UUID v4>
 name: <NAME>
 type: Node
 operation:
-  type: sql
+  type: sql # every YAML transformation node; NOT a SQL node
   sqlType: <TYPE_NAME_OR_ID> # read off disk; often Work, not Stage
   locationName: <LOCATION>
   name: <NAME> # mirrors the top-level name

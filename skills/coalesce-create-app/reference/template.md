@@ -54,7 +54,7 @@ function listDir(dir, filter = () => true) {
   }
 }
 
-// Node files are nodes/<LOCATION>-<NAME>.sql (V2) or .yml (V1). LOCATION has no dashes.
+// Node files are nodes/<LOCATION>-<NAME>.sql (SQL nodes) or .yml (YAML nodes). LOCATION has no dashes.
 function listNodes() {
   return listDir(wsPath("nodes"), (f) => /\.(sql|yml)$/.test(f)).map((file) => {
     const base = file.replace(/\.(sql|yml)$/, "");

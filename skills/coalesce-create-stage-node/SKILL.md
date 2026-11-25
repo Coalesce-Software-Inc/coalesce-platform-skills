@@ -1,6 +1,6 @@
 ---
 name: coalesce-create-stage-node
-description: Create a new Coalesce staging node from a source node — a Stage that maps every source column 1:1, with the V2 node-type preflight check and coa verification loop.
+description: Create a new Coalesce staging node from a source node — a Stage that maps every source column 1:1, with the node-type preflight check (SQL or YAML) and coa verification loop.
 ---
 
 <!-- coalesce-node-managed: true -->
@@ -13,11 +13,11 @@ A stage node is the first hop out of a Source: it selects the source's columns u
 
 ## 1. Pick the staging node type
 
-Follow "Node types" in coalesce-pipelines: list `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`, read each `definition.yml`, and find the staging-layer type. Do not assume it is called `Stage`; in the base packages it is `Work`. Then:
+Follow "Node types" in coalesce-pipelines: list `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`, read each `definition.yml`, and find the staging-layer type. Do not assume it is called `Stage`; in both base packages it is `Work`, so check `fileVersion` to tell the YAML one from the SQL one. Then:
 
-- **It has `fileVersion: 2`:** write a `.sql` node (step 4). Note the type's `id`.
+- **It has `fileVersion: 2` (a SQL node type):** write a `.sql` node (step 4). Note the type's `id`.
 - **None on disk:** run `coa install -d <dir>` and look again. If there is still no staging type of either version (for example, install printed "No packages to install."), the base package isn't declared: stop and ask before running `coa init`.
-- **Only a V1 staging type exists:** write the node as V1 `.yml` using "Authoring a new V1 node" in the [V1 nodes reference](../coalesce-pipelines/reference/v1-nodes.md), then go to step 5. Do not stop, do not upgrade the type, and never point a `.sql` node at it (the columns would be silently empty).
+- **Only a YAML staging type exists:** write the node as YAML `.yml` using "Authoring a new YAML node" in the [YAML nodes reference](../coalesce-pipelines/reference/v1-nodes.md), then go to step 5. Do not stop, do not upgrade the type, and never point a `.sql` node at it (validate fails with `extensionVersionMismatch`). If Base Node Types - SQL is not declared under `packages/`, say in your report that adding it (coalesce-install-package) would make a SQL staging type available.
 
 ## 2. Read the source
 
@@ -25,7 +25,7 @@ Find the source node with `coa create -d <dir> --list-nodes` and read `nodes/<SR
 
 ## 3. Check the target name
 
-The file is `nodes/<LOCATION>-<NAME>.sql` (or `.yml` for V1), in the location the user asked for, with an UPPER_SNAKE_CASE name.
+The file is `nodes/<LOCATION>-<NAME>.sql` (or `.yml` for a YAML node), in the location the user asked for, with an UPPER_SNAKE_CASE name.
 
 If `nodes/<LOCATION>-<NAME>.sql` or `.yml` already exists, stop. Tell the user the node exists and what it contains. Do not overwrite it, and do not create a renamed duplicate.
 
@@ -33,7 +33,7 @@ If `nodes/<LOCATION>-<NAME>.sql` or `.yml` already exists, stop. Tell the user t
 
 ```sql
 @id("3f29c8a1-7b04-4e6d-9c2a-1d5e8f0a6b73")
-@nodeType("base-node-types:::204")
+@nodeType("<alias>:::<id>")
 
 SELECT
     "C_CUSTKEY"    AS "C_CUSTKEY",
@@ -43,16 +43,16 @@ FROM {{ ref("SRC", "CUSTOMER") }} CUSTOMER
 ```
 
 - `@id` is a fresh UUID v4. `@nodeType` is the id from step 1, copied exactly as the type's `definition.yml` spells it (the value above is a stand-in). Both lines are bare.
-- List every source column, one per line. Never `SELECT *`.
+- List every source column, one per line, not `SELECT *`. Current `coa` expands `*`, but an explicit list keeps the node's columns fixed when the source changes.
 - `FROM` uses `{{ ref("LOCATION", "NAME") }}` with both arguments.
 - A plain 1:1 stage needs no column annotations.
 
 ## 5. Verify
 
 1. `coa validate -d <dir>`: 0 errors and 0 warnings. If an error points at existing shared config you were not asked to touch, report it; do not edit shared config to make validate pass.
-2. `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the DDL lists every column. An empty column list means the type is V1 or the SELECT is not explicit; go back to step 1.
+2. `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the DDL lists every column. An empty column list means `@nodeType` points at a YAML type (validate reports `extensionVersionMismatch`); go back to step 1.
 3. `coa run -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the DML is non-empty. What empty run SQL means depends on the format:
-   - **`.sql` node:** recheck that `@nodeType` is the id of a `fileVersion: 2` type and that the node is not a view (a view has no load). A V2 type has no `config` block, so there are no config defaults to copy. Never add `config` to the type or the node, and never rewrite the node as `.yml` to get one; node options are annotations the type declares (see the [SQL format reference](../coalesce-pipelines/reference/sql-format.md)).
-   - **V1 `.yml` node:** `operation.config` lacks the type's defaults; copy them from the type's `nodeMetadataSpec`.
+   - **`.sql` node:** recheck that `@nodeType` is the id of a SQL node type (`fileVersion: 2`) and that the node is not a view (a view has no load). A SQL node type has no `config` block, so there are no config defaults to copy. Never add `config` to the type or the node, and never rewrite the node as `.yml` to get one; node options are annotations the type declares (see the [SQL format reference](../coalesce-pipelines/reference/sql-format.md)).
+   - **YAML `.yml` node:** `operation.config` lacks the type's defaults; copy them from the type's `nodeMetadataSpec`.
 
 Stop after the dry-runs unless the user wants the table materialized.

@@ -22,11 +22,12 @@ References: [coa-cli](../coalesce-pipelines/reference/coa-cli.md) for selectors,
 
 ## Risks to flag
 
-- A `.sql` node whose `@nodeType` is not a `fileVersion: 2` type: columns are silently empty.
-- A `fileVersion: 2` node type whose `nodeMetadataSpec` has a `config:` block: a hybrid of the two formats. V2 types declare node options under `annotations:` only. The same goes for a `.sql` node carrying `config` (YAML header, `operation.config`) or a `.yml` node whose `sqlType` is a `fileVersion: 2` type.
+- A `.sql` node whose `@nodeType` is a YAML type (`fileVersion: 1` or absent): `coa validate` reports `error[extensionVersionMismatch]`, and if merged anyway create and run render zero columns.
+- A SQL node type (`fileVersion: 2`) whose `nodeMetadataSpec` has a `config:` block: a hybrid of the two formats. SQL node types declare node options under `annotations:` only. The same goes for a `.sql` node carrying `config` (YAML header, `operation.config`) or a `.yml` node whose `sqlType` is a SQL node type.
 - A hand-authored `.yml` node with empty or partial `operation.config`: it passes validate and the create dry-run but renders zero run SQL.
 - Deleted or renamed nodes that still have dependents or stale `ref()`s.
-- One-argument `ref()`, hardcoded `db.schema.table`, or column annotations that are neither native (`@isBusinessKey`, `@isChangeTracking`, `@id`, `@description`) nor declared by the node type.
+- One-argument `ref()`, hardcoded `db.schema.table`, or annotations that are neither reserved nor declared by the node type. Reserved: `@id`, `@nodeType`, `@description`, `@materializationType`, `@deployDisabled` on the node; `@description`, `@notNull`, `@defaultValue`, and `@id` on a column. Everything else, `@isBusinessKey` and `@isChangeTracking` included, is valid only where the type's `annotations:` block declares it; otherwise `coa validate --json` reports `annotationNameUnknown` and the annotation is ignored. Quote the warning.
+- A newly added `@deployDisabled`: the node drops out of the next cloud deploy, though local create and run still build it. A `@materializationType` value other than `table` or `view` is a validate error unless the type sets `deployStrategy: advanced`; on those types Coalesce does not check the value at all, so compare it with the type's declared `options`.
 - Edits to shared config: `nodeTypes/`, locations, workspace, environments, jobs, macros, `data.yml`, `fileVersion` bumps, template swaps. A new `nodeTypes/` folder counts; ask whether the user requested a custom type.
 - Any change under `apps/`: this is code, not config. A workspace app runs with the user's permissions as soon as anyone opens it in Coalesce. Read the changed files and flag network calls to outside hosts, writes outside the app's data folder, `exec` or `shell: true`, `innerHTML` with workspace values, reads of `~/.coa/config` or other credentials, committed secrets, CORS headers, and a removed `Host` or write check. Rules: [coalesce-create-app](../coalesce-create-app/SKILL.md).
 

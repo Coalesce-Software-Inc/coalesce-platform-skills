@@ -17,7 +17,7 @@ These are static manuals, not listings. `coa describe node-types` documents the 
 
 - `coa validate -d <repo>` (`--json` for machine output). Schema checks on every YAML file plus 15 offline graph scanners (broken refs, missing types, duplicate names, bad storage locations). No warehouse and no profile needed. `--include` scopes the scanners only; schema validation always covers all files. The scanners need a `workspace.yml` to map locations. Without one they report "setup failed" and you get schema validation only; `coa doctor --fix` bootstraps the file (ask first).
 - `coa create -d <repo> --include "{ NODE }" --dry-run --verbose` renders the DDL. Check the column list is populated.
-- `coa run -d <repo> --include "{ NODE }" --dry-run --verbose` renders the DML. Empty output on a V1 `.yml` node means its `operation.config` is missing the type's defaults. A `.sql` node has no config to fix, because a `fileVersion: 2` type declares options as annotations and has no `config` block: check the node's `@nodeType` and annotations instead.
+- `coa run -d <repo> --include "{ NODE }" --dry-run --verbose` renders the DML. Empty output on a YAML `.yml` node means its `operation.config` is missing the type's defaults. A `.sql` node has no config to fix, because a SQL node type declares options as annotations and has no `config` block: check the node's `@nodeType` and annotations instead.
 - `coa create -d <repo> --list-nodes` (or `coa run ... --list-nodes`) lists nodes and ids.
 - `coa sources list -d <repo>` lists warehouse tables per location; `coa sources add -d <repo>` scaffolds Source nodes from them.
 
@@ -35,7 +35,7 @@ Case-insensitive, with minimatch globs. Quote the selector and escape inner quot
 
 ## init: bootstrap a workspace (ask first)
 
-`coa init -d <dir>` writes `~/.coa/config` (token, environmentID, warehouse credentials), scaffolds `data.yml`, `locations.yml`, `workspace.yml`, and `.gitignore`, declares the base node types package, optionally hydrates packages, and verifies with doctor. Phases already satisfied are skipped silently. Always pass `--non-interactive` plus per-field flags (`--token`, `--environmentID`, `--snowflakeAccount`, …) so it fails fast instead of prompting. `--skip-install`, `--skip-doctor`, and `--force` exist.
+`coa init -d <dir>` writes `~/.coa/config` (token, environmentID, warehouse credentials), scaffolds `data.yml`, `locations.yml`, `workspace.yml`, and `.gitignore`, declares the YAML base node types package (SQL node types are a separate package, Base Node Types - SQL, added with coalesce-install-package), optionally hydrates packages, and verifies with doctor. Phases already satisfied are skipped silently. Always pass `--non-interactive` plus per-field flags (`--token`, `--environmentID`, `--snowflakeAccount`, …) so it fails fast instead of prompting. `--skip-install`, `--skip-doctor`, and `--force` exist.
 
 Without `--profile`, init writes into the profile the workspace already resolves to. With `--profile <name>` it writes that section and binds the workspace to it. The binding is written after the credential phases, so a failed init leaves no new binding, but it can leave a half-written profile (the token is stored before the warehouse is tested). `coa init --profile <name>` is also how you rewrite an existing profile's credentials, because `coa profile create` refuses an existing name.
 
