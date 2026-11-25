@@ -1,146 +1,39 @@
 ---
 name: coalesce-create-stage-node
-description: Create a new Coalesce staging node from a source node — a Stage that maps every source column 1:1, with the SQL-node-type preflight check and coa verification loop.
+description: Create a new Coalesce staging node from a source node — a Stage that maps every source column 1:1, with the V2 node-type preflight check and coa verification loop.
 ---
+
 <!-- coalesce-node-managed: true -->
 
-> **Prerequisite — load `coalesce-pipelines` first.** If you have not already
-> loaded the `coalesce-pipelines` skill in this session, load it now, read its
-> "Orient first" step, core `coa` loop, and Rules, then return here. This skill
-> assumes those invariants (bare `@id`/`@nodeType` first lines, SQL node types
-> carry `fileVersion: 2`, one-node-at-a-time validate → dry-run → create loop)
-> are already in context.
+> **Prerequisite:** load `coalesce-pipelines` first if it is not already loaded in this session. This skill assumes its rules, its "Node types" section, and its core loop.
 
-Create a Stage node that maps every column of a source node 1:1. A Stage is the
-first hop out of a Source: it selects the source's columns unchanged so later
-layers build on a stable name. `coa describe sql-format` and `coa describe node-types`
- document the node file and node type formats; consult them if anything below is
- unclear.
+# Create a stage node
 
-## 0. Critical preflight — which staging node type exists, and is it a SQL type?
+A stage node is the first hop out of a Source: it selects the source's columns unchanged so later layers build on a stable name.
 
-**The staging-layer type's NAME varies by workspace — do not assume `Stage`.**
-Neither base node types package ships a `Stage` type; the staging type is
-named `Work` in both. The YAML base package that `coa init` installs has a
-YAML `Work`; the SQL `Work` is in the separate Base Node Types - SQL package.
-Naming a
-type that isn't there fails with
-`error[missingNodeType]: node type "Stage" is not available`. So discover the
-type before you write anything: list `nodeTypes/` and
-`.coa/cache/packages/*/nodeTypes/`, and read each `definition.yml` — `name`,
-`description`, and `nodeMetadataSpec` tell you which type is the staging
-layer, and its `fileVersion` tells you the kind: `2` is a SQL node type
-(formerly "V2", takes `.sql` nodes), `1` or absent is a YAML node type
-(formerly "V1", takes `.yml` nodes). Plain built-in names (`Stage`, `View`,
-`Dimension`, `Fact`, `persistentStage`) resolve only when those built-in YAML
-types are present in `nodeTypes/`, which `coa init` writes when the base
-package is unavailable; they are not always available. A type named `Work`
-can be either kind, so always read its `fileVersion`.
+## 1. Pick the staging node type
 
-A `.sql` node is a SQL node and REQUIRES a node type whose `definition.yml` has
-`fileVersion: 2`. If you point `@nodeType(...)` at a YAML staging type
-(`fileVersion: 1` or absent), `coa validate` reports
-`error[extensionVersionMismatch]`; `coa create`/`coa run` skip that check and
-render the node with no columns (`columns: []`). (`coa describe sql-format`,
-`coa describe node-types`.)
+Follow "Node types" in coalesce-pipelines: list `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`, read each `definition.yml`, and find the staging-layer type. Do not assume it is called `Stage`; in the base packages it is `Work`. Then:
 
-Check what staging type actually exists:
+- **It has `fileVersion: 2`:** write a `.sql` node (step 4). Note the type's `id`.
+- **None on disk:** run `coa install -d <dir>` and look again. If there is still no staging type of either version (for example, install printed "No packages to install."), the base package isn't declared: stop and ask before running `coa init`.
+- **Only a V1 staging type exists:** write the node as V1 `.yml` using "Authoring a new V1 node" in the [V1 nodes reference](../coalesce-pipelines/reference/v1-nodes.md), then go to step 5. Do not stop, do not upgrade the type, and never point a `.sql` node at it (the columns would be silently empty).
 
-- `.coa/cache/packages/*/nodeTypes/<Name>-<id>/definition.yml` — the installed
-  package types, materialized as a read-only file tree by `coa install`. The
-  normal SQL staging type is `Work` from Base Node Types - SQL (not `Stage`,
-  and not the YAML `Work` from the base package `coa init` installs); each
-  materialized `definition.yml` carries the resolvable id in `<alias>:::<id>`
-  form, and that exact id is what `@nodeType()` takes. Never edit this tree —
-  `coa install` regenerates it. (`coa describe node-types` documents the folder
-  layout and `definition.yml` fields; it does not list what is installed.)
-- A workspace-local definition, if any, lives in
-  `nodeTypes/<DisplayName>-<ID>/definition.yml`; the `@nodeType()` value is the
-  `id` field (read it from the file, never from the folder name). Read its
-  `fileVersion` (absent or `1` = YAML type; `2` = SQL type). `coa describe
-  schema nodeType` documents the shape.
+## 2. Read the source
 
-Then branch:
+Find the source node with `coa create -d <dir> --list-nodes` and read `nodes/<SRC_LOCATION>-<SRC_NAME>.yml` for the full column list. Use the file, not memory of what the table usually contains. If there is no Source node yet, create it with `coa sources list` / `coa sources add`.
 
-- **A SQL staging node type exists (`fileVersion: 2`)** — proceed; author a
-  `.sql` node. Note its `id` for step 3.
-- **No SQL staging type on disk** — SEARCH-FIRST, never author: run
-  `coa install -d <dir>` to hydrate the workspace's packages (safe, no need to
-  ask), then re-check `nodeTypes/` and `.coa/cache/packages/*/nodeTypes/`.
-  `coa install` hydrates only packages already declared under `packages/` and
-  otherwise just prints "No packages to install."; `coa init` writes the base
-  package's declaration, so if `packages/` is absent the fix is re-running
-  `coa init` (ask the user first); other Marketplace packages are added via
-  coalesce-install-package, never by improvising shared config. If
-  `packages/` does not declare Base Node Types - SQL
-  (`@coalesce/snowflake/base-node-types-sql`, or the BigQuery or Databricks
-  equivalent listed in coalesce-workspace-config),
-  ask the user whether to add it via coalesce-install-package — `coa init`
-  does not install it. Do NOT create a node type yourself. If the user
-  declines or the package is unavailable (lower registries 404), take the
-  YAML path below. Report which path you took.
-- **Only a YAML staging type exists (`fileVersion` absent or `1`)**: author
-  the node as a YAML `.yml` node. Do NOT upgrade the node type and do NOT
-  stop: YAML is the supported authoring format whenever the workspace's node
-  types are YAML (nodes may be authored freely in either format; a `.sql`
-  file just needs a SQL type behind it). The `fileVersion` in the type's
-  `definition.yml` decides this, never the platform. Follow the recipe in
-  **coalesce-pipeline-structure** ("Creating a YAML (.yml) node") and the
-  checklist in **coalesce-v1-yaml-nodes** ("Authoring a new YAML node"), copy
-  the column list from the source node in `nodes/`, then go straight to step 4
-  to verify. Bumping an in-use type's `fileVersion` changes DDL/DML for every
-  node of that type, so that still requires **STOP and ASK the user first**.
+## 3. Check the target name
 
-  Never silently write a `.sql` node against a YAML staging type — that is
-  the wrong-kind node type trap above.
+The file is `nodes/<LOCATION>-<NAME>.sql` (or `.yml` for V1), in the location the user asked for, with an UPPER_SNAKE_CASE name.
 
-## 1. Gather the source
+If `nodes/<LOCATION>-<NAME>.sql` or `.yml` already exists, stop. Tell the user the node exists and what it contains. Do not overwrite it, and do not create a renamed duplicate.
 
-1. Identify the source node, its location, and its columns. Use `coa` as the
-   authoritative surface: `coa create -d <dir> --list-nodes` 
-   (or `coa run -d <dir> --list-nodes`) to enumerate nodes, and read the source file
-   (`nodes/<SRC_LOCATION>-<SRC_NAME>.yml`) for its column names. Do not rely on
-   cached context as ground truth.
-2. If `nodes/` is empty or holds no Source node yet, there is nothing to stage
-   from: `coa sources list` shows the warehouse tables per location and
-   `coa sources add` scaffolds the Source node. Do that first, never hand-write
-   source YAML.
-3. Note every source column name; the staging node maps them 1:1.
-
-## 2. Decide the target file
-
-- Path: `nodes/<LOCATION>-<NAME>.sql` (SQL node) or `.yml` (YAML node). The filename sets the
-  location and name — an `@location` annotation is ignored. `nodes/` is flat (no
-  subdirectories).
-- Names are `UPPER_SNAKE_CASE` and unique. A name collides if either
-  `nodes/<LOCATION>-<NAME>.yml` or `nodes/<LOCATION>-<NAME>.sql` already exists —
-  the two extensions cannot coexist. Confirm the name is free before writing.
-- Use the staging location the user asked for (commonly `STG`). Do not assume a
-  fixed location.
-
-## 3. Write the SQL `.sql` node
-
-(If step 0 sent you down the YAML path, write the `.yml` per the
-coalesce-pipeline-structure recipe and skip to step 4.)
-
-Required top annotations, before any SQL:
-
-- `@id("<UUID>")` — PREFER a fresh UUID v4. NEVER reuse or modify an existing
-  node's `@id`; duplicate IDs collide across the workspace.
-- `@nodeType("<TypeID>")` — the SQL staging type ID you found in step 0.
-  Normally a package ID, `<alias>:::<id>`. `<alias>` is the package alias: the
-  `name` in the workspace's `packages/<alias>.yml`, chosen when the package was
-  installed, so it varies by workspace (not a SQL column alias). Don't assemble
-  the ID yourself: the materialized `definition.yml` already holds the full
-  `<alias>:::<id>`, so copy it whole. A workspace-local type has no alias: use
-  the `id` from `nodeTypes/<DisplayName>-<ID>/definition.yml`.
-
-Then a `SELECT` mapping each source column 1:1, and a `FROM` using a
-double-quoted `ref()` with BOTH args:
+## 4. Write the `.sql` node
 
 ```sql
 @id("3f29c8a1-7b04-4e6d-9c2a-1d5e8f0a6b73")
-@nodeType("<alias>:::<id>")
+@nodeType("base-node-types:::204")
 
 SELECT
     "C_CUSTKEY"    AS "C_CUSTKEY",
@@ -149,53 +42,17 @@ SELECT
 FROM {{ ref("SRC", "CUSTOMER") }} CUSTOMER
 ```
 
-In the example above, `"<alias>:::<id>"` stands in for the actual SQL staging
-type ID from step 0, usually the SQL `Work` from Base Node Types - SQL.
-Substitute the id verbatim as the type's `definition.yml` on disk spells it;
-ids differ by platform and release, so never reuse one from memory. Never use
-the YAML `Work` here (no `fileVersion` or `fileVersion: 1`): a `.sql` node on
-it renders no columns. Do NOT write `@nodeType("Stage")` on the assumption that a `Stage`
-type exists: the base packages ship none, and a plain built-in name resolves
-only when a `fileVersion: 2` type with that exact `id` is on disk (the
-built-in `Stage`/`View`/… types `coa init` writes when the base package is
-unavailable are YAML types, so they take the YAML `.yml` path instead).
+- `@id` is a fresh UUID v4. `@nodeType` is the id from step 1, copied exactly as the type's `definition.yml` spells it (the value above is a stand-in). Both lines are bare.
+- List every source column, one per line. Never `SELECT *`.
+- `FROM` uses `{{ ref("LOCATION", "NAME") }}` with both arguments.
+- A plain 1:1 stage needs no column annotations.
 
-Rules:
+## 5. Verify
 
-- `{{ ref("LOCATION", "NODE_NAME") }}` — double quotes, both args required.
-  There is no name-only form. `ref()` creates the lineage edge and resolves to
-  the real `database.schema.table`; NEVER hardcode `db.schema.table`.
-- A plain 1:1 Stage needs no column annotations. If you want lineage IDs or
-  docs, use `@id("col-id")` and `@description("text")` (both metadata-only),
-  placed AFTER the alias and BEFORE the comma. `@isBusinessKey` /
-  `@isChangeTracking` belong on merge types that declare them (such as a SQL
-  Dimension), not on a plain Stage or `Work` node. Every annotation beyond
-  the reserved set exists ONLY if the node type declares it in its
-  `annotations:` block; an undeclared or misspelled one makes `coa validate`
-  warn (`annotationNameUnknown`) and is ignored at render (see sql-format
-  reference). Do NOT invent annotations.
+1. `coa validate -d <dir>`: 0 errors and 0 warnings. If an error points at existing shared config you were not asked to touch, report it; do not edit shared config to make validate pass.
+2. `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the DDL lists every column. An empty column list means the type is V1 or the SELECT is not explicit; go back to step 1.
+3. `coa run -d <dir> --include "{ <NAME> }" --dry-run --verbose`: the DML is non-empty. What empty run SQL means depends on the format:
+   - **`.sql` node:** recheck that `@nodeType` is the id of a `fileVersion: 2` type and that the node is not a view (a view has no load). A V2 type has no `config` block, so there are no config defaults to copy. Never add `config` to the type or the node, and never rewrite the node as `.yml` to get one; node options are annotations the type declares (see the [SQL format reference](../coalesce-pipelines/reference/sql-format.md)).
+   - **V1 `.yml` node:** `operation.config` lacks the type's defaults; copy them from the type's `nodeMetadataSpec`.
 
-## 4. Verify with coa (mandatory)
-
-Run the core loop and fix issues before moving on:
-
-1. `coa validate -d <dir>` — schema + graph scanners pass (broken refs,
-   duplicate names, missing node types, etc.). Add `--json` for machine-readable
-   output. If errors point only at pre-existing workspace config you were not
-   asked to touch, surface that to the user — do not edit shared config to make
-   validate pass.
-2. `coa create -d <dir> --include "{ <NAME> }" --dry-run --verbose` — inspect the
-   generated DDL. If the column list is empty, the node type is a YAML type —
-   go back to step 0 and point `@nodeType` at a SQL package type (ask before
-   upgrading an in-use type).
-3. `coa run -d <dir> --include "{ <NAME> }" --dry-run --verbose` — mandatory,
-   not optional. `create --dry-run` passes nodes that can never load data:
-   node type run templates gate their DML on config values (the YAML `Work` gates the
-   INSERT on `config.insertStrategy == 'INSERT'`, the truncate on
-   `config.truncateBefore`), so a node whose `config` lacks the type's
-   defaults renders ZERO run SQL. Empty run SQL here means fix `config`
-   against the type's `nodeMetadataSpec` before going further.
-
-`coa create`/`coa run` execute SQL DIRECTLY against the warehouse (local
-development, not deployment). Stop after the dry-run unless the user wants to
-materialize the table; cloud deploy is a separate git-push + web-UI flow.
+Stop after the dry-runs unless the user wants the table materialized.

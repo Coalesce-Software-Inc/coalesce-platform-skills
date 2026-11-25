@@ -16,7 +16,7 @@
 #       so the commit in step 7 doesn't loop forever.
 #   3.  Fetch the eval harness at a pinned SHA -> `toolbelt` on PATH.
 #   3.5 Install the latest published coa (@next) so the offline eval is meaningful.
-#   4.  Matrix: {opus-4-8, sonnet-5, haiku-4-5} each run the full offline suite
+#   4.  Matrix: {opus-5-5, sonnet-5-5, haiku-5-5} each run the full offline suite
 #       across the bare/skills arms, emitting a per-model CSV fragment.
 #   5.  Aggregate: stamp + append rows to history/runs.csv, regenerate rollup.md.
 #   6.  Regression check: relative rule; PR comment + annotations; FAIL iff a
@@ -371,7 +371,7 @@ tasks:
       VERTEX_SA_JSON:
         value: ${{ secrets.VERTEX_SA_SECRET }}
         cache-key: excluded
-      MODEL_ID: claude-opus-4-8
+      MODEL_ID: claude-opus-5-5
       # Space-separated eval arms, expanded into `--condition <arm>` flags in
       # the run script. Set per-trigger in `init.conditions` (dispatch lets the
       # caller choose; PR/push/cli default to `bare skills`).
@@ -423,7 +423,7 @@ tasks:
     key: eval-sonnet
     env:
       <<: *eval-env
-      MODEL_ID: claude-sonnet-5
+      MODEL_ID: claude-sonnet-5-5
     outputs:
       artifacts:
         - key: fragment-sonnet
@@ -433,7 +433,7 @@ tasks:
     key: eval-haiku
     env:
       <<: *eval-env
-      MODEL_ID: claude-haiku-4-5
+      MODEL_ID: claude-haiku-5-5
     outputs:
       artifacts:
         - key: fragment-haiku

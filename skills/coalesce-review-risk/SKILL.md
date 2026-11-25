@@ -2,98 +2,34 @@
 name: coalesce-review-risk
 description: Use when reviewing Coalesce pipeline changes for correctness, impact, and risk before approval — READ-ONLY analysis of diffs, coa validate/dry-run evidence, and downstream blast radius. Never edits files or runs warehouse-mutating commands.
 ---
+
 <!-- coalesce-node-managed: true -->
 
 # Review & Risk
 
-Scope: analyzing changes for correctness, impact, and risk so users can decide
-whether to approve agent work. This is READ-ONLY — never modify files. Use
-`coa` as the source of objective evidence; do not minimize risk.
+Analyze a change so the user can decide whether to approve it. This is read-only: never edit, stage, commit, or run `coa create` / `coa run` without `--dry-run`. Use `coa` output as evidence and do not minimize risk.
 
-Selector and command details:
-[coa-cli reference](../coalesce-pipelines/reference/coa-cli.md).
-Format rules being checked:
-[sql-format reference](../coalesce-pipelines/reference/sql-format.md).
+References: [coa-cli](../coalesce-pipelines/reference/coa-cli.md) for selectors, [sql-format](../coalesce-pipelines/reference/sql-format.md) for the rules being checked.
 
-## Read-only operations
+## Checklist
 
-- Read any file in the repo and inspect git diffs.
-- `coa describe <topic>` / `coa describe schema <type>` — ground truth for
-  schemas and rules. Trust these over the bundled example-repository, which
-  currently FAILS `coa validate`.
-- `coa validate -d <dir> --json` — Zod schema validation on every YAML file
-  plus 15 offline graph scanners (no warehouse). Cite findings as evidence:
-  broken column references, invalid per-node column refs, data-type mismatches
-  on direct mappings, invalid storage locations, missing node types, duplicate
-  names. Scope scanners with `--include` (schema validation always runs on all
-  files). The `--json` shape is nested: top-level `success`, then
-  `data.validation.results` (per-file array, each
-  `{ file, status, errors: [{ path, message }] }`) and
-  `data.validation.summary` (counts). Quote the failing `results[].file` paths
-  and the specific `errors[].path` / `errors[].message`, plus summary counts.
-- `coa create -d <dir> --dry-run --json` and
-  `coa run -d <dir> --dry-run --json` — render every node's template offline
-  and report template failures: empty SQL, comment-only output, missing DDL,
-  empty assignments. These catch breakage before it reaches the warehouse.
-- Lineage selectors: `{ NODE }+` = node AND all downstream successors (blast
-  radius); `+{ NODE }` = node AND all upstream predecessors. Do not reverse
-  these.
+1. Read the diff (`git diff`, `git diff --staged`). List the nodes added, modified, deleted, and renamed.
+2. For each modified node, read the changed SQL against the upstream nodes it reads from. Check that join keys pair the columns that actually relate the two tables, and that filters, aggregations, and column mappings still mean what the node's name and neighbors say they should. A change can be valid SQL and still wrong.
+3. Run `coa validate -d <dir> --json` and report every error and warning. The JSON is nested: `data.validation.results[]` (`{ file, status, errors: [{ path, message }] }`) and `data.validation.summary`. Quote the failing file, path, and message.
+4. Run `coa create -d <dir> --dry-run --json` and `coa run -d <dir> --dry-run --json`. Report template failures: empty SQL, comment-only output, missing DDL.
+5. Blast radius: enumerate `{ NODE }+` for each touched node (`+{ NODE }` is upstream; do not reverse them).
+6. Check which jobs (`includeSelector` / `excludeSelector`) and subgraphs (`steps`) pick up the change.
 
-## Analysis checklist
+## Risks to flag
 
-1. What nodes were added / modified / deleted / renamed (from the diff)?
-2. Per modified node: which columns and SQL logic changed?
-3. Run `coa validate --json` and `coa create/run --dry-run --json`; report
-   every schema error, scanner problem, and template-render failure.
-4. Downstream blast radius: enumerate `{ NODE }+` for each touched node.
-5. Job/subgraph membership: check job `includeSelector`/`excludeSelector`
-   strings and subgraph `steps` selectors to see which orchestrations pick up
-   the change (jobs have no `steps`; subgraphs have no `nodes`).
+- A `.sql` node whose `@nodeType` is not a `fileVersion: 2` type: columns are silently empty.
+- A `fileVersion: 2` node type whose `nodeMetadataSpec` has a `config:` block: a hybrid of the two formats. V2 types declare node options under `annotations:` only. The same goes for a `.sql` node carrying `config` (YAML header, `operation.config`) or a `.yml` node whose `sqlType` is a `fileVersion: 2` type.
+- A hand-authored `.yml` node with empty or partial `operation.config`: it passes validate and the create dry-run but renders zero run SQL.
+- Deleted or renamed nodes that still have dependents or stale `ref()`s.
+- One-argument `ref()`, hardcoded `db.schema.table`, or column annotations that are neither native (`@isBusinessKey`, `@isChangeTracking`, `@id`, `@description`) nor declared by the node type.
+- Edits to shared config: `nodeTypes/`, locations, workspace, environments, jobs, macros, `data.yml`, `fileVersion` bumps, template swaps. A new `nodeTypes/` folder counts; ask whether the user requested a custom type.
+- Any change under `apps/`: this is code, not config. A workspace app runs with the user's permissions as soon as anyone opens it in Coalesce. Read the changed files and flag network calls to outside hosts, writes outside the app's data folder, `exec` or `shell: true`, `innerHTML` with workspace values, reads of `~/.coa/config` or other credentials, committed secrets, CORS headers, and a removed `Host` or write check. Rules: [coalesce-create-app](../coalesce-create-app/SKILL.md).
 
-## Risk factors to flag
+## Report
 
-- SQL `.sql` node (formerly V2) whose `@nodeType` definition lacks
-  `fileVersion: 2` (i.e. points at a YAML node type, formerly V1) → `coa
-  validate` reports `error[extensionVersionMismatch]`; if it is merged anyway,
-  create/run render zero columns (`columns: []`).
-- Hand-authored YAML `.yml` node with an empty or partial `operation.config` →
-  run templates gate their DML on config values (a staging type typically
-  needs `insertStrategy: INSERT`, `truncateBefore: true`), so the node passes
-  validate and the create dry-run yet renders ZERO run SQL and loads nothing.
-  Check the `coa run --dry-run` output per node, not just create.
-- Deleted/renamed nodes with downstream dependents (stale `{{ ref() }}`
-  edges).
-- A newly added `@deployDisabled` (the node silently drops out of the next
-  cloud deploy, though local create/run still build it), or a
-  `@materializationType` value other than `table`/`view`, a validate error
-  unless the node type sets `deployStrategy: advanced` and declares that
-  value (sql-format, reserved annotations).
-- One-arg `ref()`, hardcoded `db.schema.table`, or annotations the node
-  type does not accept. Valid on a `.sql` node: the reserved set (`@id`,
-  `@nodeType`, `@description`, `@materializationType`, `@deployDisabled`;
-  column `@description`, `@notNull`, `@defaultValue`), column `@id`, and the
-  annotations DECLARED in the node type's `definition.yml` `annotations:`
-  block — `@isBusinessKey` / `@isChangeTracking` / `@isSurrogateKey` only
-  where declared. Anything else (`@pii`, `@synqMonitor`, `@prgTest`, a
-  misspelled declared name, a merge annotation on a `Work` node, …) appears
-  in `coa validate --json` as `annotationNameUnknown` and is ignored at
-  render — quote the warning and flag it. For multi-value annotations, check
-  the form against the declaration's `description` rather than assuming one.
-  Note: `isSurrogateKey` also exists as a YAML `.yml` column *property*.
-- Edits to SHARED config — `nodeTypes/*`, locations, workspace, environments,
-  jobs, macros, `data.yml`, `fileVersion` bumps, template swaps. These were
-  likely OUT of the request's scope and can silently break unrelated nodes;
-  surface them prominently. A NEW `nodeTypes/*` directory is no exception:
-  SQL node types normally arrive via an installed package (Base Node Types -
-  SQL), so a
-  hand-authored one in a diff is a shared-config change to surface — ask whether
-  the user actually requested a custom type.
-
-## Constraints
-
-- READ-ONLY. Never run `coa create`/`coa run` without `--dry-run` (they
-  execute SQL directly against the warehouse — local dev, NOT deploy; cloud
-  plan/deploy is a separate git-push process). Never edit files.
-- Report findings factually with the `coa` output as evidence; do not
-  editorialize or minimize. Always state when impact analysis is incomplete
-  (e.g. validate could not run, or selectors were unscoped).
+State a verdict, then the findings with the specific file, column, and `coa` output behind each. Say plainly when the analysis is incomplete (validate could not run, selectors unscoped).

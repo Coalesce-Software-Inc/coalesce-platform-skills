@@ -1,62 +1,26 @@
 ---
 name: coalesce-git-publication
-description: Use for Git operations in a Coalesce workspace — branching, staging, committing, and pushing validated pipeline work so it can be planned and deployed from the Coalesce cloud. Push only with explicit user approval.
+description: Use for Git operations in a Coalesce workspace — branching, staging, committing, and pushing validated pipeline work so it can be planned and deployed from the Coalesce cloud. Push only when the user asked for it or approved it.
 ---
+
 <!-- coalesce-node-managed: true -->
 
 # Git Publication
 
-Scope: Git operations — branch management, staging, committing, and pushing
-changes.
-
-## How work reaches the cloud
-
-- `coa create` / `coa run` are NOT publication. They execute SQL directly
-  against the warehouse for local development and iterative testing.
-- Committing locally and pushing the branch IS how work reaches the cloud.
-  The Coalesce cloud plan/deploy process (web UI, CI, or the CLI's Cloud
-  Operations commands — see coalesce-deploy) diffs the workspace against the
-  deployed environment, then deploys. That is a separate step, not part of
-  publication.
-- So: validate and verify with `coa` locally, then commit + push so the
-  changes are available to plan/deploy. Never call `coa create`/`coa run` a
-  "deploy" or "publish", and never assume a push touches the warehouse.
-
-## Allowed operations
-
-- Create branches (suggested naming: `agent/<task-slug>-<timestamp>`).
-- Switch branches.
-- Stage files (`git add` with explicit paths).
-- Commit with descriptive messages (what changed and why).
-- View diff and log.
-- Push to remote — ONLY when explicitly approved.
-
-## Constraints
-
-- NEVER force-push.
-- NEVER push to main/master directly. Always use a branch.
-- Stage only the files intentionally modified for the task (typically
-  `nodes/*.sql`, `nodes/*.yml`, and related workspace config the user
-  requested). Use explicit paths, not `git add -A` — the repo's `.gitignore`
-  is coa-managed (`coa init` scaffolds it, `coa doctor --fix` updates it), and
-  explicit paths keep generated/ignored artifacts out of the commit.
-- Files marked `coalesce-node-managed` (e.g. a generated `.claude/CLAUDE.md`
-  or managed skills) are tool-managed; do NOT stage or commit them unless the
-  user explicitly asks.
-- If the working tree contains changes to shared config the user did NOT
-  request (`data.yml`, `locations.yml`, `workspace.yml`, `jobs/*`, `macros/*`,
-  `nodeTypes/*`, or a bumped `fileVersion`), do NOT silently fold them into
-  the commit. Surface them and confirm before staging — these are shared and
-  can silently break unrelated nodes.
+Committing and pushing a branch is how work reaches the Coalesce cloud; plan and deploy are a separate step (coalesce-deploy). `coa create` and `coa run` publish nothing, and a push does not touch the warehouse.
 
 ## Workflow
 
-1. Confirm the work is validated and verified locally (`coa validate`, then
-   the create/run/verify loop) before publishing.
-2. Check `git status` and create or switch to the task branch.
-3. Stage only the intended files (explicit paths).
-4. Commit with a clear message.
-5. Push only when the user has approved it.
-6. Report the commit hash, branch, and changed-file summary. If pushed, note
-   that cloud plan/deploy is the next (separate) step — the coalesce-deploy
-   skill, and only when the user asks for it.
+1. Confirm the work is validated (`coa validate`, both dry-runs).
+2. `git status`, then create or switch to a task branch. Suggested name: `agent/<task-slug>-<timestamp>`. Never commit to or push `main`/`master` directly.
+3. Stage the intended files by explicit path, not `git add -A`. Work the user already staged stays staged.
+4. Commit with a message that says what changed and why.
+5. Push only when the user asked for it or has approved it. If the request did not mention pushing, stop after the commit, tell the user the branch and remote, and ask.
+6. Report the commit hash, branch, and changed files, and whether the push happened or is waiting on their confirmation. After a push, the next step is plan/deploy, only if the user asks for it.
+
+## Constraints
+
+- Never force-push.
+- Do not stage files marked `coalesce-node-managed` (a generated `.claude/CLAUDE.md`, managed skills) unless the user asks.
+- If the working tree has shared-config changes the user did not request (`data.yml`, `locations.yml`, `workspace.yml`, `jobs/`, `macros/`, `nodeTypes/`, a bumped `fileVersion`), do not fold them into the commit. Point them out and ask.
+- The `.gitignore` is coa-managed (`coa init` scaffolds it, `coa doctor --fix` updates it). Explicit paths keep generated artifacts out of the commit.

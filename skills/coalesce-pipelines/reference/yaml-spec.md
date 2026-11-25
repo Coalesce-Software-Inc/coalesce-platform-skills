@@ -1,10 +1,16 @@
 <!-- coalesce-node-managed: true -->
+
 # Workspace YAML Artifacts
 
-Confirm every shape with `coa describe schema <type>` before editing — NOT
-with the bundled example files, which use legacy shapes that fail
-`coa validate`. All of these files are SHARED config: an edit can silently
-break unrelated nodes, so ask the user before changing any of them.
+## Editing shared config
+
+Every file here is used by many nodes, so explain the impact and get the user's go-ahead before editing one, or a node type that nodes already use. Then:
+
+1. Check the shape with `coa describe schema <type>` and make the edit.
+2. `coa validate -d <dir>`.
+3. `coa doctor -d <dir> [--profile <p>]` to check the project files, auth, and warehouse connectivity. `--fix` is itself a shared-config change.
+
+Never put secrets in these files.
 
 ## Repository layout
 
@@ -22,52 +28,39 @@ break unrelated nodes, so ask the user before changing any of them.
 └── macros/           # reusable SQL macros
 ```
 
-## data.yml (required, repo root)
+## data.yml (required)
 
-`{ fileVersion, platformKind?: snowflake|databricks|fabric|bigquery,
-defaultStorageMapping? }`. Only `fileVersion` is required; `platformKind` and
-`defaultStorageMapping` are optional. `additionalProperties: false`.
+`{ fileVersion, platformKind?: snowflake|databricks|fabric|bigquery, defaultStorageMapping? }`. Only `fileVersion` is required. No other keys are allowed.
 
 ## locations.yml (required)
 
-`{ defaultStorageMapping, locations: [<NAME>, ...], fileVersion: 1 }`. Just a
-list of location NAMES plus a default mapping name — NO database/schema here.
-`additionalProperties: false`.
+`{ defaultStorageMapping, locations: [<NAME>, ...], fileVersion: 1 }`. A list of location names plus a default mapping name. No database or schema here, and no other keys.
 
-A location NAME must be consistent everywhere it appears: the node filename
-prefix (`nodes/<LOC>-<NAME>.sql`), the `locations.yml` list, `workspace.yml`
-mappings, and each environment's `mappingDefinitions`. Renaming a location
-touches all of them.
+A location name must match everywhere it appears: the node filename prefix, `locations.yml`, the `workspace.yml` mappings, and each environment's `mappingDefinitions`. Renaming a location touches all of them.
 
-## workspace.yml (optional, local-only)
+## workspace.yml (optional, local-only, gitignored)
 
-`{ profile: <name>, locations: { <NAME>: { database, schema } },
-parameters: { <name>: <json-value> } }`. The locations map is the local
-db/schema mapping used by `coa create`/`coa run` and required for the validate
-graph scanners to resolve refs. `profile` is this workspace's profile binding —
-the NAME of a `~/.coa/config` section, never credentials. Set it with
-`coa profile use <name> -d <dir>` or `coa init --profile <name>`, clear it with
-`coa profile unset`; do not hand-write it. Every key has its own writer, so
-`coa profile use` leaves the mappings and parameters alone. The file is
-local-only and should stay gitignored. `coa doctor --fix` can bootstrap a
-missing `workspace.yml` (ask first).
+`{ profile: <name>, locations: { <NAME>: { database, schema } }, parameters: { <name>: <json-value> } }`.
+
+- `locations` is the local mapping `coa create` / `coa run` use. The validate graph scanners need it to resolve refs.
+- `profile` is the name of a `~/.coa/config` section, never credentials. Write it with `coa profile use <name> -d <dir>` or `coa init --profile <name>`, clear it with `coa profile unset`; do not hand-write it. `coa profile use` leaves `locations` and `parameters` untouched. Changing the binding repoints every local command in the directory at other credentials, so ask first.
+- `coa doctor --fix` can bootstrap a missing file (ask first).
 
 ## environments/<NAME>.yml
 
-`{ name, id, type: "Environment", fileVersion,
-mappingDefinitions: { <LOC>: { database, schema } } }` — all fields required.
+`{ name, id, type: "Environment", fileVersion, mappingDefinitions: { <LOC>: { database, schema } } }`. All fields required.
 
-## Job (jobs/<NAME>.yml) — `coa describe schema job`
+## Job (jobs/<NAME>.yml)
 
-NOT a steps array. Exactly these fields:
+Not a steps array.
 
 | Field | Required | Notes |
-|-------|----------|-------|
-| `id` | yes | **Integer** string matching `^-?\d+$`, e.g. `"1"`. NOT a UUID. Unique among jobs. |
+| --- | --- | --- |
+| `id` | yes | Integer string matching `^-?\d+$`, e.g. `"1"`. Not a UUID. Unique among jobs. |
 | `type` | yes | Constant `Job`. |
 | `fileVersion` | yes | Constant `1`. |
 | `name` | no | Human-readable name. |
-| `includeSelector` | no | Selector string — the nodes the job targets. |
+| `includeSelector` | no | Selector string: the nodes the job targets. |
 | `excludeSelector` | no | Selector string subtracted from the include set. |
 
 ```yaml
@@ -79,144 +72,67 @@ includeSelector: '{ location: "TARGET" }+'
 excludeSelector: '{ name: "TEST_*" }'
 ```
 
-Legacy trap: example job files with a `steps: [{ selector }]` array are NOT
-the schema shape and fail `coa validate`. Don't invent an `includeSelector`
-inside a legacy-shaped file — flag it for migration first.
+A job file with a `steps: [{ selector }]` array is a legacy shape that fails `coa validate`. Do not add an `includeSelector` inside one; flag it for migration.
 
-## Subgraph (subgraphs/<NAME>.yml) — `coa describe schema subgraph`
+## Subgraph (subgraphs/<NAME>.yml)
 
-NOT a nodes array. Shape: `{ id, type: "Subgraph", fileVersion: 1, name,
-steps: ["<node id>", ...] }` — each step is a node's `id` (a node file's `id:`,
-or a `.sql` node's `@id`), NOT a node name and NOT a selector string.
+Not a nodes array. `{ id, type: "Subgraph", fileVersion: 1, name, steps: ["<node id>", ...] }`. Each step is a node's id (a `.yml` node's `id:` or a `.sql` node's `@id`).
 
 ```yaml
 id: "1"
 type: Subgraph
 fileVersion: 1
 name: ANALYTICS
-steps: ["a1b2c3d4", "e5f6a7b8"]   # node IDs — node file `id:` / .sql `@id`
+steps: ["a1b2c3d4", "e5f6a7b8"]
 ```
 
-The serve UI resolves subgraph membership as `steps ∩ live-node-ids` and
-silently drops any step that isn't a real node ID.
-Legacy trap: example subgraphs with a `nodes:` list of bare names, or `steps`
-holding selector strings/node names, are NOT the schema shape.
+The serve UI resolves membership as `steps ∩ live-node-ids` and silently drops any step that is not a real node id. Subgraphs with a `nodes:` list, or with `steps` holding node names or selector strings, are legacy shapes you may meet in existing repos.
 
 ## Node types (nodeTypes/<DisplayName>-<ID>/)
 
-Packaged node types are NOT authored here — they ship in Marketplace packages
-declared under `packages/` and hydrated by `coa install`. `coa init` declares
-only the YAML base node types package (`packages/base-node-types.yml`; every
-type in it is `fileVersion: 1`); SQL node types come from the separate Base
-Node Types - SQL package (coalesce-workspace-config, "Getting SQL node
-types"). `coa install` materializes declared packages as a READ-ONLY file tree at
-`.coa/cache/packages/<alias>/nodeTypes/<Name>-<id>/` (definition.yml plus
-`create.sql.j2` / `run.sql.j2`). Each materialized `definition.yml` carries the
-resolvable id in `<alias>:::<id>` form — that exact id is the `@nodeType()`
-value. The tree is derived: `coa install` regenerates it, so never edit it
-(`.coa/cache/packages.json` is the machine cache the tree mirrors). Discovery
-is file-system based — read those folders plus `nodeTypes/`, which holds only
-workspace-local types; there, the `id` field in each `definition.yml` is the
-`@nodeType()` value. Never parse it from the folder name: names and ids can
-both contain dashes. Each node type folder holds:
+Base node types are not authored here. They ship in the base node types package, declared in `packages/base-node-types.yml` by `coa init` and materialized by `coa install` under `.coa/cache/packages/` (`.coa/cache/packages.json` is the machine cache that tree mirrors). How to find and choose a type is in the coalesce-pipelines skill. `packages/` shows which packages the workspace expects; if you are unsure which the org uses, ask.
 
-- **definition.yml** — `{ isDisabled, name, id, type: "NodeType", fileVersion,
-  metadata: { nodeMetadataSpec, error: null } }`. `fileVersion: 2` makes it a
-  SQL node type (formerly "V2"; nodes are `.sql`); `1` or absent makes it a
-  YAML node type (formerly "V1"; nodes are `.yml`). `nodeMetadataSpec` is a
-  YAML STRING: required `capitalized`, `short`, `plural`, `tagColor`; optional
-  `config`, `systemColumns` (YAML types), and `annotations: { node: [...],
-  column: [...] }` (SQL types — the declared annotations, each `{ name,
-  description?, allowsMultiple?, isRequired?, parameters?: [{ name, type:
-  string|number|boolean, description?, isRequired?, default?, options?:
-  string[], example? }] }`;
-  unknown fields there fail the spec at plan/run time, and `type`/`default`/
-  `options` belong on a parameter, never on the annotation). Read
-  `name`/`description`/`nodeMetadataSpec` to
-  identify a type — names vary by workspace, and neither base package ships
-  a `Stage` type (the staging type is named `Work` in both, YAML in one and
-  SQL in the other, so check `fileVersion`; read the `id` from the file). `nodeMetadataSpec.config` holds the config
-  DEFAULTS a hand-authored node must copy into `operation.config`: run
-  templates gate their DML on those values (the YAML `Work` on
-  `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so an
-  empty `config: {}` renders zero run SQL.
-- **create.sql.j2** (DDL) and **run.sql.j2** (DML) — Jinja templates.
+A node type folder holds:
 
-**SQL node types (fileVersion 2) — template context:** a `.sql` node
-requires `fileVersion: 2` in the type definition (see `sql-format.md` for the
-wrong-kind node type trap). Current `coa` INFERS `col.dataType` from the
-SELECT (aggregates and joins included), so explicit-column DDL
-(`"{{ col.name }}" {{ col.dataType }}`) works — that is what the Base Node
-Types - SQL package's `Work` type emits. Older builds surfaced `UNKNOWN`, and
-the CTAS pattern below remains the conservative fallback. What a SQL node
-puts in context:
+- **definition.yml**: `{ isDisabled, name, id, type: "NodeType", fileVersion, metadata: { nodeMetadataSpec, error: null } }`. `nodeMetadataSpec` is a YAML string with required `capitalized`, `short`, `plural`, `tagColor` and optional `config` (V1 types), `systemColumns`, `annotations` (V2 types). On a V1 type, `config` holds the defaults a hand-authored `.yml` node must copy into `operation.config`: run templates gate their DML on them (Work-204 on `config.insertStrategy == 'INSERT'` and `config.truncateBefore`), so `config: {}` renders zero run SQL. A `fileVersion: 2` type has no `config` block in its `nodeMetadataSpec`. It declares its node options under `annotations:` instead, and its templates still read them as `config.<name>`. Never write `config:` into a V2 type, and never carry one over when turning a V1 type into a V2 type: rewrite each item the templates use as an annotation declaration. A V2 definition with a `config:` block is a hybrid of the two formats.
+- **create.sql.j2** (DDL) and **run.sql.j2** (DML): Jinja templates.
 
-- `columns[]` — name, inferred `dataType`, reserved fields `nullable`
-  (`@notNull`), `defaultValue`, `description`, plus every declared column
-  annotation flattened on as `col.<name>` (`true`, `{parameters: [...]}`, or
-  an array for `allowsMultiple`).
-- `config.<name>` — the node-level declared annotations, same shapes. Reserved
-  `@materializationType` / `@description` arrive as `node.materializationType`
-  / `node.description`, never under `config`. Declared defaults are NOT
-  applied; the template supplies the fallback
-  (`config.writeMode.parameters[0] if config.writeMode is defined else
-  'truncateInsert'`).
-- `sources[0].columns[]` with `get_source_transform(col)` — the parsed
-  per-column expression; `sources[0].join` — the full FROM/JOIN/WHERE/GROUP
-  BY with refs resolved (already includes `FROM`; never append clauses after
-  it); `sources[0].cteString` — the node's WITH clause (emit it before the
-  SELECT or CTE nodes fail to compile); `sources[0].selectModifier` —
-  `DISTINCT` etc., read as `| default('', true)`.
-- `ref()`, `ref_no_link()`, `this`, `stage()`, and workspace macros.
+### Templates for a `fileVersion: 2` type
 
-Conservative CTAS create template (works whether or not types are inferred):
+Only relevant when the user has asked for a custom type. Options the templates read as `config.<name>` are declared under `annotations:` in `definition.yml`, never under `config:`. Build the projection by iterating `sources` then `source.columns`, and guard create with `WHERE 1=0` (the CTAS pattern, which does not depend on `col.dataType`):
 
 ```jinja
 CREATE OR REPLACE TABLE {{ ref_no_link(node.location.name, node.name) }} AS
-{{ sources[0].cteString }}
-SELECT * FROM (
-    SELECT {{ sources[0].selectModifier | default('', true) }}
-    {% for col in sources[0].columns %}
-        {{ get_source_transform(col) }} AS "{{ col.name }}"{%- if not loop.last -%}, {% endif %}
-    {% endfor %}
-    {{ sources[0].join }}
-)
-WHERE 1 = 0
-```
-
-The matching `run.sql.j2` (DML) uses the same column iteration, without the
-`WHERE 1 = 0` guard, and reads `config.<name>` for the declared node options:
-
-```jinja
-{%- for sql in config.preSQL | default([]) %}
-{{ stage('Pre-SQL ' ~ loop.index) }}
-{{ sql.parameters[0] }}
-{%- endfor %}
-{%- set writeMode = config.writeMode.parameters[0] if config.writeMode is defined else 'truncateInsert' %}
-{{ stage('Load') }}
-INSERT {{ '' if writeMode == 'append' else 'OVERWRITE' }} INTO {{ ref_no_link(node.location.name, node.name) }}
-{{ sources[0].cteString }}
-SELECT {{ sources[0].selectModifier | default('', true) }}
-{% for col in sources[0].columns %}
+{% for source in sources %}
+SELECT
+{% for col in source.columns %}
     {{ get_source_transform(col) }} AS "{{ col.name }}"{%- if not loop.last -%}, {% endif %}
 {% endfor %}
-{{ sources[0].join }}
+{{ source.join }}
+WHERE 1=0
+{% endfor %}
 ```
 
-Do NOT write a SQL node type body as `{{ node.sql }}` or `SELECT *` — either
-renders a zero-column table (degenerate DDL) regardless of what the node's
-SELECT lists. The projection MUST come from iterating `sources[0].columns`
-(or `columns`). YAML node types use explicit-column DDL from the mapped
-columns (`{{ col.name }} {{ col.dataType }}`) and `config` from their config
-items.
+`run.sql.j2` uses the same column iteration without the guard:
 
-After a node-type/template edit, prove the contract holds on both templates:
-`coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --verbose`
-and the same with `coa run` — confirm columns render and SQL is non-empty for
-affected nodes. `run.sql.j2` is where config gating lives, so create alone
-proves nothing about whether data would load.
+```jinja
+{{ stage('Truncate') }}
+TRUNCATE IF EXISTS {{ ref_no_link(node.location.name, node.name) }}
+{% for source in sources %}
+{{ stage('Insert') }}
+INSERT INTO {{ ref_no_link(node.location.name, node.name) }}
+SELECT
+{% for col in source.columns %}
+    {{ get_source_transform(col) }} AS "{{ col.name }}"{%- if not loop.last -%}, {% endif %}
+{% endfor %}
+{{ source.join }}
+{% endfor %}
+```
+
+Never write a V2 body as `{{ node.sql }}` or `SELECT *`; either renders a zero-column table. V1 types use explicit-column DDL (`{{ col.name }} {{ col.dataType }}`). Current `coa` infers `col.dataType` for V2 nodes too, so explicit-column DDL also works there; older builds surfaced `UNKNOWN`, which is why the CTAS pattern is the conservative choice. Prove a type with `coa create --dry-run --verbose` before authoring nodes against it.
+
+After any template edit, run both dry-runs for the affected nodes: `coa create -d <dir> --include "{ nodeType: \"<Name>\" }" --dry-run --verbose` and the same with `coa run`. Config gating lives in `run.sql.j2`, so the create dry-run alone proves nothing about whether data would load.
 
 ## Macros (macros/)
 
-Reusable SQL referenced from node transformations —
-`coa describe schema macro` for the shape. Shared config: ask first.
+Reusable SQL referenced from node transformations. Shape: `coa describe schema macro`.
